@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 
-const API_BASE = "http://localhost:9000/api"
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE2
 const STOCK_DATA_URL = `${API_BASE}/stockdata?ticker_symbol=`;
 
 export function useChartData<T extends { time: string } = any>(ticker: string, interval: string, historicalData: T[] | null) {

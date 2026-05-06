@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BACKEND_URL = "http://localhost:9000/api";
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE2;
 
 export type Trade = {
   id?: string;

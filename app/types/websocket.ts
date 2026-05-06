@@ -1,4 +1,4 @@
-const WS_BASE = "ws://localhost:9000/api";
+const WS_BASE = process.env.NEXT_PUBLIC_WS_API_BASE2;
 
 export type StockTick = {
   ticker: string;
