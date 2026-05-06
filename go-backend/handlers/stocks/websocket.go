@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 
 	"golang.org/x/sync/singleflight"
+
+	"finsec-backend/services"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gobwas/ws"
@@ -24,13 +25,29 @@ var startedBroadcasts sync.Map
 // chart/cache call fires and everyone else waits for its result
 var chartGroup singleflight.Group
 
-func safeWrite(conn net.Conn, active <-chan struct{}, msg []byte) error {
-	select {
-	case <-active:
-		return fmt.Errorf("connection closed")
-	default:
-		return wsutil.WriteServerText(conn, msg)
+var pools sync.Map // key: "ticker:interval" -> *WorkerPool
+
+func getOrCreatePool(key string, rdb *redis.Client, channel string) *services.WorkerPool {
+	if p, ok := pools.Load(key); ok {
+		return p.(*services.WorkerPool)
 	}
+	p := services.NewWorkerPool()
+	actual, loaded := pools.LoadOrStore(key, p)
+	if loaded {
+		// another goroutine beat us, use theirs
+		return actual.(*services.WorkerPool)
+	}
+	// we won the race, start the Redis feed
+	go func() {
+		ctx := context.Background()
+		pubsub := rdb.Subscribe(ctx, channel)
+		defer pubsub.Close()
+		for msg := range pubsub.Channel() {
+			p.Send(services.Message{Type: "price", Payload: []byte(msg.Payload)})
+		}
+	}()
+	log.Printf("[wspool] new pool created for %s", key)
+	return p
 }
 
 func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
@@ -49,9 +66,9 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 		}
 		defer conn.Close()
 
-		// IMPORTANT: lifecycle guard
-		active := make(chan struct{})
-		defer close(active)
+		// wrap in WSConn
+		wsc := services.NewWSConn(conn)
+		defer wsc.Close()
 
 		ctx := context.Background()
 		pythonURL := os.Getenv("PYTHON_URL")
@@ -68,20 +85,25 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 			)
 		}
 
+		// get or create pool for this ticker/interval
+		pool := getOrCreatePool(broadcastKey, rdb, channel)
+		pool.AddConn(wsc)
+		defer pool.RemoveConn(wsc)
+
 		// cache
 		cached, err := rdb.Get(ctx, chartKey).Result()
 		if err == redis.Nil {
 			cached, err = primeChart(ctx, rdb, pythonURL, ticker, interval, chartKey)
 		}
 
-		// initial write
+		// initial write directly to this connection
 		t4 := time.Now()
 		if err == nil {
-			if err := safeWrite(conn, active, []byte(cached)); err != nil {
+			if err := services.SafeWrite(wsc, []byte(cached)); err != nil {
 				return
 			}
 		} else {
-			if err := safeWrite(conn, active, []byte(
+			if err := services.SafeWrite(wsc, []byte(
 				`{"type":"downloading","message":"data is being prepared"}`,
 			)); err != nil {
 				return
@@ -89,40 +111,15 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 		}
 		log.Printf("[write] %s/%s | %v", ticker, interval, time.Since(t4))
 
-		// subscribe
-		pubsub := rdb.Subscribe(ctx, channel)
-		ch := pubsub.Channel()
-		defer pubsub.Close()
-
-		// last tick
+		// last tick directly to this connection
 		lastKey := fmt.Sprintf("last:price:%s:%s", ticker, interval)
 		if last, err := rdb.Get(ctx, lastKey).Result(); err == nil && last != "" {
-			_ = safeWrite(conn, active, []byte(last))
+			_ = services.SafeWrite(wsc, []byte(last))
 		}
 
-		// connection monitor
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			for {
-				if _, _, err := wsutil.ReadClientData(conn); err != nil {
-					return
-				}
-			}
-		}()
-
-		// pubsub loop (CRITICAL FIXED)
+		// connection monitor — block until client disconnects
 		for {
-			select {
-			case msg, ok := <-ch:
-				if !ok {
-					return
-				}
-				if err := safeWrite(conn, active, []byte(msg.Payload)); err != nil {
-					return
-				}
-
-			case <-done:
+			if _, _, err := wsutil.ReadClientData(conn); err != nil {
 				return
 			}
 		}

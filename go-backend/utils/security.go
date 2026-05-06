@@ -29,6 +29,6 @@ var RDB *redis.Client
 func InitRedis() {
 	RDB = redis.NewClient(&redis.Options{
 		Addr:     Cfg.RedisAddr,
-		PoolSize: 200,
+		PoolSize: 1000,
 	})
 }

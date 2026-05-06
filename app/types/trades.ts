@@ -20,7 +20,7 @@ export interface OpenPositionsProps {
 }
 
 export async function postTrade(payload: {ticker: string; action: "buy" | "sell"; price: number; quantity: number; buy_price: number; sell_price: number; time: any; session_id?: string;}): Promise<Trade> {
-  const res = await fetch(`${BACKEND_URL}/trade`, {
+  const res = await fetch(`${BACKEND_URL}/api/trade`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -32,7 +32,7 @@ export async function postTrade(payload: {ticker: string; action: "buy" | "sell"
 }
 
 export async function deleteTrade(positionId: string, exitPrice: number, realisedPnl: number, sessionId?: string): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/trade/${positionId}`, {
+  const res = await fetch(`${BACKEND_URL}/api/trade/${positionId}`, {
     method: "DELETE",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
