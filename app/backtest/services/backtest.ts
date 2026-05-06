@@ -1,6 +1,6 @@
 import { BacktestResponse } from "@/app/types/backend";
 
-const BACKEND_URL = "http://localhost:8000/api";
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE2;
 
 export async function runBacktest(
   ticker: string,
@@ -9,7 +9,7 @@ export async function runBacktest(
   date_to: string,
   starting_balance: number,
 ): Promise<BacktestResponse> {
-  const res = await fetch(`${BACKEND_URL}/backtest/run`, {
+  const res = await fetch(`${BACKEND_URL}/api/backtest/run`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -20,7 +20,7 @@ export async function runBacktest(
 }
 
 export async function deleteBacktestSession(session_id: string): Promise<void> {
-  await fetch(`${BACKEND_URL}/backtest/session/${session_id}`, {
+  await fetch(`${BACKEND_URL}/api/backtest/session/${session_id}`, {
     method: "DELETE",
     credentials: "include",
   });

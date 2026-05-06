@@ -20,6 +20,7 @@ type Config struct {
 	ResendAPIKey             string
 	RedisAddr                string
 	PythonUrl                string
+	InternalSecret           string
 }
 
 var Cfg Config
@@ -41,6 +42,7 @@ func Load() {
 		ResendAPIKey:             requireEnv("RESEND_API_KEY"),
 		RedisAddr:                requireEnv("REDIS_URL"),
 		PythonUrl:                requireEnv("PYTHON_URL"),
+		InternalSecret:           requireEnv("INTERNAL_SECRET"),
 	}
 }
 

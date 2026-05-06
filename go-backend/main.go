@@ -85,6 +85,7 @@ func main() {
 	routes.RegisterAuthRoutes(api.Group("/auth"), db)
 	routes.RegisterStockRoutes(api.Group("/"), utils.RDB)
 	routes.RegisterTradeRoutes(api.Group("/"), db, utils.RDB)
+	routes.RegisterBacktestRoutes(api.Group("/"), db)
 
 	//ws := router.Group("/ws")
 	//routes.RegisterWSRoutes(ws, wsHub, jwtSecret)
