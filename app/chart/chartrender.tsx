@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, AreaSeries, BaselineSeries, BaselineSeriesPartialOptions } from 'lightweight-charts';
 import { PriceLines } from '../components/trading/price';
 
@@ -7,7 +7,10 @@ export const CandleStickChart: React.FC<{
   colors?: any;
   renderTradeUI?: React.ReactNode;
   trades?: any[];
-}> = ({ data, colors = {}, renderTradeUI, trades = [] }) => {
+  positions?: any[];
+  livePnLMap?: Record<string, number>;
+  onClosePosition?: (id: string) => void;
+}> = ({ data, colors = {}, renderTradeUI, trades = [], positions = [], livePnLMap = {}, onClosePosition }) => {
   const {
     backgroundColor = 'transparent',
     textColor = 'white',
@@ -23,6 +26,8 @@ export const CandleStickChart: React.FC<{
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
   const priceLinesRef = useRef<any[]>([]);
+  const positionLinesRef = useRef<any[]>([]);
+  const [, forceUpdate] = useState(0);
 
   useEffect(() => {
     if (!chartContainerRef2.current) return;
@@ -39,11 +44,10 @@ export const CandleStickChart: React.FC<{
         timeVisible: true,
         secondsVisible: false,
       },
-      grid: 
-        {
-          vertLines: { color: '#444' },
-          horzLines: { color: '#444' },
-        },
+      grid: {
+        vertLines: { color: '#444' },
+        horzLines: { color: '#444' },
+      },
     });
 
     const series = chart.addSeries(CandlestickSeries, {
@@ -57,14 +61,18 @@ export const CandleStickChart: React.FC<{
 
     chartRef.current = chart;
     seriesRef.current = series;
-
     series.setData(data);
+
+    // Re-render tags on pan/zoom so Y coords stay in sync
+    const handleVisibleRangeChange = () => forceUpdate(n => n + 1);
+    chart.timeScale().subscribeVisibleTimeRangeChange(handleVisibleRangeChange);
 
     const handleResize = () => {
       if (chartRef.current && chartContainerRef2.current) {
         chartRef.current.applyOptions({
           width: chartContainerRef2.current.clientWidth,
         });
+        forceUpdate(n => n + 1);
       }
     };
 
@@ -72,16 +80,18 @@ export const CandleStickChart: React.FC<{
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(handleVisibleRangeChange);
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
       priceLinesRef.current = [];
+      positionLinesRef.current = [];
     };
   }, []);
 
   useEffect(() => {
     PriceLines(seriesRef, priceLinesRef, trades);
-    }, [trades, seriesRef.current]);
+  }, [trades, seriesRef.current]);
 
   useEffect(() => {
     if (seriesRef.current) {
@@ -89,21 +99,115 @@ export const CandleStickChart: React.FC<{
     }
   }, [data]);
 
-  return (
-    <div style={{ position: 'relative', width: "90vw", height: "70vh" }}>
-    <div ref={chartContainerRef2} style={{ width: '100%', height: '100%' }} />
+  // Sync position price lines on the series (the axis label + dashed line)
+  useEffect(() => {
+    if (!seriesRef.current) return;
 
-    {renderTradeUI && (
-      <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10 }}>
-        {renderTradeUI}
+    positionLinesRef.current.forEach(line => {
+      try { seriesRef.current.removePriceLine(line); } catch {}
+    });
+    positionLinesRef.current = [];
+
+    positions.forEach((position) => {
+      const id = position.position_id ?? position.id;
+      const livePnL = livePnLMap[id] ?? 0;
+      const isLong = position.side === 'long';
+
+      const line = seriesRef.current.createPriceLine({
+        price: position.entry_price,
+        color: isLong ? '#22c55e' : '#ef4444',
+        lineWidth: 1,
+        lineStyle: 2, // dashed
+        axisLabelVisible: true,
+        title: `${position.side.toUpperCase()} ${position.symbol}  ${livePnL >= 0 ? '+' : ''}$${livePnL.toFixed(2)}`,
+      });
+
+      positionLinesRef.current.push(line);
+    });
+  }, [positions, livePnLMap]);
+
+  // Compute HTML tag positions from price coords at render time
+  const positionTags = positions.map((position) => {
+    const id = position.position_id ?? position.id;
+    const livePnL = livePnLMap[id] ?? 0;
+    const isLong = position.side === 'long';
+    const y = seriesRef.current?.priceToCoordinate(position.entry_price);
+    return { id, position, livePnL, isLong, y };
+  });
+
+  return (
+    <div style={{ position: 'relative', width: '90vw', height: '70vh' }}>
+      <div ref={chartContainerRef2} style={{ width: '100%', height: '100%' }} />
+
+      {/* Position entry line tags */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
+        {positionTags.map(({ id, position, livePnL, isLong, y }) => {
+          if (y == null || isNaN(y)) return null;
+          const lineColor = isLong ? '#22c55e' : '#ef4444';
+          const tagBg = isLong ? '#044720' : '#450a0a';
+          const pnlColor = livePnL >= 0 ? '#4ade80' : '#f87171';
+
+          return (
+            <div
+              key={id}
+              style={{
+                position: 'absolute',
+                right: 60,
+                top: y - 16,
+                pointerEvents: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                background: tagBg,
+                border: `1px solid ${lineColor}`,
+                borderLeft: `3px solid ${lineColor}`,
+                borderRadius: 3,
+                padding: '2px 6px',
+                gap: 8,
+                minWidth: 130,
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <span style={{ fontSize: 10, fontFamily: 'monospace', color: lineColor, fontWeight: 600 }}>
+                  {position.side.toUpperCase()} {position.symbol}
+                </span>
+                <span style={{ fontSize: 10, fontFamily: 'monospace', color: pnlColor }}>
+                  {livePnL >= 0 ? '+' : ''}${livePnL.toFixed(2)}
+                </span>
+              </div>
+              {onClosePosition && (
+                <button
+                  onClick={() => onClosePosition(id)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#6b7280',
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    padding: '0 2px',
+                    lineHeight: 1,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#6b7280')}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
-    )}
-  </div>
+
+      {renderTradeUI && (
+        <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10 }}>
+          {renderTradeUI}
+        </div>
+      )}
+    </div>
   );
 };
 
 
-
+// --- Linechart and LinechartIntraday unchanged below ---
 
 export const Linechart: React.FC<{data: any[]; colors?: any; renderTradeUI?: React.ReactNode; trades?: any[];}> = ({ data, colors = {}, renderTradeUI, trades = [] }) => {
   const {
@@ -129,14 +233,11 @@ export const Linechart: React.FC<{data: any[]; colors?: any; renderTradeUI?: Rea
       },
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
-      timeScale: {
-        rightOffset: 30,
+      timeScale: { rightOffset: 30 },
+      grid: {
+        vertLines: { color: '#444' },
+        horzLines: { color: '#444' },
       },
-      grid: 
-        {
-          vertLines: { color: '#444' },
-          horzLines: { color: '#444' },
-        },
     });
 
     const series = chart.addSeries(AreaSeries, {
@@ -146,15 +247,12 @@ export const Linechart: React.FC<{data: any[]; colors?: any; renderTradeUI?: Rea
     });
 
     series.setData(data);
-
     chartRef.current = chart;
     seriesRef.current = series;
 
     const handleResize = () => {
       if (chartRef.current && chartContainerRef.current) {
-        chartRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-        });
+        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
       }
     };
 
@@ -170,7 +268,7 @@ export const Linechart: React.FC<{data: any[]; colors?: any; renderTradeUI?: Rea
 
   useEffect(() => {
     PriceLines(seriesRef, priceLinesRef, trades);
-    }, [trades, seriesRef.current]);
+  }, [trades, seriesRef.current]);
 
   useEffect(() => {
     if (seriesRef.current) {
@@ -178,18 +276,17 @@ export const Linechart: React.FC<{data: any[]; colors?: any; renderTradeUI?: Rea
     }
   }, [data]);
 
-  return(
-  <div style={{ position: 'relative', width: "90vw", height: "70vh" }}>
-    <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
-    {renderTradeUI && (
-      <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10 }}>
-        {renderTradeUI}
-      </div>
+  return (
+    <div style={{ position: 'relative', width: '90vw', height: '70vh' }}>
+      <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
+      {renderTradeUI && (
+        <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10 }}>
+          {renderTradeUI}
+        </div>
       )}
-  </div>
+    </div>
   );
 };
-
 
 
 export const LinechartIntraday: React.FC<{
@@ -220,14 +317,11 @@ export const LinechartIntraday: React.FC<{
       },
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
-      timeScale: {
-        fixLeftEdge: true,
+      timeScale: { fixLeftEdge: true },
+      grid: {
+        vertLines: { color: '#444' },
+        horzLines: { color: '#444' },
       },
-      grid: 
-        {
-          vertLines: { color: '#444' },
-          horzLines: { color: '#444' },
-        },
     });
 
     const series = chart.addSeries(BaselineSeries, {
@@ -240,15 +334,12 @@ export const LinechartIntraday: React.FC<{
     } satisfies BaselineSeriesPartialOptions);
 
     series.setData(data);
-
     chartRef.current = chart;
     seriesRef.current = series;
 
     const handleResize = () => {
       if (chartRef.current && chartContainerRef.current) {
-        chartRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-        });
+        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
       }
     };
 

@@ -36,7 +36,6 @@ export default function ChartPage() {
   useEffect(() => {
     if (!tick) return;
     updateLastCandle({
-      ticker: tick.ticker,
       time: tick.time,
       open: tick.open,
       high: tick.high,
@@ -48,17 +47,12 @@ export default function ChartPage() {
   const chartData = isCandle ? data : data?.map((item: any) => ({ ...item, value: item.close }));
 
   const tradeUI = (
-    <>
-      {!connected && <p className="text-xs text-yellow-500 mb-1">Connecting to feed...</p>}
-      {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
-      <TradeButtons data={tick} onTrade={(action) => placeTrade(action, tick, shortname)} />
-      <OpenPositions
-        positions={positions}
-        livePnLMap={livePnLMap}
-        onClose={(positionId) => closeTrade(positionId, tick?.close ?? 0)}
-      />
-    </>
-  );
+  <>
+    {!connected && <p className="text-xs text-yellow-500 mb-1">Connecting to feed...</p>}
+    {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
+    <TradeButtons data={tick} onTrade={(action) => placeTrade(action, tick, shortname)} />
+  </>
+);
 
   return (
     <div className="p-4">
@@ -75,11 +69,11 @@ export default function ChartPage() {
           ))}
         </div>
         <button
-  onClick={() => router.push(`/backtest?ticker=${shortname}&interval=${interval}`)}
-  className="px-3 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 text-sm"
->
-  Backtest
-</button>
+          onClick={() => router.push(`/backtest?ticker=${shortname}&interval=${interval}`)}
+          className="px-3 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 text-sm"
+        >
+            Backtest
+        </button>
         <div className="flex gap-2">
           <button onClick={() => setIsCandle(true)} className={`px-3 py-1 rounded ${isCandle ? "bg-blue-600 text-white" : "bg-gray-600"}`}>
             Candlestick
@@ -92,7 +86,15 @@ export default function ChartPage() {
       <h2 className="text-xl font-bold mb-2">{shortname} Chart</h2>
       {chartData && chartData.length > 0 ? (
         isCandle ? (
-          <CandleStickChart data={chartData} renderTradeUI={tradeUI} trades={activeTrades} />
+          // Candlestick chart implementing output from 
+          <CandleStickChart
+            data={chartData}
+            trades={activeTrades}
+            renderTradeUI={tradeUI}
+            positions={positions}
+            livePnLMap={livePnLMap}
+            onClosePosition={(positionId) => closeTrade(positionId, tick?.close ?? 0)}
+          />
         ) : (
           <Linechart data={chartData} renderTradeUI={tradeUI} trades={activeTrades} />
         )

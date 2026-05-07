@@ -159,39 +159,28 @@ func LivePriceHandler(rdb *redis.Client) gin.HandlerFunc {
 
 		ctx := context.Background()
 
-		pubsub := rdb.Subscribe(ctx, fmt.Sprintf("price:%s:%s", ticker, interval))
-		ch := pubsub.Channel()
-		defer pubsub.Close()
+		wsc := services.NewWSConn(conn)
+		defer wsc.Close()
 
+		// last tick directly to this connection before joining pool
 		lastKey := fmt.Sprintf("last:price:%s:%s", ticker, interval)
 		if last, err := rdb.Get(ctx, lastKey).Result(); err == nil && last != "" {
-			wsutil.WriteServerText(conn, []byte(last))
+			_ = wsc.Write([]byte(last))
 			log.Printf("[last_tick] %s/%s | sent", ticker, interval)
 		} else {
 			log.Printf("[last_tick] %s/%s | miss err=%v", ticker, interval, err)
 		}
 
-		done := make(chan struct{})
+		// join the same pool as StockDataHandler
+		channel := fmt.Sprintf("price:%s:%s", ticker, interval)
+		broadcastKey := fmt.Sprintf("%s:%s", ticker, interval)
+		pool := getOrCreatePool(broadcastKey, rdb, channel)
+		pool.AddConn(wsc)
+		defer pool.RemoveConn(wsc)
 
-		go func() {
-			defer close(done)
-			for {
-				if _, _, err := wsutil.ReadClientData(conn); err != nil {
-					return
-				}
-			}
-		}()
-
+		// block until client disconnects
 		for {
-			select {
-			case msg, ok := <-ch:
-				if !ok {
-					return
-				}
-				if err := wsutil.WriteServerText(conn, []byte(msg.Payload)); err != nil {
-					return
-				}
-			case <-done:
+			if _, _, err := wsutil.ReadClientData(conn); err != nil {
 				return
 			}
 		}
