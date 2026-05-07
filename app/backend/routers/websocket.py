@@ -61,7 +61,7 @@ async def build_and_cache_chart(ticker: str, interval: str) -> str:
             return cached
         live_period = INTERVAL_CONFIG.get(interval, {}).get("period", "1d")
         json_str = await asyncio.to_thread(build_chart, ticker, interval, live_period)
-        await r.set(cache_key, json_str, ex=60)
+        await r.set(cache_key, json_str, ex=600)
         return json_str
 
 
