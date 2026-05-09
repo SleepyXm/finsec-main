@@ -27,6 +27,9 @@ import {
 import { useState, useEffect } from 'react';
 import { fetchPortfolio } from "../handlers/portfolio";
 import { Portfolio } from "../types/portfolio";
+import { useUser } from "../provider/userprovider";
+import { LinechartIntraday } from "../chart/chartrender";
+import { toPnLCurve } from "./components/functions";
 
 // ── Placeholder types (replace with your real models later) ──
  
@@ -142,11 +145,11 @@ const JOURNAL = (portfolio: Portfolio | null) => {
  
 const INDICATORS: Indicator[] = [
   { label: "EMA 9", value: 92, color: tokens.accent  },
-  { label: "VWAP",  value: 78, color: "#7950f2"      },
-  { label: "RSI",   value: 61, color: "#1098ad"      },
-  { label: "BB",    value: 44, color: "#0ca678"      },
-  { label: "MACD",  value: 38, color: "#e8590c"      },
-  { label: "ATR",   value: 22, color: "#d6336c"      },
+  { label: "VWAP",  value: 78, color: "#7950f2"  },
+  { label: "RSI",   value: 61, color: "#1098ad"  },
+  { label: "BB",    value: 44, color: "#0ca678"  },
+  { label: "MACD",  value: 38, color: "#e8590c"  },
+  { label: "ATR",   value: 22, color: "#d6336c"  },
 ];
  
 
@@ -179,6 +182,7 @@ const TRADE_COLUMNS: Column<Trade>[] = [
  
 export default function DashboardPage() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const {user, setUser} = useUser();
 
   useEffect(() => {
     fetchPortfolio().then(setPortfolio).catch(console.error);
@@ -202,7 +206,7 @@ export default function DashboardPage() {
     <div style={{ background: tokens.bg0, minHeight: "100vh", padding: "24px 28px 48px", display: "flex", flexDirection: "column", gap: 16 }}>
  
       {/* Header */}
-      <PageHeader title="Welcome back, Dave" subtitle="Saturday, 9 May 2026 · Markets closed">
+      <PageHeader title={`Welcome back, ${user?.username}`} subtitle="Saturday, 9 May 2026 · Markets closed">
         <Btn>This week</Btn>
         <Btn primary>+ Log trade</Btn>
       </PageHeader>
@@ -217,10 +221,14 @@ export default function DashboardPage() {
       {/* Row 1 — P&L chart + Favourite assets */}
       <Grid2>
         <Card title="P&L curve" action="Monthly ▾">
-          {/* TODO: drop your chart component here */}
-          <div style={{ height: 140, background: tokens.bg2, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: tokens.text3, fontSize: 11 }}>
-            Chart goes here
-          </div>
+          <LinechartIntraday
+            data={toPnLCurve(portfolio?.history ?? [])}
+            colors={{
+              backgroundColor: 'transparent',
+              textColor: tokens.text3,
+            }}
+          />
+          
         </Card>
  
         <Card title="Favourite assets" action="✦ Edit" divided>
