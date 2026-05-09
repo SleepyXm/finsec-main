@@ -7,6 +7,7 @@ export type StockTick = {
   high: number;
   low: number;
   close: number;
+  volume: number;
   buy_price: number;
   error?: string;
 };

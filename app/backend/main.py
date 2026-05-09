@@ -17,7 +17,7 @@ from database import get_db, AsyncSessionLocal
 from helpers.queries.assetquery import get_tracked_tickers
 from sqlalchemy.future import select
 from helpers.redis import redis_client
-import asyncio, sys
+import asyncio, sys, json
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -70,6 +70,15 @@ async def startup_broadcast_tasks():
                 print(f"  [{ticker}] Broadcast task started on startup")
 
     
+
+@app.get("/api/market/overview")
+async def market_overview():
+    tickers = [key.replace("_1m", "") for key in fetch_tasks.keys()]
+    keys = [f"last:price:{ticker}:1m" for ticker in tickers]
+    values = await redis_client.mget(keys)
+    results = [json.loads(v) for v in values if v is not None]
+    return results
+
 
 @app.on_event("shutdown")
 async def shutdown_cleanup():
