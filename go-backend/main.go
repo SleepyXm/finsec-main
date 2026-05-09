@@ -15,6 +15,8 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	//"github.com/jackc/pgx/v5/stdlib"
+	"finsec-backend/handlers/stocks"
+
 	"github.com/joho/godotenv"
 )
 
@@ -50,6 +52,8 @@ func main() {
 	utils.InitRedis()
 	utils.InitResend()
 	initDB()
+
+	go stocks.PrewarmFromRedis(utils.RDB, os.Getenv("PYTHON_URL"))
 
 	//jwtSecret := []byte(os.Getenv("SECRET_KEY"))
 

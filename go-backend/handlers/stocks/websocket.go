@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,6 +49,24 @@ func getOrCreatePool(key string, rdb *redis.Client, channel string) *services.Wo
 	}()
 	log.Printf("[wspool] new pool created for %s", key)
 	return p
+}
+
+func PrewarmFromRedis(rdb *redis.Client, pythonUrl string) {
+	ctx := context.Background()
+	keys, _ := rdb.Keys(ctx, "last:price:*:1m").Result()
+	for _, channel := range keys {
+		// channel is "price:NQ=F:1m", extract ticker
+		parts := strings.Split(channel, ":")
+		if len(parts) < 3 {
+			continue
+		}
+		ticker := parts[1]
+		key := fmt.Sprintf("%s:1m", ticker)
+		startedBroadcasts.LoadOrStore(key, struct{}{})
+		pool := getOrCreatePool(key, rdb, channel)
+		log.Printf("[prewarm] pool ready for %s", ticker)
+		_ = pool
+	}
 }
 
 func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
