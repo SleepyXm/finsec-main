@@ -60,7 +60,7 @@ func PrewarmFromRedis(rdb *redis.Client, pythonUrl string) {
 		if len(parts) < 3 {
 			continue
 		}
-		ticker := parts[1]
+		ticker := parts[2]
 		key := fmt.Sprintf("%s:1m", ticker)
 		startedBroadcasts.LoadOrStore(key, struct{}{})
 		pool := getOrCreatePool(key, rdb, channel)
