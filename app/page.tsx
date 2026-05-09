@@ -3,7 +3,7 @@
 import Image from "next/image";
 import AssetSearchComponent from "./components/assetsearch";
 import { motion, easeOut } from "framer-motion";
-
+import MarketOverview from "./components/marketoverview";
  
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -77,6 +77,7 @@ export default function Home() {
           custom={3}
         >
           <AssetSearchComponent />
+          <MarketOverview />
         </motion.div>
       </div>
  

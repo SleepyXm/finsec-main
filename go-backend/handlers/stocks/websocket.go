@@ -51,7 +51,7 @@ func getOrCreatePool(key string, rdb *redis.Client, channel string) *services.Wo
 	return p
 }
 
-func PrewarmFromRedis(rdb *redis.Client, pythonUrl string) {
+func PrewarmFromRedis(rdb *redis.Client, pythonURL string) {
 	ctx := context.Background()
 	keys, _ := rdb.Keys(ctx, "last:price:*:1m").Result()
 	for _, channel := range keys {

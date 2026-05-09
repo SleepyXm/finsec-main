@@ -82,6 +82,7 @@ def fetch_latest(ticker: str, interval: str) -> dict | None:
         "low": float(row["low"]),
         "close": round(close, 2),
         "buy_price": round(close * multiplier, 2),
+        "volume": int(row["volume"]),
     }
 
 
