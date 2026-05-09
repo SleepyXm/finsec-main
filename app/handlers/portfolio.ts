@@ -1,6 +1,6 @@
 import { Portfolio } from "../types/portfolio";
 
-const BACKEND_URL = "http://localhost:8000/api";
+const BACKEND_URL = "http://localhost:9000/api";
 
 export async function fetchPortfolio(): Promise<Portfolio> {
   const res = await fetch(`${BACKEND_URL}/portfolio`, { credentials: "include" });

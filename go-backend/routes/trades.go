@@ -20,6 +20,7 @@ import (
 func RegisterTradeRoutes(rg *gin.RouterGroup, db *sql.DB, redisClient *redis.Client) {
 	rg.GET("/positions", middleware.AuthMiddleware(db), positions.GetOpenPositions(db))
 	//rg.POST("/portfolio", middleware.AuthMiddleware(db), positions.GetPortfolio(db, redisClient))
+	rg.GET("/portfolio", middleware.AuthMiddleware(db), positions.GetPositionHistory(db))
 	rg.POST("/trade", middleware.AuthMiddleware(db), positions.PlaceTrade(db, redisClient))
 	rg.DELETE("/trade/:trade_id", middleware.AuthMiddleware(db), positions.CloseTrade(db, redisClient))
 }
