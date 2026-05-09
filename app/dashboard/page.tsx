@@ -75,7 +75,7 @@ const STATS = (portfolio: Portfolio | null) => [
   {
     label: "Net P&L",
     value: portfolio
-      ? `${portfolio.stats.total_realised_pnl >= 0 ? "+" : ""}$${Math.abs(portfolio.stats.total_realised_pnl).toFixed(2)}`
+      ? `${portfolio.stats.total_realised_pnl >= 0 ? "+" : "-"}$${Math.abs(portfolio.stats.total_realised_pnl).toFixed(2)}`
       : "—",
     sub:   portfolio ? `${portfolio.stats.trade_count} trades` : "",
     color: portfolio
@@ -95,24 +95,50 @@ const ASSETS: Asset[] = [
   { init: "SP", symbol: "SPY",  name: "S&P 500 ETF",  price: "$523.11", change: "+0.43%", up: true,  bg: "rgba(251,191,36,0.10)",     color: "#fbbf24"    },
 ];
  
-const JOURNAL = (portfolio: Portfolio | null) =>
-  (portfolio?.history ?? [])
-    .filter((t) => t.closed_at)
-    .slice(0, 18)
-    .map((t) => {
-      const pnl = t.realised_pnl ?? 0;
-      const up  = pnl >= 0;
-      return {
-        id:     t.id,
-        side:   t.side.charAt(0).toUpperCase(),
-        symbol: decodeURIComponent(t.symbol),
-        time:   new Date(t.closed_at!).toLocaleDateString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" }),
-        pnl:    `${up ? "+" : ""}$${Math.abs(pnl).toFixed(2)}`,
-        pct:    `${up ? "+" : "-"}${((Math.abs(pnl) / t.entry_price) * 100).toFixed(1)}%`,
-        note:   "—",
-        up,
-      };
-    });
+
+
+// Helper to group journal entries by date
+const groupByDate = (entries: ReturnType<typeof JOURNAL>) => {
+  const groups: Record<string, typeof entries> = {};
+  entries.forEach((j) => {
+    // Re-parse the date from closed_at for grouping key
+    const date = j.time.split(",")[0]; // e.g. "Mon"
+    if (!groups[date]) groups[date] = [];
+    groups[date].push(j);
+  });
+  return groups;
+};
+
+const JOURNAL = (portfolio: Portfolio | null) => {
+  const trades = (portfolio?.history ?? []).filter((t) => t.closed_at).slice(0, 18);
+
+  const dailyPnl: Record<string, number> = {};
+  for (const t of trades) {
+    const date = new Date(t.closed_at!).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+    dailyPnl[date] = (dailyPnl[date] ?? 0) + (t.realised_pnl ?? 0);
+  }
+
+  return trades.map((t) => {
+    const pnl = t.realised_pnl ?? 0;
+    const up  = pnl >= 0;
+    const date = new Date(t.closed_at!);
+    const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+    return {
+      id:       t.id,
+      side:     t.side.charAt(0).toUpperCase(),
+      symbol:   decodeURIComponent(t.symbol),
+      date:     new Date(t.closed_at!).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }),
+      day:      date.getDate(),
+      monthKey,
+      time:     new Date(t.closed_at!).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      pnl:      `${up ? "+" : "-"}$${Math.abs(pnl).toFixed(2)}`,
+      pct:      `${up ? "+" : "-"}${((Math.abs(pnl) / t.entry_price) * 100).toFixed(1)}%`,
+      note:     "—",
+      up,
+      full_pnl: dailyPnl[date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })],
+    };
+  });
+};
  
 const INDICATORS: Indicator[] = [
   { label: "EMA 9", value: 92, color: tokens.accent  },
@@ -165,7 +191,7 @@ export default function DashboardPage() {
     exit:   t.exit_price != null ? `$${t.exit_price.toFixed(2)}` : "—",
     size:   t.quantity,
     pnl:    t.realised_pnl != null
-            ? `${t.realised_pnl >= 0 ? "+" : ""}$${t.realised_pnl.toFixed(2)}`
+            ? `${t.realised_pnl >= 0 ? "+" : "-"}$${t.realised_pnl.toFixed(2)}`
             : "—",
     rr:     "—",
     date:   new Date(t.opened_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
@@ -216,27 +242,29 @@ export default function DashboardPage() {
  
       {/* Row 2 — Journal + Indicators */}
       <Grid2>
-        <Card title="Journal — recent" action="See all →" divided>
-            {JOURNAL(portfolio).map((j) => (
-              <Row key={j.id}>
-                <Badge bg={j.up ? tokens.greenDim : tokens.redDim} color={j.up ? tokens.green : tokens.red}>
-                  {j.side}
-                </Badge>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: tokens.text0 }}>
-                    {j.symbol}
-                    <span style={{ fontWeight: 400, color: tokens.text3, fontSize: 10, marginLeft: 6 }}>· {j.time}</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: tokens.text3, fontStyle: "italic", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {j.note}
-                  </div>
+        <Card title="Journal — recent" action="See all →">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", border: `1px solid ${tokens.border}` }}>
+            {Object.entries(
+              JOURNAL(portfolio).reduce((groups, j) => {
+                (groups[j.date] ??= []).push(j);
+                return groups;
+              }, {} as Record<string, ReturnType<typeof JOURNAL>>)
+            ).map(([date, entries]) => (
+              <div key={date} style={{ borderRight: `1px solid ${tokens.border}`, borderBottom: `1px solid ${tokens.border}`, padding: 8, minHeight: 80 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: tokens.text3, marginBottom: 6 }}>
+                  {date}
                 </div>
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 500, color: j.up ? tokens.green : tokens.red }}>{j.pnl}</div>
-                  <div style={{ fontSize: 10, color: tokens.text3 }}>{j.pct}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: entries[0].full_pnl >= 0 ? tokens.green : tokens.red, marginTop: 4, borderTop: `1px solid ${tokens.border}`, paddingTop: 4 }}>
+                {entries[0].full_pnl >= 0 ? "+" : "-"}${Math.abs(entries[0].full_pnl).toFixed(2)}
+              </div>
+                {entries.map((j) => (
+                <div key={j.id} style={{ fontSize: 11, color: j.up ? tokens.green : tokens.red, marginBottom: 2 }}>
+                  {j.symbol} {j.pnl}
                 </div>
-              </Row>
+                ))}
+            </div>
             ))}
+          </div>
         </Card>
  
         <Card title="Most used indicators" action="All time ▾" divided>
