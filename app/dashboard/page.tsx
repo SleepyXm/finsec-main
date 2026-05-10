@@ -28,7 +28,7 @@ import { useState, useEffect } from 'react';
 import { fetchPortfolio } from "../handlers/portfolio";
 import { Portfolio } from "../types/portfolio";
 import { useUser } from "../provider/userprovider";
-import { LinechartIntraday } from "../chart/chartrender";
+import { PnLChart } from "../chart/chartrender";
 import { toPnLCurve } from "./components/functions";
 
 // ── Placeholder types (replace with your real models later) ──
@@ -221,7 +221,7 @@ export default function DashboardPage() {
       {/* Row 1 — P&L chart + Favourite assets */}
       <Grid2>
         <Card title="P&L curve" action="Monthly ▾">
-          <LinechartIntraday
+          <PnLChart
             data={toPnLCurve(portfolio?.history ?? [])}
             colors={{
               backgroundColor: 'transparent',

@@ -53,20 +53,15 @@ async def startup_broadcast_tasks():
             print(f"[Startup] Queuing re-download for existing ticker: {ticker}")
             await mark_worker_active(ticker)
             asyncio.create_task(download_asset_worker(ticker))
-
-    async with AsyncSessionLocal() as db:
-        tickers = await get_tracked_tickers(db)
-        for ticker in tickers:
+            
             key = f"{ticker}_1m"
             if key not in fetch_tasks:
                 subscriptions[key] = set()
-
+                
                 if asset_exists(ticker, "1m"):
                     load_parquet(ticker, "1m")
                     print(f"  [{ticker}] Loaded 1m data into cache on startup")
-
                 fetch_tasks[key] = asyncio.create_task(broadcast_stock_data(ticker, "1m"))
-                print("TASKS:", fetch_tasks)
                 print(f"  [{ticker}] Broadcast task started on startup")
 
     

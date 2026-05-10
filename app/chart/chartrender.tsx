@@ -289,7 +289,89 @@ export const Linechart: React.FC<{data: any[]; colors?: any; renderTradeUI?: Rea
 };
 
 
+
+
+
+
+{/* -----------------Intraday Chart----------------- */}
 export const LinechartIntraday: React.FC<{
+  data: any[];
+  colors?: any;
+  minimal?: boolean;
+}> = ({ data, colors = {}, minimal = false }) => {
+  const {
+    backgroundColor = 'transparent',
+    textColor = 'black',
+    topLineColor = '#4deb82ff',
+    bottomLineColor = '#ff4d4d',
+    topFillColor1 = '#29ff70ff',
+    bottomFillColor1 = 'rgba(255, 0, 0, 0.2)',
+    baselineValue = 0,
+  } = colors;
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<any>(null);
+  const seriesRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: backgroundColor },
+        textColor,
+      },
+      width: chartContainerRef.current.clientWidth,
+      height: chartContainerRef.current.clientHeight,
+      timeScale: { fixLeftEdge: true, visible: !minimal },
+      rightPriceScale: { visible: !minimal },
+      grid: {
+        vertLines: { color: '#444', visible: !minimal },
+        horzLines: { color: '#444', visible: !minimal },
+      },
+      crosshair: {
+        vertLine: { visible: !minimal },
+        horzLine: { visible: !minimal },
+      },
+      handleScroll: !minimal,
+      handleScale: !minimal,
+    });
+    const series = chart.addSeries(BaselineSeries, {
+      baseValue: { type: 'price', price: baselineValue },
+      topLineColor,
+      bottomLineColor,
+      topFillColor1,
+      bottomFillColor1,
+      lineWidth: minimal ? 1 : 2,
+    } satisfies BaselineSeriesPartialOptions);
+    series.setData(data);
+    chartRef.current = chart;
+    seriesRef.current = series;
+    const handleResize = () => {
+      if (chartRef.current && chartContainerRef.current) {
+        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (seriesRef.current) {
+      seriesRef.current.setData(data);
+    }
+  }, [data]);
+
+  return <div ref={chartContainerRef} style={{ width: "40vw", height: "20vh"}} />;
+};
+
+
+{/* -----------------PnL Chart----------------- */}
+
+export const PnLChart: React.FC<{
   data: any[];
   colors?: any;
 }> = ({ data, colors = {} }) => {
