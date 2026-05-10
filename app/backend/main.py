@@ -71,7 +71,13 @@ async def market_overview():
     tickers = [key.replace("_1m", "") for key in fetch_tasks.keys()]
     keys = [f"last:price:{ticker}:1m" for ticker in tickers]
     values = await redis_client.mget(keys)
-    results = [json.loads(v) for v in values if v is not None]
+    results = []
+    for ticker, v in zip(tickers, values):
+        if v is not None:
+            data = json.loads(v)
+            name = await redis_client.get(f"meta:name:{ticker}")
+            data["name"] = name if name else ticker
+            results.append(data)
     return results
 
 
