@@ -47,7 +47,7 @@ async def get_stock_data(
 @stock_router.get("/stockdata/intraday")
 async def get_intraday_data(
     ticker_symbol: str,
-    interval: str = Query("15m"),
+    interval: str = Query("5m"),
     period: str = Query("1d")
 ):
     if interval not in INTERVALS:

@@ -67,7 +67,7 @@ async def build_and_cache_chart(ticker: str, interval: str) -> str:
 
 def fetch_latest(ticker: str, interval: str) -> dict | None:
     t = yf.Ticker(ticker)
-    df = t.history(period="1d", interval=interval)
+    df = t.history(period="2d", interval=interval)
     if df.empty:
         return None
     df.columns = [c.lower() for c in df.columns]
