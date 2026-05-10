@@ -20,6 +20,10 @@ export interface MarketOverviewItem {
   close: number;
   volume: number;
 }
+export interface SearchData {
+  ticker: string,
+  name: string,
+}
 
 export async function fetchAssets(query: string): Promise<Asset[]> {
   const res = await fetch(`${BACKEND_URL}/search?q=${query}`);

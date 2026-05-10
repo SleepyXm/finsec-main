@@ -4,12 +4,15 @@ import { useUser } from "../provider/userprovider";
 import { logout } from "../handlers/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AssetSearchBar, AssetListItem  } from "./assetsearchcomponents";
+import { useAssetSearch } from "../hooks/utility";
  
 const Navbar = () => {
   const { user, setUser } = useUser();
   const [mounted, setMounted] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
+  const { assets, loading, error, search } = useAssetSearch();
  
   useEffect(() => {
     setMounted(true);
@@ -47,6 +50,20 @@ const Navbar = () => {
             Hyjacked
           </span>
       </Link>
+
+      <div className="relative w-[280px]">
+        <AssetSearchBar onSearch={search} />
+        {assets.length > 0 && (
+          <ul className="absolute top-full mt-1 left-0 w-full bg-[#131722] border border-[#2a2e3a] rounded-xl shadow-xl z-50 overflow-hidden list-none p-0 m-0">
+            {assets.map((asset) => (
+              <AssetListItem
+                key={asset.symbol}
+                asset={asset}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
  
       {/* Desktop links */}
       <nav className="hidden md:block">

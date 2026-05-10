@@ -3,13 +3,13 @@ import { useAssetSearch } from "../hooks/utility";
 import { AssetSearchBar, AssetListItem } from "./assetsearchcomponents";
 
 export default function AssetSearchPage() {
-  const { assets, intradayCharts, loading, error, search } = useAssetSearch();
+  const { assets, loading, error, search } = useAssetSearch();
 
   return (
-    <div className="p-8 font-sans">
-      <h2 className="mb-4 text-2xl font-semibold">Search Assets</h2>
+    <div className="font-sans">
+      <h2 className="text-2xl font-semibold">Search</h2>
 
-      <AssetSearchBar onSearch={search} />
+      <AssetSearchBar onSearch={search}  />
 
       {loading && <p className="text-gray-400 mb-4">Loading...</p>}
       {error && <p className="text-red-500 mb-4">{error}</p>}
@@ -19,7 +19,6 @@ export default function AssetSearchPage() {
           <AssetListItem
             key={asset.symbol}
             asset={asset}
-            chartData={intradayCharts[asset.symbol] ?? []}
           />
         ))}
       </ul>

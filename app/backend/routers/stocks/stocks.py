@@ -5,6 +5,7 @@ from routers.storage.parquet import mark_worker_active, is_worker_active
 from routers.storage.retrieveparquet import get_candles
 from helpers.cache import get_or_fetch_candles
 import pandas as pd
+import yfinance as yf
 
 stock_router = APIRouter()
 

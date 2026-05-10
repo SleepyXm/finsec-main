@@ -1,7 +1,6 @@
 "use client";
  
 import Image from "next/image";
-import AssetSearchComponent from "./components/assetsearch";
 import { motion, easeOut } from "framer-motion";
 import MarketOverview from "./components/marketoverview";
  
@@ -76,7 +75,6 @@ export default function Home() {
           variants={fadeIn}
           custom={3}
         >
-          <AssetSearchComponent />
 
         </motion.div>
         <MarketOverview />
