@@ -7,12 +7,12 @@ import { fetchMarketOverview, fetchIntraday } from "../types/assets";
 import { MarketSection } from "./MarketSection";
 
 const TABS = [
-  { label: "Popular",     tickers: ["SPY", "BTC-USD", "QQQ", "GBPUSD=X", "ETH-USD"] },
-  { label: "Indices",     tickers: ["SPY", "QQQ", "DIA", "IWM", "ES=F", "^FTSE"] },
-  { label: "Futures",     tickers: ["NQ=F", "GC=F", "SI=F", "MNQ=F"] },
-  { label: "Crypto",      tickers: ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"] },
-  { label: "Forex",       tickers: ["GBPUSD=X", "EURUSD=X", "USDJPY=X", "AUDUSD=X"] },
-  { label: "Commodities", tickers: ["GC=F", "CL=F", "SI=F", "NG=F"] },
+  { label: "Popular",     tickers: [{ ticker: "ES=F", name: "S&P 500" }, { ticker: "BTC-USD", name: "Bitcoin" }, { ticker: "NQ=F", name: "Nasdaq 100" }, { ticker: "GBPUSD=X", name: "GBP/USD" }] },
+  { label: "Indices",     tickers: [{ ticker: "ES=F", name: "S&P 500" }, { ticker: "NQ=F", name: "Nasdaq 100" }, { ticker: "^FTSE", name: "FTSE 100" }] },
+  { label: "Futures",     tickers: [{ ticker: "NQ=F", name: "Nasdaq 100" }, { ticker: "GC=F", name: "Gold" }, { ticker: "SI=F", name: "Silver" }, { ticker: "MNQ=F", name: "Micro Nasdaq" }] },
+  { label: "Crypto",      tickers: [{ ticker: "BTC-USD", name: "Bitcoin" }, { ticker: "ETH-USD", name: "Ethereum" }, { ticker: "SOL-USD", name: "Solana" }, { ticker: "BNB-USD", name: "BNB" }] },
+  { label: "Forex",       tickers: [{ ticker: "GBPUSD=X", name: "GBP/USD" }, { ticker: "EURUSD=X", name: "EUR/USD" }, { ticker: "USDJPY=X", name: "USD/JPY" }, { ticker: "AUDUSD=X", name: "AUD/USD" }] },
+  { label: "Commodities", tickers: [{ ticker: "GC=F", name: "Gold" }, { ticker: "CL=F", name: "Crude Oil" }, { ticker: "SI=F", name: "Silver" }, { ticker: "NG=F", name: "Natural Gas" }] },
 ];
 
 function OverviewCard({ item }: { item: MarketOverviewItem }) {
@@ -48,10 +48,9 @@ export default function MarketOverview() {
 
   return (
     <div>
-      <MarketSection title="Indices" items={items.filter(i => ["SPY", "QQQ", "DIA", "IWM", "ES=F", "^FTSE"].includes(i.ticker))} />
-      <MarketSection title="Crypto" items={items.filter(i => ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD"].includes(i.ticker))} />
-      <MarketSection title="Futures" items={items.filter(i => ["NQ=F", "GC=F", "SI=F", "MNQ=F"].includes(i.ticker))} />
-      <MarketSection title="Forex" items={items.filter(i => ["GBPUSD=X", "EURUSD=X", "USDJPY=X"].includes(i.ticker))} />
+      {TABS.filter(tab => tab.label !== "Popular").map(tab => (
+        <MarketSection key={tab.label} title={tab.label} items={tab.tickers} />
+      ))}
     </div>
   );
 }
