@@ -112,7 +112,7 @@ const groupByDate = (entries: ReturnType<typeof JOURNAL>) => {
   return groups;
 };
 
-const JOURNAL = (portfolio: Portfolio | null) => {
+export const JOURNAL = (portfolio: Portfolio | null) => {
   const trades = (portfolio?.history ?? []).filter((t) => t.closed_at).slice(0, 18);
 
   const dailyPnl: Record<string, number> = {};

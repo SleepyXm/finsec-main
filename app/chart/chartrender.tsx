@@ -329,7 +329,7 @@ export const LinechartIntraday: React.FC<{
         horzLines: { color: '#2a2e3a', visible: !minimal },
       },
       crosshair: {
-        vertLine: { visible: !minimal },
+        vertLine: { visible: true },
         horzLine: { visible: !minimal },
       },
       handleScroll: !minimal,
@@ -388,10 +388,10 @@ export const PnLChart: React.FC<{
   const {
     backgroundColor = 'transparent',
     textColor = 'white',
-    topLineColor = '#4deb82ff',
-    bottomLineColor = '#ff4d4d',
-    topFillColor1 = '#29ff70ff',
-    bottomFillColor1 = 'rgba(255, 0, 0, 0.2)',
+    topLineColor = '#26a69aff',
+    bottomLineColor = '#ef5350ff',
+    topFillColor1 = 'rgb(116, 216, 206)',
+    bottomFillColor1 = 'rgba(241, 144, 142, 0.2)',
     baselineValue = 0,
   } = colors;
 
@@ -422,7 +422,7 @@ export const PnLChart: React.FC<{
       bottomLineColor,
       topFillColor1,
       bottomFillColor1,
-      lineWidth: 2,
+      lineWidth: 1,
     } satisfies BaselineSeriesPartialOptions);
 
     series.setData(data);
@@ -451,5 +451,5 @@ export const PnLChart: React.FC<{
     }
   }, [data]);
 
-  return <div ref={chartContainerRef} style={{ width: 600, height: 200 }} />;
+  return <div ref={chartContainerRef} style={{ width: "full", height: 200 }} />;
 };
