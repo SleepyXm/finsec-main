@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { LinechartIntraday } from "../chart/chartrender";
 import { fetchIntraday } from "../types/assets";
 
-export function MarketSection({ title, items }: { title: string; items: { ticker: string, name: string }[] }) {
+export function MarketSection({ title, items }: { title: string; items: { ticker: string, name: string, close: number,  }[] }) {
   const [selected, setSelected] = useState(items[0]?.ticker ?? "");
   const [chartData, setChartData] = useState<any[]>([]);
 
@@ -11,6 +11,8 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
     setChartData([]);
     fetchIntraday(selected).then(setChartData).catch(console.error);
   }, [selected]);
+
+  
   useEffect(() => {
   if (items.length > 0 && !selected) {
     setSelected(items[0].ticker);
@@ -34,14 +36,14 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
               }
             `}
           >
-            {item.name}
+            {item.name} {item.close}
           </button>
         ))}
       </div>
 
       <div className="px-6 mt-4 h-[300px]">
         {chartData.length > 0
-          ? <LinechartIntraday data={chartData} />
+          ? <LinechartIntraday data={chartData} minimal />
           : <div className="w-full h-full bg-[#1a1f2e] rounded-lg flex items-center justify-center text-[#5d6578] text-sm">Loading...</div>
         }
       </div>

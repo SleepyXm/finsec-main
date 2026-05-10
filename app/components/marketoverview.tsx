@@ -15,6 +15,8 @@ const TABS = [
   { label: "Commodities", tickers: [{ ticker: "GC=F", name: "Gold" }, { ticker: "CL=F", name: "Crude Oil" }, { ticker: "SI=F", name: "Silver" }, { ticker: "NG=F", name: "Natural Gas" }] },
 ];
 
+
+
 function OverviewCard({ item }: { item: MarketOverviewItem }) {
   const [chartData, setChartData] = useState<RawData[]>([]);
   useEffect(() => {
@@ -38,6 +40,14 @@ export default function MarketOverview() {
   const [items, setItems] = useState<MarketOverviewItem[]>([]);
   const [activeTab, setActiveTab] = useState(0);
 
+  const merged = TABS.map(tab => ({
+    ...tab,
+    tickers: tab.tickers.map(t => {
+      const live = items.find(i => i.ticker === t.ticker);
+      return { ...t, close: live?.close ?? null };
+    })
+  }));
+
   useEffect(() => {
     fetchMarketOverview().then(setItems).catch(console.error);
   }, []);
@@ -47,8 +57,8 @@ export default function MarketOverview() {
   );
 
   return (
-    <div>
-      {TABS.filter(tab => tab.label !== "Popular").map(tab => (
+    <div className="w-full">
+      {merged.filter(tab => tab.label !== "Popular").map(tab => (
         <MarketSection key={tab.label} title={tab.label} items={tab.tickers} />
       ))}
     </div>

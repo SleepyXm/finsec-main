@@ -77,8 +77,9 @@ export default function Home() {
           custom={3}
         >
           <AssetSearchComponent />
-          <MarketOverview />
+
         </motion.div>
+        <MarketOverview />
       </div>
  
       <motion.footer
