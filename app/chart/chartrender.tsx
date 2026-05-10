@@ -35,7 +35,7 @@ export const CandleStickChart: React.FC<{
     const chart = createChart(chartContainerRef2.current, {
       layout: {
         background: { type: ColorType.Solid, color: backgroundColor },
-        textColor,
+        textColor: "white",
       },
       width: chartContainerRef2.current.clientWidth,
       height: chartContainerRef2.current.clientHeight,
@@ -301,13 +301,9 @@ export const LinechartIntraday: React.FC<{
 }> = ({ data, colors = {}, minimal = false }) => {
   const {
     backgroundColor = 'transparent',
-    textColor = 'black',
-    topLineColor = '#4deb82ff',
-    bottomLineColor = '#ff4d4d',
-    topFillColor1 = '#29ff70ff',
-    bottomFillColor1 = 'rgba(255, 0, 0, 0.2)',
-    baselineValue = 0,
+    textColor = '#ffffff',
   } = colors;
+
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
@@ -321,11 +317,16 @@ export const LinechartIntraday: React.FC<{
       },
       width: chartContainerRef.current.clientWidth,
       height: chartContainerRef.current.clientHeight,
-      timeScale: { fixLeftEdge: true, visible: !minimal },
-      rightPriceScale: { visible: !minimal },
+      timeScale: {
+        fixLeftEdge: true,
+        visible: true,
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      rightPriceScale: { visible: true },
       grid: {
-        vertLines: { color: '#444', visible: !minimal },
-        horzLines: { color: '#444', visible: !minimal },
+        vertLines: { color: '#2a2e3a', visible: !minimal },
+        horzLines: { color: '#2a2e3a', visible: !minimal },
       },
       crosshair: {
         vertLine: { visible: !minimal },
@@ -334,17 +335,19 @@ export const LinechartIntraday: React.FC<{
       handleScroll: !minimal,
       handleScale: !minimal,
     });
-    const series = chart.addSeries(BaselineSeries, {
-      baseValue: { type: 'price', price: baselineValue },
-      topLineColor,
-      bottomLineColor,
-      topFillColor1,
-      bottomFillColor1,
-      lineWidth: minimal ? 1 : 2,
-    } satisfies BaselineSeriesPartialOptions);
-    series.setData(data);
+
+    const series = chart.addSeries(AreaSeries, {
+      lineColor: '#26a69a',
+      topColor: 'rgba(38, 166, 154, 0.2)',
+      bottomColor: 'rgba(38, 166, 154, 0.0)',
+      lineWidth: 1,
+      lastValueVisible: true,
+      priceLineVisible: false,
+    });
+
     chartRef.current = chart;
     seriesRef.current = series;
+
     const handleResize = () => {
       if (chartRef.current && chartContainerRef.current) {
         chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth });
@@ -360,12 +363,19 @@ export const LinechartIntraday: React.FC<{
   }, []);
 
   useEffect(() => {
-    if (seriesRef.current) {
-      seriesRef.current.setData(data);
-    }
+    if (!seriesRef.current || data.length === 0) return;
+    const first = data[0]?.value ?? data[0]?.close ?? 0;
+    const last = data[data.length - 1]?.value ?? data[data.length - 1]?.close ?? 0;
+    const isUp = last >= first;
+    seriesRef.current.applyOptions({
+      lineColor: isUp ? '#26a69a' : '#ef5350',
+      topColor: isUp ? 'rgba(38, 166, 154, 0.2)' : 'rgba(239, 83, 80, 0.2)',
+      bottomColor: 'rgba(0, 0, 0, 0.0)',
+    });
+    seriesRef.current.setData(data);
   }, [data]);
 
-  return <div ref={chartContainerRef} style={{ width: "40vw", height: "20vh"}} />;
+  return <div ref={chartContainerRef} style={{ width: '100%', height: '300px' }} />;
 };
 
 
@@ -377,7 +387,7 @@ export const PnLChart: React.FC<{
 }> = ({ data, colors = {} }) => {
   const {
     backgroundColor = 'transparent',
-    textColor = 'black',
+    textColor = 'white',
     topLineColor = '#4deb82ff',
     bottomLineColor = '#ff4d4d',
     topFillColor1 = '#29ff70ff',
