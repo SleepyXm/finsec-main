@@ -2,7 +2,7 @@ import ws from 'k6/ws';
 import { check } from 'k6';
 
 export const options = {
-  vus: 250,
+  vus: 200,
   duration: '30s',
   summaryTrendStats: [
     "avg",

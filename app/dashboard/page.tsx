@@ -30,6 +30,11 @@ import { Portfolio } from "../types/portfolio";
 import { useUser } from "../provider/userprovider";
 import { PnLChart } from "../chart/chartrender";
 import { toPnLCurve } from "./components/functions";
+import { fetchOpenPositions } from "../handlers/positions";
+import { Trade } from "../types/trades";
+
+import { TradeHistory } from "../types/portfolio";
+
 
 // ── Placeholder types (replace with your real models later) ──
  
@@ -60,21 +65,10 @@ interface Indicator {
   color: string;
 }
  
-interface Trade {
-  symbol: string;
-  side: string;
-  entry: string;
-  exit: string;
-  size: number;
-  pnl: string;
-  rr: string;
-  date: string;
-  note: string;
-}
  
 // ── Placeholder data (swap for API / props later) ────────────
  
-const STATS = (portfolio: Portfolio | null) => [
+const STATS = (portfolio: Portfolio | null, openPositions: Trade[]) => [
   {
     label: "Net P&L",
     value: portfolio
@@ -87,7 +81,7 @@ const STATS = (portfolio: Portfolio | null) => [
   },
   { label: "Win rate",       value: portfolio ? `${portfolio.stats.win_rate}%`: "—", sub: portfolio ? `${portfolio.stats.wins} of ${portfolio.stats.trade_count} trades` : "", color: undefined    },
   { label: "Avg R:R",        value: "1.8",      sub: "Above 1.5 target",    color: tokens.green },
-  { label: "Open positions", value: "2",        sub: "NVDA · SPY",          color: undefined    },
+  //{ label: "Open positions", value: openPositions.length.toString(), sub: openPositions.map(p => decodeURIComponent(p.symbol)).join(" · "), color: undefined },
   { label: "Largest loss",   value: portfolio ? `-$${Math.abs(portfolio.stats.worst_trade).toFixed(2)}` : "—", sub: "", color: tokens.red },
 ];
  
@@ -153,7 +147,7 @@ const INDICATORS: Indicator[] = [
 ];
  
 
-const TRADE_COLUMNS: Column<Trade>[] = [
+const TRADE_COLUMNS: Column<TradeHistory>[] = [
   { key: "symbol", label: "Symbol" },
   {
     key: "side",
@@ -182,13 +176,15 @@ const TRADE_COLUMNS: Column<Trade>[] = [
  
 export default function DashboardPage() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [openPositions, setOpenPositions] = useState<Trade[]>([]);
   const {user, setUser} = useUser();
 
   useEffect(() => {
     fetchPortfolio().then(setPortfolio).catch(console.error);
+    fetchOpenPositions().then(setOpenPositions).catch(console.error);
   }, []);
 
-  const rows = (portfolio?.history ?? []).map((t): Trade => ({
+  const rows = (portfolio?.history ?? []).map((t): TradeHistory => ({
     symbol: t.symbol,
     side:   t.side.charAt(0).toUpperCase() + t.side.slice(1),
     entry:  `$${t.entry_price.toFixed(2)}`,
@@ -213,7 +209,7 @@ export default function DashboardPage() {
  
       {/* Stat strip */}
       <StatRow>
-        {STATS(portfolio).map((s) => (
+        {STATS(portfolio, openPositions).map((s) => (
           <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} valueColor={s.color} />
         ))}
       </StatRow>

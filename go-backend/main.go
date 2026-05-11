@@ -1,11 +1,16 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"finsec-backend/routes"
+	"finsec-backend/services"
+
 	//"finsec-backend/hub"
 	//"finsec-backend/config"
 	"finsec-backend/utils"
@@ -44,6 +49,8 @@ func initDB() {
 }
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found", err)
 	}
@@ -55,10 +62,9 @@ func main() {
 
 	go stocks.PrewarmFromRedis(utils.RDB, os.Getenv("PYTHON_URL"))
 
-	//jwtSecret := []byte(os.Getenv("SECRET_KEY"))
-
-	//wsHub := hub.NewHub(rdb) // hub gets the Redis client, not the router
-	//go wsHub.Run()           // starts the fan-out goroutine
+	// Pool init — single instance, lives for the lifetime of the process
+	pool := services.NewWorkerPool().WithRedis(utils.RDB)
+	pool.StartFlusher(ctx, db)
 
 	allowedOrigins := []string{}
 	if dev := os.Getenv("DEV_SERVER"); dev != "" {
@@ -88,17 +94,8 @@ func main() {
 	api := router.Group("/api")
 	routes.RegisterAuthRoutes(api.Group("/auth"), db)
 	routes.RegisterStockRoutes(api.Group("/"), utils.RDB)
-	routes.RegisterTradeRoutes(api.Group("/"), db, utils.RDB)
+	routes.RegisterTradeRoutes(api.Group("/"), db, utils.RDB, pool)
 	routes.RegisterBacktestRoutes(api.Group("/"), db)
-
-	//ws := router.Group("/ws")
-	//routes.RegisterWSRoutes(ws, wsHub, jwtSecret)
-
-	//assets := router.Group("/assets")
-	//routes.RegisterAssetRoutes(assets, db, rdb, jwtSecret)
-
-	//orders := router.Group("/orders")
-	//routes.RegisterOrderRoutes(orders, db, rdb, jwtSecret)
 
 	router.Run(":9000")
 }
