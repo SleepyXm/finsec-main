@@ -1,5 +1,6 @@
 import axios from "axios";
 
+const WS_BACKEND_URL = process.env.NEXT_PUBLIC_WS_API_BASE2;
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE2;
 
 export type Trade = {
@@ -19,16 +20,35 @@ export interface OpenPositionsProps {
   onClose: (positionId: string) => void;
 }
 
-export async function postTrade(payload: {ticker: string; action: "buy" | "sell"; price: number; quantity: number; buy_price: number; sell_price: number; time: any; session_id?: string;}): Promise<Trade> {
-  const res = await fetch(`${BACKEND_URL}/api/trade`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error(`Failed to place trade: ${res.status}`);
-  const data = await res.json();
-  return data.data;
+let socket: WebSocket | null = null;
+
+export function openTradeSocket(onConfirm: (confirm: any) => void): WebSocket {
+    socket = new WebSocket(`${WS_BACKEND_URL}/trade`);
+
+    socket.onmessage = (event) => {
+        const confirm = JSON.parse(event.data);
+        onConfirm(confirm);
+    };
+
+    socket.onerror = (err) => {
+        console.error("[ws] trade socket error", err);
+    };
+
+    return socket;
+}
+
+export function postTrade(payload: {
+    ticker: string;
+    action: "buy" | "sell";
+    price: number;
+    quantity: number;
+    session_id?: string;
+}): void {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        console.error("[ws] trade socket not open");
+        return;
+    }
+    socket.send(JSON.stringify(payload));
 }
 
 export async function deleteTrade(positionId: string, exitPrice: number, realisedPnl: number, sessionId?: string): Promise<void> {

@@ -6,6 +6,8 @@ type TradeAction struct {
 	Price     float64 `json:"price"`    // was json:"float" — wrong tag
 	Quantity  float64 `json:"quantity"` // same
 	SessionID *string `json:"session_id,omitempty"`
+	ConnID    string
+	BotID     *string
 }
 
 type CloseTradeRequest struct {
