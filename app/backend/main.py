@@ -81,6 +81,22 @@ async def market_overview():
     return results
 
 
+@app.post("/api/market/overview/connect")
+async def market_overview_connect():
+    tickers = [key.replace("_1m", "") for key in fetch_tasks.keys()]
+    
+    # kick off broadcast for any that aren't already running
+    for ticker in tickers:
+        key = f"{ticker}_1m"
+        if key not in fetch_tasks or fetch_tasks[key].done():
+            fetch_tasks[key] = asyncio.create_task(broadcast_stock_data(ticker, "1m"))
+    
+    return {
+        "ws_url": "ws://localhost:8080/ws/prices",
+        "symbols": tickers
+    }
+
+
 @app.on_event("shutdown")
 async def shutdown_cleanup():
     await redis_client.delete("active_workers")

@@ -2,7 +2,7 @@
  
 import Image from "next/image";
 import { motion, easeOut } from "framer-motion";
-import MarketOverview from "./components/marketoverview";
+import MarketOverview from "./components/intradaymarket/marketoverview";
  
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -24,7 +24,7 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <h1 className="text-7xl font-semibold text-white w-full flex items-center justify-center whitespace-nowrap ml-18">
+          <h1 className="text-7xl font-semibold text-white w-full flex items-center justify-center whitespace-nowrap ml-38">
             Welcome to{" "}
             <svg
               width="auto"
@@ -45,7 +45,7 @@ export default function Home() {
                 fontWeight="bold"
                 fill="url(#grad1)"
               >
-                HyJacked
+                Finsec
               </text>
             </svg>
           </h1>

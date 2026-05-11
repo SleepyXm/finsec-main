@@ -34,7 +34,7 @@ export async function fetchAssets(query: string): Promise<Asset[]> {
 
 export async function fetchIntraday(
   symbol: string,
-  interval = "5m",
+  interval = "1m",
   period = "1d"
 ): Promise<RawData[]> {
   const res = await fetch(
