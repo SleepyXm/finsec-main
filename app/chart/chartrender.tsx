@@ -373,6 +373,8 @@ export const LinechartIntraday: React.FC<{
       bottomColor: 'rgba(0, 0, 0, 0.0)',
     });
     seriesRef.current.setData(data);
+
+    chartRef.current.timeScale().fitContent();
   }, [data]);
 
   return <div ref={chartContainerRef} style={{ width: '100%', height: '300px' }} />;

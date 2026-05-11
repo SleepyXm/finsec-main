@@ -3,6 +3,7 @@ import yfinance as yf
 import numpy as np
 from ..storage.parquet import BASE_DIR, download_and_save, INTERVAL_CONFIG
 from ..storage.retrieveparquet import load_parquet
+from helpers.redis import redis_client
 
 INTERVALS = {
     "1m", "5m", "15m", "1h", "1d", "1wk", "1mo"
@@ -110,6 +111,12 @@ async def download_asset_worker(ticker: str):
     for interval, config in INTERVAL_CONFIG.items():
         await download_and_save(ticker, interval, config["period"])
     print(f"[Worker] Completed download for {ticker}")
+    try:
+        info = yf.Ticker(ticker).info
+        name = info.get("longName") or info.get("shortName") or ticker
+        await redis_client.set(f"meta:name:{ticker}", name)
+    except Exception:
+        await redis_client.set(f"meta:name:{ticker}", ticker)
 
 def df_to_chart(df: pd.DataFrame) -> list[dict]:
     return [

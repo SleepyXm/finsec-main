@@ -23,7 +23,7 @@ export function AssetPill({
       `}
     >
       <img
-        src={`https://your-r2-url/${ticker}.svg`}
+        src={`http://localhost:8001`}
         onError={(e) => e.currentTarget.style.display = 'none'}
         className="w-6 h-6 rounded-full shrink-0"
       />

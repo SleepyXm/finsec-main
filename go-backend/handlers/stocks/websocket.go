@@ -28,6 +28,23 @@ var chartGroup singleflight.Group
 
 var pools sync.Map // key: "ticker:interval" -> *WorkerPool
 
+func primeChart(ctx context.Context, rdb *redis.Client, pythonURL, ticker, interval, chartKey string) (string, error) {
+	_, err, _ := chartGroup.Do(chartKey, func() (interface{}, error) {
+		resp, pyErr := http.Post(
+			pythonURL+"/api/internal/chart/cache?ticker="+ticker+"&interval="+interval,
+			"", nil,
+		)
+		if pyErr == nil {
+			resp.Body.Close()
+		}
+		return nil, pyErr
+	})
+	if err != nil {
+		return "", err
+	}
+	return rdb.Get(ctx, chartKey).Result()
+}
+
 func getOrCreatePool(key string, rdb *redis.Client, channel string) *services.WorkerPool {
 	if p, ok := pools.Load(key); ok {
 		return p.(*services.WorkerPool)
@@ -145,21 +162,82 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 	}
 }
 
-func primeChart(ctx context.Context, rdb *redis.Client, pythonURL, ticker, interval, chartKey string) (string, error) {
-	_, err, _ := chartGroup.Do(chartKey, func() (interface{}, error) {
-		resp, pyErr := http.Post(
-			pythonURL+"/api/internal/chart/cache?ticker="+ticker+"&interval="+interval,
-			"", nil,
-		)
-		if pyErr == nil {
-			resp.Body.Close()
+func MarketOverviewHandler(rdb *redis.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		conn, _, _, err := ws.UpgradeHTTP(c.Request, c.Writer)
+		if err != nil {
+			return
 		}
-		return nil, pyErr
-	})
-	if err != nil {
-		return "", err
+		defer conn.Close()
+
+		wsc := services.NewWSConn(conn)
+		defer wsc.Close()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel() // this kills all pubsub goroutines when handler exits
+
+		// scan all active tickers from Redis
+		keys, err := rdb.Keys(ctx, "last:price:*:1m").Result()
+		if err != nil || len(keys) == 0 {
+			return
+		}
+
+		out := make(chan []byte, 256)
+		var wg sync.WaitGroup
+
+		for _, key := range keys {
+			key := key
+			// extract ticker from "last:price:BTC-USD:1m"
+			ticker := strings.TrimPrefix(strings.TrimSuffix(key, ":1m"), "last:price:")
+			channel := fmt.Sprintf("price:%s:1m", ticker)
+
+			// send last known price immediately
+			if last, err := rdb.Get(ctx, key).Result(); err == nil && last != "" {
+				select {
+				case out <- []byte(last):
+				default:
+				}
+			}
+
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				pubsub := rdb.Subscribe(ctx, channel)
+				defer pubsub.Close()
+
+				for {
+					msg, err := pubsub.ReceiveMessage(ctx)
+					if err != nil {
+						return
+					}
+					select {
+					case out <- []byte(msg.Payload):
+					default:
+					}
+				}
+			}()
+		}
+
+		go func() {
+			wg.Wait()
+			close(out)
+		}()
+
+		go func() {
+			for payload := range out {
+				if err := services.SafeWrite(wsc, payload); err != nil {
+					return
+				}
+			}
+		}()
+
+		// block until client disconnects
+		for {
+			if _, _, err := wsutil.ReadClientData(conn); err != nil {
+				return
+			}
+		}
 	}
-	return rdb.Get(ctx, chartKey).Result()
 }
 
 func LivePriceHandler(rdb *redis.Client) gin.HandlerFunc {

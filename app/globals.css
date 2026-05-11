@@ -1,9 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #1a1f2b;
+  --background: #000000;
   --foreground: #ffffff;
 }
+
+{/*#1a1f2b;*/}
 
 #tv-attr-logo {
   display: none !important;

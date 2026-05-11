@@ -5,7 +5,8 @@ from routers.storage.parquet import mark_worker_active, is_worker_active
 from routers.storage.retrieveparquet import get_candles
 from helpers.cache import get_or_fetch_candles
 import pandas as pd
-import yfinance as yf
+import json
+from helpers.redis import redis_client
 
 stock_router = APIRouter()
 
@@ -48,35 +49,46 @@ async def get_stock_data(
 @stock_router.get("/stockdata/intraday")
 async def get_intraday_data(
     ticker_symbol: str,
-    interval: str = Query("5m"),
+    interval: str = Query("1m"),
     period: str = Query("1d")
 ):
     if interval not in INTERVALS:
         raise HTTPException(status_code=400, detail="Invalid interval")
-    if period not in PERIODS:
-        raise HTTPException(status_code=400, detail="Invalid period")
-    
-    try:
-        data, column_mapping = load_stock_data(ticker_symbol, interval, period)
-    except ValueError as ve:
-        raise HTTPException(status_code=404, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
-    
-    open_col = column_mapping["open_col"]
-    high_col = column_mapping["high_col"]
-    low_col = column_mapping["low_col"]
-    close_col = column_mapping["close_col"]
-    
-    chart_data = [
-        {
-            "time": int(idx.timestamp()),
-            "open": row[open_col],
-            "high": row[high_col],
-            "low": row[low_col],
-            "close": row[close_col],
-        }
-        for idx, row in data.iterrows()
-    ]
-    
-    return chart_data
+
+    chart = None
+
+    # 1. try Redis chart cache first (already stitched by build_chart)
+    cached = await redis_client.get(f"chart:{ticker_symbol}:{interval}")
+    if cached:
+        data = json.loads(cached)
+        chart = data["data"]
+
+    # 2. fall back to parquet only if cache miss
+    if chart is None:
+        try:
+            data, column_mapping = load_stock_data(ticker_symbol, interval, period)
+            chart = [
+                {
+                    "time": int(idx.timestamp()),
+                    "open": row[column_mapping["open_col"]],
+                    "high": row[column_mapping["high_col"]],
+                    "low": row[column_mapping["low_col"]],
+                    "close": row[column_mapping["close_col"]],
+                }
+                for idx, row in data.iterrows()
+            ]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # 3. patch last candle with live tick
+    last = await redis_client.get(f"last:price:{ticker_symbol}:{interval}")
+    if last:
+        tick = json.loads(last)
+        if chart and chart[-1]["time"] == tick["time"]:
+            chart[-1]["close"] = tick["close"]
+            chart[-1]["high"] = max(chart[-1]["high"], tick["high"])
+            chart[-1]["low"] = min(chart[-1]["low"], tick["low"])
+        else:
+            chart.append(tick)
+
+    return chart
