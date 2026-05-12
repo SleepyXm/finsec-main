@@ -1,3 +1,23 @@
+export const LOGO_MAP: Record<string, string> = {
+  "ES=F":     "/logos/sp500.png",
+  "NQ=F":     "/logos/nasdaq.png",
+  "MNQ=F":    "/logos/nasdaq.png",
+  "^FTSE":    "/logos/ftse.png",
+  "BTC-USD":  "/logos/bitcoin.png",
+  "ETH-USD":  "/logos/ethereum.png",
+  "SOL-USD":  "/logos/solana.png",
+  "BNB-USD":  "/logos/bnb.png",
+  "GBPUSD=X": "/logos/gbpusd.png",
+  "EURUSD=X": "/logos/eurusd.png",
+  "JPY=X":    "/logos/usdjpy.png",
+  "AUDUSD=X": "/logos/audusd.png",
+  "GC=F":     "/logos/gold.png",
+  "SI=F":     "/logos/silver.png",
+  "CL=F":     "/logos/crudeoil.png",
+  "NG=F":     "/logos/natgas.png",
+};
+
+
 export function AssetPill({
   ticker,
   name,
@@ -23,9 +43,9 @@ export function AssetPill({
       `}
     >
       <img
-        src={`http://localhost:8001`}
+        src={LOGO_MAP[ticker] ?? undefined}
         onError={(e) => e.currentTarget.style.display = 'none'}
-        className="w-6 h-6 rounded-full shrink-0"
+        className="w-12 h-12 rounded-full shrink-0"
       />
       <div className="text-left">
         <div className="text-xl font-medium text-white leading-tight">{name}</div>
