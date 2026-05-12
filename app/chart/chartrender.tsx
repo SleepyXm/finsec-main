@@ -11,7 +11,7 @@ export const CandleStickChart: React.FC<{
   livePnLMap?: Record<string, number>;
   isCreatingStrategy?: boolean;
   onClosePosition?: (id: string) => void;
-}> = ({ data, colors = {}, renderTradeUI, trades = [], positions = [], livePnLMap = {}, onClosePosition }) => {
+}> = ({ data, colors = {}, renderTradeUI, trades = [], positions = [], livePnLMap = {}, onClosePosition, isCreatingStrategy = false }) => {
   const {
     backgroundColor = 'transparent',
     textColor = 'white',
@@ -28,11 +28,84 @@ export const CandleStickChart: React.FC<{
   const seriesRef = useRef<any>(null);
   const priceLinesRef = useRef<any[]>([]);
   const positionLinesRef = useRef<any[]>([]);
-  const [isCreatingStrategy, setIsCreatingStrategy] = useState(false);
-  const handleDrawStart = () => {};
-  const handleDrawMove = () => {};
-  const handleDrawEnd = () => {};
+  const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
+  const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [pendingAnnotation, setPendingAnnotation] = useState<any | null>(null);
+  const [annotations, setAnnotations] = useState<any[]>([]);
+  const [selectedCandles, setSelectedCandles] = useState<any[]>([]);
   const [, forceUpdate] = useState(0);
+
+  const hasMoved = useRef(false);
+
+  const handleDrawStart = (e: React.MouseEvent) => {
+    hasMoved.current = false;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDrawStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    setDrawRect(null);
+  };
+
+  const handleDrawMove = (e: React.MouseEvent) => {
+    if (!drawStart) return;
+    hasMoved.current = true;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const newRect = {
+      x: Math.min(drawStart.x, x),
+      y: Math.min(drawStart.y, y),
+      w: Math.abs(x - drawStart.x),
+      h: Math.abs(y - drawStart.y),
+    };
+    setDrawRect(newRect);
+    setSelectedCandles(getSelectedCandles(newRect));
+  };
+
+  const getSelectedCandles = (rect: { x: number; y: number; w: number; h: number }) => {
+    if (!chartRef.current || !data) return [];
+    const timeStart = chartRef.current.timeScale().coordinateToTime(rect.x);
+    const timeEnd = chartRef.current.timeScale().coordinateToTime(rect.x + rect.w);
+    return data.filter((candle: any) => candle.time >= timeStart && candle.time <= timeEnd);
+  };
+
+  const handleDrawEnd = (e: React.MouseEvent) => {
+    if (!drawStart || !hasMoved.current) {
+      setDrawStart(null);
+      return;
+    }
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const dx = Math.abs(x - drawStart.x);
+    const dy = Math.abs(y - drawStart.y);
+    const isPoint = dx < 8 && dy < 8;
+
+    const toPrice = (py: number) => seriesRef.current?.coordinateToPrice(py);
+    const toTime = (px: number) => chartRef.current?.timeScale().coordinateToTime(px);
+
+    if (isPoint) {
+      setPendingAnnotation({
+        type: 'point',
+        x, y,
+        time: toTime(x),
+        price: toPrice(y),
+      });
+    } else {
+      setPendingAnnotation({
+        type: 'region',
+        x: Math.min(drawStart.x, x),
+        y: Math.min(drawStart.y, y),
+        w: dx, h: dy,
+        timeStart: toTime(Math.min(drawStart.x, x)),
+        timeEnd: toTime(Math.max(drawStart.x, x)),
+        priceHigh: toPrice(Math.min(drawStart.y, y)),
+        priceLow: toPrice(Math.max(drawStart.y, y)),
+      });
+    }
+
+    setDrawStart(null);
+    setDrawRect(null);
+  };
 
   useEffect(() => {
     if (!chartContainerRef2.current) return;
@@ -210,19 +283,118 @@ export const CandleStickChart: React.FC<{
 
       {/* Strategy overlay */}
       {isCreatingStrategy && (
-        <div
-          style={{
+  <div
+    style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 20, cursor: 'crosshair' }}
+    onMouseDown={handleDrawStart}
+    onMouseMove={handleDrawMove}
+    onMouseUp={handleDrawEnd}
+  >
+    {/* live drag preview */}
+    {drawRect && (
+  <>
+    {/* four dim panels */}
+    <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: drawRect.y, background: 'rgba(0,0,0,0.5)', pointerEvents: 'none' }} />
+    <div style={{ position: 'absolute', left: 0, top: drawRect.y + drawRect.h, width: '100%', height: `calc(100% - ${drawRect.y + drawRect.h}px)`, background: 'rgba(0,0,0,0.5)', pointerEvents: 'none' }} />
+    <div style={{ position: 'absolute', left: 0, top: drawRect.y, width: drawRect.x, height: drawRect.h, background: 'rgba(0,0,0,0.5)', pointerEvents: 'none' }} />
+    <div style={{ position: 'absolute', left: drawRect.x + drawRect.w, top: drawRect.y, right: 0, height: drawRect.h, background: 'rgba(0,0,0,0.5)', pointerEvents: 'none' }} />
+
+    {/* selection border */}
+    <div style={{
+      position: 'absolute',
+      left: drawRect.x, top: drawRect.y,
+      width: drawRect.w, height: drawRect.h,
+      border: '1px solid #2962ff',
+      background: 'rgba(41, 98, 255, 0.05)',
+      pointerEvents: 'none',
+    }}>
+      {/* HUD */}
+      {selectedCandles.length > 0 && (() => {
+        const high = Math.max(...selectedCandles.map((c: any) => c.high));
+        const low = Math.min(...selectedCandles.map((c: any) => c.low));
+        const range = (high - low).toFixed(2);
+        const open = selectedCandles[0].open;
+        const close = selectedCandles[selectedCandles.length - 1].close;
+        const change = (((close - open) / open) * 100).toFixed(2);
+        const isUp = close >= open;
+
+        return (
+          <div style={{
             position: 'absolute',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 20,
-            cursor: 'crosshair',
+            top: 6, left: 6,
+            background: 'rgba(15, 18, 30, 0.92)',
+            border: '1px solid #2a2e3a',
+            borderRadius: 4,
+            padding: '4px 8px',
+            fontSize: 11,
+            fontFamily: 'monospace',
+            color: 'white',
+            display: 'flex',
+            gap: 12,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+          }}>
+            <span style={{ color: '#8a90a0' }}>{selectedCandles.length} candles</span>
+            <span style={{ color: '#22c55e' }}>H: {high.toFixed(2)}</span>
+            <span style={{ color: '#ef4444' }}>L: {low.toFixed(2)}</span>
+            <span style={{ color: '#8a90a0' }}>Range: {range}</span>
+            <span style={{ color: isUp ? '#22c55e' : '#ef4444' }}>{isUp ? '+' : ''}{change}%</span>
+          </div>
+        );
+      })()}
+    </div>
+
+    {/* full dim before drag */}
+    {!drawRect && (
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', pointerEvents: 'none' }} />
+    )}
+  </>
+)}
+
+    {/* label dropdown */}
+    {pendingAnnotation && (
+      <div style={{
+        position: 'absolute',
+        left: pendingAnnotation.x + 8,
+        top: pendingAnnotation.y + 8,
+        background: '#1a1f2e',
+        border: '1px solid #2a2e3a',
+        borderRadius: 6,
+        padding: '8px',
+        zIndex: 30,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        minWidth: 160,
+      }}>
+        <select
+          style={{ background: '#1a1f2e', color: 'white', border: '1px solid #2a2e3a', borderRadius: 4, padding: '4px' }}
+          defaultValue=""
+          onChange={(e) => {
+            if (!e.target.value) return;
+            setAnnotations(prev => [...prev, { ...pendingAnnotation, label: e.target.value }]);
+            setPendingAnnotation(null);
           }}
-          onMouseDown={handleDrawStart}
-          onMouseMove={handleDrawMove}
-          onMouseUp={handleDrawEnd}
-        />
-      )}
+        >
+          <option value="" disabled>Select label...</option>
+          <option value="fvg">Fair Value Gap</option>
+          <option value="entry">Entry</option>
+          <option value="exit">Exit</option>
+          <option value="swing_high">Swing High</option>
+          <option value="swing_low">Swing Low</option>
+          <option value="resistance">Resistance</option>
+          <option value="support">Support</option>
+          <option value="accumulation">Accumulation</option>
+        </select>
+        <button
+          onClick={() => setPendingAnnotation(null)}
+          style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 11, textAlign: 'left' }}
+        >
+          Cancel
+        </button>
+      </div>
+    )}
+  </div>
+)}
     </div>
   );
 };

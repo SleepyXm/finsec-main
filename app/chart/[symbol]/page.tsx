@@ -22,6 +22,7 @@ export default function ChartPage() {
   const [isCandle, setIsCandle] = useState(true);
   const [activeTrades, setActiveTrades] = useState<any[]>([]);
   const [accountUnrealisedPnL, setAccountUnrealisedPnL] = useState<number>(0);
+  const [isCreatingStrategy, setIsCreatingStrategy] = useState(false);
   const router = useRouter();
 
   // Lifted up from TradeButtonRow
@@ -67,6 +68,14 @@ export default function ChartPage() {
             </button>
           ))}
         </div>
+        
+        <button
+          onClick={() => setIsCreatingStrategy(prev => !prev)}
+          className={`px-3 py-1 rounded ${isCreatingStrategy ? "bg-purple-600 text-white" : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"} text-sm`}
+        >
+          {isCreatingStrategy ? "Cancel" : "Create Strategy"}
+        </button>
+
         <button
           onClick={() => router.push(`/backtest?ticker=${shortname}&interval=${interval}`)}
           className="px-3 py-1 rounded bg-zinc-700 text-zinc-300 hover:bg-zinc-600 text-sm"
@@ -93,6 +102,7 @@ export default function ChartPage() {
             positions={positions}
             livePnLMap={livePnLMap}
             onClosePosition={(positionId) => closeTrade(positionId, tick?.close ?? 0)}
+            isCreatingStrategy={isCreatingStrategy}
           />
         ) : (
           <Linechart data={chartData} renderTradeUI={tradeUI} trades={activeTrades} />
