@@ -1,7 +1,6 @@
 "use client";
 
 import { Interval } from "../../types/charts";
-import { CandleStickChart, Linechart } from "../chartrender";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useChartData } from "../chartdata";
@@ -11,6 +10,8 @@ import { useTrades } from "../../hooks/useTrades";
 import TradeButtons from "@/app/components/trading/tradebuttons";
 import TradingPanel from "@/app/components/trading/panel";
 import { useRouter } from "next/navigation";
+import { CandleStickChart } from "@/app/components/chartrender/charts/CandleStickChart";
+import { Linechart } from "@/app/components/chartrender/charts/Linechart";
 
 const intervals: Interval[] = ["1m", "5m", "15m", "1h", "1d", "1wk", "1mo"];
 
@@ -31,6 +32,14 @@ export default function ChartPage() {
   const { tick, historicalData, connected, livePnLMap } = useStockSocket(shortname, interval, positions, handlePositionClosed, setAccountUnrealisedPnL);
 
   const { data, updateLastCandle } = useChartData(shortname, interval, historicalData);
+
+  const [annotations, setAnnotations] = useState<any[]>([]);
+
+  const handleAnnotation = (annotation: any) => {
+    setAnnotations(prev => [...prev, annotation]);
+    setIsCreatingStrategy(false); // optional — exit strategy mode after labelling
+    console.log('annotation saved:', annotation); // temp until you wire up persistence
+  };
 
   // Pipe tick into chart
   useEffect(() => {
@@ -103,6 +112,7 @@ export default function ChartPage() {
             livePnLMap={livePnLMap}
             onClosePosition={(positionId) => closeTrade(positionId, tick?.close ?? 0)}
             isCreatingStrategy={isCreatingStrategy}
+            onAnnotation={handleAnnotation}
           />
         ) : (
           <Linechart data={chartData} renderTradeUI={tradeUI} trades={activeTrades} />

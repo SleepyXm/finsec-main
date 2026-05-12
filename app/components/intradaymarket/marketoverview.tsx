@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { MarketOverviewItem } from "../../types/assets";
-import { RawData } from "../../types/charts";
-import { LinechartIntraday } from "../../chart/chartrender";
-import { fetchMarketOverview, fetchIntraday } from "../../types/assets";
+import { fetchMarketOverview } from "../../types/assets";
 import { MarketSection } from "./MarketSection";
 
 const TABS = [
