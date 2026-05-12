@@ -28,7 +28,7 @@ import { useState, useEffect } from 'react';
 import { fetchPortfolio } from "../handlers/portfolio";
 import { Portfolio } from "../types/portfolio";
 import { useUser } from "../provider/userprovider";
-import { PnLChart } from "../chart/chartrender";
+import { PnLChart } from "../components/chartrender/charts/PnLChart";
 import { toPnLCurve } from "./components/functions";
 import { fetchOpenPositions } from "../handlers/positions";
 import { Trade } from "../types/trades";
