@@ -27,44 +27,6 @@ subscriptions = {}
 # Store last candle bounds per ticker in Redis or just in-memory dict
 _last_bounds: dict[str, dict] = {}
 
-async def broadcast_stock_data(ticker: str, interval: str):
-    channel = f"price:{ticker}:{interval}"
-    last_key = f"last:price:{ticker}:{interval}"
-    sleep_s = 1.2
-    fill_interval = 0.1  # 10 fills per tick window
-    num_fills = int(sleep_s / fill_interval) - 1
-
-    while True:
-        try:
-            candle = await asyncio.to_thread(fetch_latest, ticker, interval)
-            if candle is None:
-                await r.publish(channel, json.dumps({"error": "no data"}))
-                await asyncio.sleep(sleep_s)
-                continue
-
-            payload = json.dumps(candle)
-            await r.publish(channel, payload)
-            await r.set(last_key, payload, ex=300)
-
-            low, high, close = candle["low"], candle["high"], candle["close"]
-            _last_bounds[ticker] = {"low": low, "high": high, "last": close}
-
-            # Fill the gap until next tick
-            fills = np.random.uniform(low=low, high=high, size=num_fills)
-            for fill_price in fills:
-                fill_payload = json.dumps({
-                    "ticker": ticker,
-                    "time": candle["time"],
-                    "close": round(float(fill_price), 2),
-                    "synthetic": True
-                })
-                await r.publish(channel, fill_payload)
-                await asyncio.sleep(fill_interval)
-
-        except Exception as e:
-            await r.publish(channel, json.dumps({"error": str(e)}))
-            await asyncio.sleep(sleep_s)
-
 # ── Chart cache ──────────────────────────────────────────────────────────────
 
 def build_chart(ticker: str, interval: str, live_period: str) -> str:
@@ -127,10 +89,53 @@ def fetch_latest(ticker: str, interval: str) -> dict | None:
     }
 
 
+#async def broadcast_stock_data(ticker: str, interval: str):
+#    channel = f"price:{ticker}:{interval}"
+#    last_key = f"last:price:{ticker}:{interval}"
+#    sleep_s = 4
+#    fill_interval = 0.6  # 10 fills per tick window
+#    num_fills = int(sleep_s / fill_interval) - 1
+#
+#    while True:
+#        try:
+#            candle = await asyncio.to_thread(fetch_latest, ticker, interval)
+#            if candle is None:
+#                await r.publish(channel, json.dumps({"error": "no data"}))
+#                await asyncio.sleep(sleep_s)
+#                continue
+#
+#            payload = json.dumps(candle)
+#            await r.publish(channel, payload)
+#            await r.set(last_key, payload, ex=300)
+#
+#            low, high, close = candle["low"], candle["high"], candle["close"]
+#            _last_bounds[ticker] = {"low": low, "high": high, "last": close}
+#
+#            # Fill the gap until next tick
+#            fills = np.random.uniform(low=low, high=high, size=num_fills)
+#            for fill_price in fills:
+#                multiplier = 1.0008 if close < 10_000 else 1.00008
+#                fill_payload = json.dumps({
+#                    "ticker": ticker,
+#                    "time": candle["time"],
+#                    "close": round(float(fill_price), 2),
+#                    "buy_price": round(close * multiplier, 2),
+#                    "synthetic": True
+#                })
+#                await r.publish(channel, fill_payload)
+#                await asyncio.sleep(fill_interval)
+#
+#        except Exception as e:
+#            await r.publish(channel, json.dumps({"error": str(e)}))
+#            await asyncio.sleep(sleep_s)
+
+
+
+
 async def broadcast_stock_data(ticker: str, interval: str):
     channel = f"price:{ticker}:{interval}"
     last_key = f"last:price:{ticker}:{interval}"
-    sleep_s = 1.2
+    sleep_s = 2.2
     while True:
         try:
             candle = await asyncio.to_thread(fetch_latest, ticker, interval)
