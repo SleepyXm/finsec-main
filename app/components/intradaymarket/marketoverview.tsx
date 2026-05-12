@@ -15,27 +15,6 @@ const TABS = [
   { label: "Commodities", tickers: [{ ticker: "GC=F", name: "Gold" }, { ticker: "CL=F", name: "Crude Oil" }, { ticker: "SI=F", name: "Silver" }, { ticker: "NG=F", name: "Natural Gas" }] },
 ];
 
-
-
-function OverviewCard({ item }: { item: MarketOverviewItem }) {
-  const [chartData, setChartData] = useState<RawData[]>([]);
-  useEffect(() => {
-    fetchIntraday(item.ticker).then(setChartData).catch(console.error);
-  }, [item.ticker]);
-  return (
-    <Link href={`/chart/${item.ticker}`}>
-      <div className="p-4 rounded-lg border border-gray-700 bg-[#1a1f2e] hover:border-blue-500 transition cursor-pointer">
-        <div className="text-sm font-semibold text-white mb-2">{item.ticker}</div>
-        {chartData.length > 0 && (
-          <div className="fixed w-full h-[200px] scale-y-[0.4] origin-top">
-            <LinechartIntraday data={chartData} minimal />
-          </div>
-        )}
-      </div>
-    </Link>
-  );
-}
-
 export default function MarketOverview() {
   const [items, setItems] = useState<MarketOverviewItem[]>([]);
   const [activeTab, setActiveTab] = useState(0);

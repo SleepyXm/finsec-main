@@ -9,7 +9,6 @@ import { useStockSocket } from "@/app/hooks/useStockSocket";
 import { usePositions } from "@/app/hooks/usePositions";
 import { useTrades } from "../../hooks/useTrades";
 import TradeButtons from "@/app/components/trading/tradebuttons";
-import OpenPositions from "@/app/components/trading/positions";
 import TradingPanel from "@/app/components/trading/panel";
 import { useRouter } from "next/navigation";
 
@@ -55,7 +54,7 @@ export default function ChartPage() {
 );
 
   return (
-    <div className="p-4">
+    <div className="p-4 bg-zinc-950">
       <div className="flex justify-between items-center my-4">
         <div className="flex gap-2">
           {intervals.map((int) => (

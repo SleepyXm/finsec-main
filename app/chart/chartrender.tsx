@@ -9,16 +9,17 @@ export const CandleStickChart: React.FC<{
   trades?: any[];
   positions?: any[];
   livePnLMap?: Record<string, number>;
+  isCreatingStrategy?: boolean;
   onClosePosition?: (id: string) => void;
 }> = ({ data, colors = {}, renderTradeUI, trades = [], positions = [], livePnLMap = {}, onClosePosition }) => {
   const {
     backgroundColor = 'transparent',
     textColor = 'white',
-    upColor = '#1fb369ff',
+    upColor = 'rgb(69, 197, 133)',
     downColor = '#ad4b44ff',
-    borderUpColor = '#1fb369ff',
+    borderUpColor = 'rgb(69, 197, 133)',
     borderDownColor = '#ad4b44ff',
-    wickUpColor = '#1fb369ff',
+    wickUpColor = 'rgb(69, 197, 133)',
     wickDownColor = '#ad4b44ff',
   } = colors;
 
@@ -27,6 +28,10 @@ export const CandleStickChart: React.FC<{
   const seriesRef = useRef<any>(null);
   const priceLinesRef = useRef<any[]>([]);
   const positionLinesRef = useRef<any[]>([]);
+  const [isCreatingStrategy, setIsCreatingStrategy] = useState(false);
+  const handleDrawStart = () => {};
+  const handleDrawMove = () => {};
+  const handleDrawEnd = () => {};
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -202,6 +207,22 @@ export const CandleStickChart: React.FC<{
           {renderTradeUI}
         </div>
       )}
+
+      {/* Strategy overlay */}
+      {isCreatingStrategy && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 20,
+            cursor: 'crosshair',
+          }}
+          onMouseDown={handleDrawStart}
+          onMouseMove={handleDrawMove}
+          onMouseUp={handleDrawEnd}
+        />
+      )}
     </div>
   );
 };
@@ -370,7 +391,7 @@ export const LinechartIntraday: React.FC<{
     seriesRef.current.applyOptions({
       lineColor: isUp ? '#26a69a' : '#ef5350',
       topColor: isUp ? 'rgba(38, 166, 154, 0.2)' : 'rgba(239, 83, 80, 0.2)',
-      bottomColor: 'rgba(0, 0, 0, 0.0)',
+      bottomColor: isUp? 'rgba(7, 32, 30, 0.06)' : 'rgba(54, 19, 19, 0.06)',
     });
     seriesRef.current.setData(data);
 
