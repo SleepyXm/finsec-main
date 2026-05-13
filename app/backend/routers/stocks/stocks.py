@@ -6,6 +6,7 @@ from routers.storage.retrieveparquet import get_candles
 from helpers.cache import get_or_fetch_candles
 import pandas as pd
 import json
+from routers.websocket import build_and_cache_chart
 from helpers.redis import redis_client
 
 stock_router = APIRouter()
@@ -57,30 +58,21 @@ async def get_intraday_data(
 
     chart = None
 
-    # 1. try Redis chart cache first (already stitched by build_chart)
+    # 1. Try Redis chart cache (already stitched by build_chart)
     cached = await redis_client.get(f"chart:{ticker_symbol}:{interval}")
     if cached:
         data = json.loads(cached)
         chart = data["data"]
 
-    # 2. fall back to parquet only if cache miss
+    # 2. Cache miss — build and cache via yfinance stitch
     if chart is None:
         try:
-            data, column_mapping = load_stock_data(ticker_symbol, interval, period)
-            chart = [
-                {
-                    "time": int(idx.timestamp()),
-                    "open": row[column_mapping["open_col"]],
-                    "high": row[column_mapping["high_col"]],
-                    "low": row[column_mapping["low_col"]],
-                    "close": row[column_mapping["close_col"]],
-                }
-                for idx, row in data.iterrows()
-            ]
+            json_str = await build_and_cache_chart(ticker_symbol, interval)
+            chart = json.loads(json_str)["data"]
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    # 3. patch last candle with live tick
+    # 3. Patch last candle with live tick
     last = await redis_client.get(f"last:price:{ticker_symbol}:{interval}")
     if last:
         tick = json.loads(last)
