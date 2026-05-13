@@ -4,6 +4,7 @@ import { useChart } from '../hooks/useChart';
 import { PositionTags } from '../overlays/PositionOverlay';
 import { StrategyOverlay } from '../overlays/Strategy';
 import { PriceLines } from '../../trading/price';
+import { useCandleHighlight } from '../overlays/CandleHighlight';
 
 export const CandleStickChart: React.FC<{
   data: any[];
@@ -25,6 +26,14 @@ export const CandleStickChart: React.FC<{
     borderUpColor: upColor, borderDownColor: downColor,
     wickUpColor: upColor, wickDownColor: downColor,
   });
+
+  const { setSelection, clearSelection } = useCandleHighlight({
+    chartRef,
+    seriesRef,
+    containerRef,
+    data,
+    active: isCreatingStrategy,
+});
 
   useEffect(() => { PriceLines(seriesRef, priceLinesRef, trades); }, [trades, seriesRef.current]);
   useEffect(() => { if (seriesRef.current) seriesRef.current.setData(data); }, [data]);
@@ -52,7 +61,7 @@ export const CandleStickChart: React.FC<{
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       <PositionTags positions={positions} livePnLMap={livePnLMap} seriesRef={seriesRef} onClosePosition={onClosePosition} />
       {renderTradeUI && <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10 }}>{renderTradeUI}</div>}
-      {isCreatingStrategy && <StrategyOverlay chartRef={chartRef} seriesRef={seriesRef} data={data} onAnnotation={onAnnotation} />}
+      {isCreatingStrategy && <StrategyOverlay chartRef={chartRef} seriesRef={seriesRef} data={data} onAnnotation={onAnnotation} setSelection={setSelection} clearSelection={clearSelection} />}
     </div>
   );
 };
