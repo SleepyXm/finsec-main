@@ -2,12 +2,9 @@ from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
 from pydantic import BaseModel
 from routers.utils.stock_utils import load_stock_data, INTERVALS, PERIODS, asset_exists, df_to_chart, download_asset_worker
 from routers.storage.parquet import mark_worker_active, is_worker_active
-from routers.storage.retrieveparquet import get_candles, INTERVAL_CONFIG
+from routers.storage.retrieveparquet import get_candles
 from helpers.cache import get_or_fetch_candles
 import pandas as pd
-import yfinance as yf
-from routers.websocket import build_and_cache_chart
-import asyncio
 import json
 from helpers.redis import redis_client
 
@@ -58,12 +55,16 @@ async def get_intraday_data(
     if interval not in INTERVALS:
         raise HTTPException(status_code=400, detail="Invalid interval")
 
-    # 1. Get stitched chart or build it
-    try:
-        cached_json = await build_and_cache_chart(ticker_symbol, interval)
-        data = json.loads(cached_json)
+    chart = None
+
+    # 1. try Redis chart cache first (already stitched by build_chart)
+    cached = await redis_client.get(f"chart:{ticker_symbol}:{interval}")
+    if cached:
+        data = json.loads(cached)
         chart = data["data"]
-    except Exception as e:
+
+    # 2. fall back to parquet only if cache miss
+    if chart is None:
         try:
             data, column_mapping = load_stock_data(ticker_symbol, interval, period)
             chart = [
@@ -76,35 +77,18 @@ async def get_intraday_data(
                 }
                 for idx, row in data.iterrows()
             ]
-        except Exception as inner_e:
-            raise HTTPException(status_code=500, detail=str(inner_e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
-    if not chart:
-        return chart
-
-    # 2. Fetch live candles and stitch anything newer than the cached chart
-    try:
-        last_chart_time = chart[-1]["time"]
-        live_period = INTERVAL_CONFIG.get(interval, {}).get("period", "1d")
-        df_live = await asyncio.to_thread(
-            lambda: yf.Ticker(ticker_symbol).history(period=live_period, interval=interval)
-        )
-        if not df_live.empty:
-            df_live.columns = [c.lower() for c in df_live.columns]
-            for ts, row in df_live.iterrows():
-                candle_time = int(ts.timestamp())
-                candle = {
-                    "time": candle_time,
-                    "open": float(row["open"]),
-                    "high": float(row["high"]),
-                    "low": float(row["low"]),
-                    "close": float(row["close"]),
-                }
-                if candle_time == chart[-1]["time"]:
-                    chart[-1] = candle
-                elif candle_time > last_chart_time:
-                    chart.append(candle)
-    except Exception:
-        pass  # live stitch is best-effort, return cached chart if it fails
+    # 3. patch last candle with live tick
+    last = await redis_client.get(f"last:price:{ticker_symbol}:{interval}")
+    if last:
+        tick = json.loads(last)
+        if chart and chart[-1]["time"] == tick["time"]:
+            chart[-1]["close"] = tick["close"]
+            chart[-1]["high"] = max(chart[-1]["high"], tick["high"])
+            chart[-1]["low"] = min(chart[-1]["low"], tick["low"])
+        else:
+            chart.append(tick)
 
     return chart
