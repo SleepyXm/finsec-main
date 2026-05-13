@@ -49,6 +49,13 @@ export function postTrade(payload: {
         return;
     }
     socket.send(JSON.stringify(payload));
+    socket.onclose = (event) => {
+    console.error("[ws] trade socket closed", {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+    });
+  };
 }
 
 export async function deleteTrade(positionId: string, exitPrice: number, realisedPnl: number, sessionId?: string): Promise<void> {
