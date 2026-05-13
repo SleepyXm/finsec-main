@@ -7,6 +7,7 @@ import { Linechart } from "@/app/components/chartrender/charts/Linechart";
 import TradingPanel from "@/app/components/trading/panel";
 import TradeButtons from "@/app/components/trading/tradebuttons";
 import { TopBar } from "./TopBar";
+import DrawingCanvas from "@/app/components/chartrender/overlays/DrawingCanvas";
 
 
 function ChartPageInner() {
@@ -37,26 +38,34 @@ function ChartPageInner() {
         />
       }
     >
-      {() =>
-        chartData.length > 0 ? (
-          isCandle ? (
-            <CandleStickChart
-              data={chartData}
-              trades={[]}
-              renderTradeUI={tradeUI}
-              positions={positions}
-              livePnLMap={livePnLMap}
-              onClosePosition={(id) => closeTrade(id, tick?.close ?? 0)}
-              isCreatingStrategy={isCreatingStrategy}
-              onAnnotation={handleAnnotation}
-            />
+      {() => (
+        // ↓ This wrapper gives the canvas its coordinate space
+        <div className="relative w-full h-full">
+
+          {chartData.length > 0 ? (
+            isCandle ? (
+              <CandleStickChart
+                data={chartData}
+                trades={[]}
+                renderTradeUI={tradeUI}
+                positions={positions}
+                livePnLMap={livePnLMap}
+                onClosePosition={(id) => closeTrade(id, tick?.close ?? 0)}
+                isCreatingStrategy={isCreatingStrategy}
+                onAnnotation={handleAnnotation}
+              />
+            ) : (
+              <Linechart data={chartData} renderTradeUI={tradeUI} trades={[]} />
+            )
           ) : (
-            <Linechart data={chartData} renderTradeUI={tradeUI} trades={[]} />
-          )
-        ) : (
-          <p style={{ color: "#6b7280", padding: 16 }}>Loading chart...</p>
-        )
-      }
+            <p style={{ color: "#6b7280", padding: 16 }}>Loading chart...</p>
+          )}
+
+          {/* ↓ Sits on top of whichever chart is rendered */}
+          {/*<DrawingCanvas />*/}
+
+        </div>
+      )}
     </TradeLayout>
   );
 }
