@@ -21,7 +21,7 @@ export const Linechart: React.FC<{
   useEffect(() => { if (seriesRef.current) seriesRef.current.setData(data); }, [data]);
 
   return (
-    <div style={{ position: 'relative', width: '90vw', height: '70vh' }}>
+    <div style={{ position: 'relative', width: '95vw', height: '70vh' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       {renderTradeUI && <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10 }}>{renderTradeUI}</div>}
     </div>
