@@ -104,7 +104,7 @@ export function TopBar() {
       </div>
 
       {/* ── interval selector ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 2, paddingRight: 12, borderRight: "1px solid #1e2130", marginRight: 12, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
         <Select
             value={interval}
             onChange={(e) => setInterval(e.target.value as Interval)}
@@ -117,12 +117,12 @@ export function TopBar() {
       </div>
 
       {/* ── chart type ── */}
-    <div style={{ display: "flex", alignItems: "center", gap: 2, paddingRight: 12, borderRight: "1px solid #1e2130", marginRight: 12, flexShrink: 0 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 2, paddingRight: 12, flexShrink: 0 }}>
         {/* ── chart type ── */}
         <Select
             value={isCandle ? "candles" : "line"}
             onChange={(e) => setIsCandle(e.target.value === "candles")}
-            style={{ marginRight: 12, borderRight: "1px solid #1e2130", paddingRight: 20 }}
+            style={{ marginRight: 0, borderRight: "1px solid #1e2130", paddingRight: 20 }}
             >
             <option value="candles">Candles</option>
             <option value="line">Line</option>
@@ -130,13 +130,15 @@ export function TopBar() {
     </div>
 
       {/* ── actions ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+        <div style={{marginRight: 0, borderRight: "1px solid #1e2130", paddingRight: 12}}>
         <ActionBtn
           label={isCreatingStrategy ? "Cancel" : "Strategy"}
           active={isCreatingStrategy}
           onClick={() => setIsCreatingStrategy(!isCreatingStrategy)}
           activeColor="#7c3aed"
         />
+        </div>
         <ActionBtn
           label="Backtest"
           onClick={() => router.push(`/backtest?ticker=${shortname}&interval=${interval}`)}

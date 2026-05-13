@@ -13,9 +13,28 @@ const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
   const { assets, loading, error, search } = useAssetSearch();
+  const [isVisible, setIsVisible] = useState(false);
  
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    const handleScroll = () => {
+      if (window.scrollY > lastScrollY) {
+        setIsVisible(false); 
+      } else {
+        setIsVisible(true);
+      }
+      lastScrollY = window.scrollY;
+    };
+
+    window.addEventListener("scroll", handleScroll);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
  
@@ -42,7 +61,7 @@ const Navbar = () => {
   return (
     <>
     <div className="h-16" aria-hidden="true" />
-    <header className="fixed top-3 left-1/2 -translate-x-1/2 w-[80vw] flex items-center justify-between px-6 py-[12px] bg-white/[0.055] backdrop-blur-sm border rounded-4xl border-white/[0.09]">
+    <header className={`fixed top-3 left-1/2 -translate-x-1/2 w-[80vw] flex items-center justify-between px-6 py-[12px] bg-white/[0.055] backdrop-blur-sm border rounded-4xl border-white/[0.09] ${isVisible ? "translate-y-0" : "-translate-y-full"}`}>
  
       {/* Logo */}
       <Link href="/" className="flex items-center no-underline">
@@ -54,7 +73,7 @@ const Navbar = () => {
       <div className="relative w-[280px]">
         <AssetSearchBar onSearch={search} />
         {assets.length > 0 && (
-          <ul className="absolute top-full mt-1 left-0 w-full bg-[#131722] border border-[#2a2e3a] rounded-xl shadow-xl z-50 overflow-hidden list-none p-0 m-0">
+          <ul className="absolute top-full mt-1 left-0 w-full bg-[#131722] border border-[#2a2e3a] rounded-xl shadow-xl z-1 overflow-hidden list-none p-0 m-0">
             {assets.map((asset) => (
               <AssetListItem
                 key={asset.symbol}
