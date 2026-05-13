@@ -9,7 +9,7 @@ import { OpenPositionsProps } from "@/app/types/trades";
 type Tab = "unrealised" | "realised" | "positions";
 const TABS: { key: Tab; label: string }[] = [
   { key: "unrealised", label: "Unrealised PnL" },
-  { key: "realised",   label: "Realised PnL"   },
+  { key: "realised",   label: "Orders"   },
   { key: "positions",  label: "Open Positions"  },
 ];
 
