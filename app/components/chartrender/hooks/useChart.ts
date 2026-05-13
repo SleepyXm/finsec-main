@@ -11,23 +11,36 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
     if (!containerRef.current) return;
 
     const chart = createChart(containerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: chartOptions.backgroundColor ?? 'transparent' },
-        textColor: chartOptions.textColor ?? 'white',
-      },
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight,
-      timeScale: {
-        rightOffset: 30,
-        timeVisible: true,
-        secondsVisible: false,
-        ...chartOptions.timeScale,
-      },
-      grid: {
-        vertLines: { color: chartOptions.gridColor ?? '#444' },
-        horzLines: { color: chartOptions.gridColor ?? '#444' },
-      },
-      ...chartOptions.extra,
+        layout: {
+            background: { type: ColorType.Solid, color: chartOptions.backgroundColor ?? 'transparent' },
+            textColor: chartOptions.textColor ?? 'white',
+        },
+        width: containerRef.current.clientWidth,
+        height: containerRef.current.clientHeight,
+        handleScroll: {
+            mouseWheel: true,
+            pressedMouseMove: true,
+            horzTouchDrag: true,
+            vertTouchDrag: true,
+        },
+        handleScale: {
+            mouseWheel: true,
+            pinch: true,
+            axisPressedMouseMove: true,
+        },
+        timeScale: {
+            rightOffset: 30,
+            timeVisible: true,
+            secondsVisible: false,
+            fixLeftEdge: false,
+            fixRightEdge: false,
+            ...chartOptions.timeScale,
+        },
+        grid: {
+            vertLines: { color: chartOptions.gridColor ?? '#444' },
+            horzLines: { color: chartOptions.gridColor ?? '#444' },
+        },
+        ...chartOptions.extra,
     });
 
     const series = chart.addSeries(seriesConstructor, seriesOptions);

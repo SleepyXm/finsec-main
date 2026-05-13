@@ -36,7 +36,23 @@ export const CandleStickChart: React.FC<{
 });
 
   useEffect(() => { PriceLines(seriesRef, priceLinesRef, trades); }, [trades, seriesRef.current]);
-  useEffect(() => { if (seriesRef.current) seriesRef.current.setData(data); }, [data]);
+  useEffect(() => {
+  if (!seriesRef.current || !chartRef.current || data.length < 2) return;
+
+  const interval = data[1].time - data[0].time;
+  const barSpacing = chartRef.current.timeScale().options().barSpacing;
+  const containerWidth = containerRef.current?.clientWidth ?? 0;
+  const lastCandle = data[data.length - 1];
+  
+  const visibleBars = Math.ceil(containerWidth / barSpacing);
+  
+  const whitespace = [];
+  for (let i = 1; i <= visibleBars; i++) {
+    whitespace.push({ time: lastCandle.time + interval * i });
+  }
+
+  seriesRef.current.setData([...data, ...whitespace]);
+}, [data]);
 
   useEffect(() => {
     if (!seriesRef.current) return;
@@ -57,7 +73,7 @@ export const CandleStickChart: React.FC<{
   }, [positions, livePnLMap]);
 
   return (
-    <div style={{ position: 'relative', width: '90vw', height: '70vh' }}>
+    <div style={{ position: 'relative', width: '97vw', height: '70vh' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       <PositionTags positions={positions} livePnLMap={livePnLMap} seriesRef={seriesRef} onClosePosition={onClosePosition} />
       {renderTradeUI && <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10 }}>{renderTradeUI}</div>}
