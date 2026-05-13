@@ -5,9 +5,9 @@ import { useRef, useState, useCallback, useEffect } from "react";
 const TOP_BAR_H = 40;
 const LEFT_BAR_W = 48;
 const RIGHT_PANEL_W = 280;
-const BOTTOM_MIN_H = 32;   // collapsed — just the tab bar
+const BOTTOM_MIN_H = 64;   // collapsed — just the tab bar
 const BOTTOM_MAX_H = 500;
-const BOTTOM_DEFAULT_H = 220;
+const BOTTOM_DEFAULT_H = 330;
  
 interface TradeLayoutProps {
   topBar?: React.ReactNode;
