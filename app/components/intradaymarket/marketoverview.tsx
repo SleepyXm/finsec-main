@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { MarketOverviewItem } from "../../types/assets";
-import { fetchMarketOverview } from "../../types/assets";
+import { MarketOverviewItem, fetchMarketOverview } from "../../types/assets";
 import { MarketSection } from "./MarketSection";
 
 const TABS = [
@@ -20,7 +19,7 @@ export default function MarketOverview() {
     ...tab,
     tickers: tab.tickers.map(t => {
       const live = items.find(i => i.ticker === t.ticker);
-      return { ...t, close: live?.close ?? null };
+      return { ...t, close: live?.close ?? 0 };
     })
   }));
 
@@ -29,7 +28,7 @@ export default function MarketOverview() {
   }, []);
 
   const visibleItems = items.filter(item =>
-    TABS[activeTab].tickers.includes(item.ticker)
+    TABS[activeTab].tickers.some(t => t.ticker === item.ticker)
   );
 
   return (

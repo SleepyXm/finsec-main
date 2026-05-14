@@ -436,7 +436,7 @@ export function BarRow({
  * DataTable — typed, styled table for use inside a divided Card.
  * Pass column config once; rows are just plain data objects.
  */
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends object>({
   columns,
   rows,
 }: {

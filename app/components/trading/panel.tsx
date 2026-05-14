@@ -73,7 +73,7 @@ export default function TradingPanel({ positions, livePnLMap, onClose }: OpenPos
         )}
         {activeTab === "positions" && (
           positions.length > 0
-            ? <OpenPositions positions={positions} livePnLMap={livePnLMap} onClose={onClose} />
+            ? <OpenPositions positions={positions} livePnLMap={livePnLMap} onClose={onClose} accountUnrealisedPnL={accountUnrealisedPnL} />
             : <p className="text-sm text-zinc-500">No open positions yet.</p>
         )}
       </div>
