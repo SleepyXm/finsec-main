@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
+import DrawingCanvas, {DrawingCanvasProps} from "../components/chartrender/overlays/DrawingCanvas";
+import { Shape } from "../components/chartrender/overlays/DrawingCanvas";
  
 const TOP_BAR_H = 40;
 const LEFT_BAR_W = 48;
@@ -8,6 +10,20 @@ const RIGHT_PANEL_W = 280;
 const BOTTOM_MIN_H = 64;   // collapsed — just the tab bar
 const BOTTOM_MAX_H = 500;
 const BOTTOM_DEFAULT_H = 330;
+
+// ── Drawing tool config ──────────────────────────────────────────────────────
+type DrawTool = "select"|"trendline"|"hline"|"rect"|"freehand"|"text"|"fibonacci";
+
+
+const DRAW_TOOLS: { id: DrawTool; label: string; icon: string }[] = [
+  { id:"select",    label:"Select",    icon:"↖" },
+  { id:"trendline", label:"Trendline", icon:"╱" },
+  { id:"hline",     label:"H-Level",   icon:"—" },
+  { id:"rect",      label:"Rectangle", icon:"▭" },
+  { id:"freehand",  label:"Freehand",  icon:"✏" },
+  { id:"text",      label:"Text",      icon:"T" },
+  { id:"fibonacci", label:"Fibonacci", icon:"φ" },
+];
  
 interface TradeLayoutProps {
   topBar?: React.ReactNode;
@@ -24,15 +40,29 @@ export default function TradeLayout({
   bottomPanel,
   children,
 }: TradeLayoutProps) {
+  const [drawingMode, setDrawingMode] = useState(false);
+  const [shapes, setShapes] = useState<Shape[]>([]);
+  const handleUndo  = () => setShapes(s => s.slice(0, -1));
+  const handleClear = () => setShapes([]);
   const [rightOpen, setRightOpen] = useState(false);
   const [bottomH, setBottomH] = useState(BOTTOM_DEFAULT_H);
   const bottomOpen = bottomH > BOTTOM_MIN_H;
+
+  // ── Drawing state (lifted here so left bar & canvas share it) ────────────
+  const [drawTool,   setDrawTool]   = useState<DrawTool>("trendline");
+  const [drawColor,  setDrawColor]  = useState("#3b82f6");
+  const [drawLW,     setDrawLW]     = useState(2);
+  const [drawVisible,setDrawVisible]= useState(true);
+  // undo/clear are forwarded via ref callbacks
+  const undoRef  = useRef<() => void>(() => {});
+  const clearRef = useRef<() => void>(() => {});
  
+  // ── bottom drag ──────────────────────────────────────────────
+
   const draggingBottom = useRef(false);
   const dragStartY = useRef(0);
   const dragStartH = useRef(0);
- 
-  // ── bottom drag ──────────────────────────────────────────────
+
   const onBottomDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     draggingBottom.current = true;
@@ -116,37 +146,125 @@ export default function TradeLayout({
       </div>
  
       {/* ── MIDDLE ROW (left bar + chart + right panel) ───────── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
- 
-        {/* ── LEFT BAR ─────────────────────────────────────── */}
-        <div
-          style={{
-            width: LEFT_BAR_W,
-            minWidth: LEFT_BAR_W,
-            borderRight: "1px solid #1e2130",
-            background: "#0f1117",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            paddingTop: 8,
-            gap: 4,
-            zIndex: 40,
-          }}
-        >
-          {leftBar ?? <LeftBarPlaceholder />}
+      <div style={{ display:"flex", flex:1, overflow:"hidden" }}>
+
+        {/* ── LEFT BAR ───────────────────────────────────────────────── */}
+        <div style={{ width:LEFT_BAR_W, minWidth:LEFT_BAR_W, borderRight:"1px solid #1e2130", background:"#0f1117", display:"flex", flexDirection:"column", alignItems:"center", paddingTop:8, paddingBottom:8, gap:2, zIndex:40, overflowY:"auto" }}>
+
+          {/* Drawing tools */}
+          {DRAW_TOOLS.map(t => (
+            <button
+              key={t.id}
+              title={t.label}
+              onClick={() => {setDrawTool(t.id); setDrawingMode(t.id !== "select");}}
+              style={{ width:28, height:28, borderRadius:4, border:"none", background: drawTool===t.id ? "#3b82f6" : "transparent", color: drawTool===t.id ? "#fff" : "#6b7280", fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}
+            >
+              {t.icon}
+            </button>
+          ))}
+
+          {/* Mode toggle — top of left bar */}
+<div style={{
+  display: "flex",
+  flexDirection: "column",
+  width: 32,
+  borderRadius: 6,
+  border: "1px solid #1e2130",
+  overflow: "hidden",
+  flexShrink: 0,
+  marginBottom: 4,
+}}>
+  {/* Chart mode */}
+  <button
+    title="Chart mode — pan & zoom"
+    onClick={() => setDrawingMode(false)}
+    style={{
+      height: 26,
+      border: "none",
+      background: !drawingMode ? "#1e40af" : "transparent",
+      color: !drawingMode ? "#93c5fd" : "#4b5563",
+      cursor: "pointer",
+      fontSize: 13,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}
+  >
+    ↕
+  </button>
+  {/* Draw mode */}
+  <button
+    title="Draw mode — annotate chart"
+    onClick={() => setDrawingMode(true)}
+    style={{
+      height: 26,
+      border: "none",
+      borderTop: "1px solid #1e2130",
+      background: drawingMode ? "#1e3a5f" : "transparent",
+      color: drawingMode ? "#3b82f6" : "#4b5563",
+      cursor: "pointer",
+      fontSize: 13,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}
+  >
+    ✏
+  </button>
+</div>
+
+          {/* Divider */}
+          <div style={{ width:28, height:1, background:"#1e2130", margin:"4px 0", flexShrink:0 }} />
+
+          {/* Color picker */}
+          <input
+            type="color"
+            value={drawColor}
+            onChange={e => setDrawColor(e.target.value)}
+            title="Stroke color"
+            style={{ width:28, height:22, border:"none", background:"none", cursor:"pointer", padding:0, flexShrink:0 }}
+          />
+
+          {/* Line width */}
+          <select
+            value={drawLW}
+            onChange={e => setDrawLW(Number(e.target.value))}
+            title="Line width"
+            style={{ width:34, background:"#0f1117", color:"#6b7280", border:"1px solid #1e2130", borderRadius:3, fontSize:10, padding:"1px 0", flexShrink:0 }}
+          >
+            {[1,2,3,4].map(n => <option key={n} value={n}>{n}px</option>)}
+          </select>
+
+          {/* Divider */}
+          <div style={{ width:28, height:1, background:"#1e2130", margin:"4px 0", flexShrink:0 }} />
+
+          {/* Undo */}
+          <button title="Undo" onClick={handleUndo}
+            style={{ width:28, height:28, borderRadius:4, border:"none", background:"transparent", color:"#6b7280", cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            ↩
+          </button>
+
+          {/* Clear */}
+          <button title="Clear all" onClick={handleClear}
+            style={{ width:28, height:28, borderRadius:4, border:"none", background:"transparent", color:"#ef4444", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            🗑
+          </button>
+
+          {/* Visibility toggle */}
+          <button title={drawVisible?"Hide drawings":"Show drawings"} onClick={() => setDrawVisible(v=>!v)}
+            style={{ width:28, height:28, borderRadius:4, border:"none", background:"transparent", color:"#6b7280", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            {drawVisible ? "👁" : "🚫"}
+          </button>
         </div>
- 
-        {/* ── CHART AREA ───────────────────────────────────── */}
-        <div
-          style={{
-            flex: 1,
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
-          {children({ width: 0, height: 0 })}
-          {/* width/height passed as 0 — chart uses 100%/100% of parent,
-              lightweight charts auto-resizes via ResizeObserver inside useChart */}
+
+        {/* ── CHART AREA ─────────────────────────────────────────────── */}
+        <div style={{ flex:1, overflow:"hidden", position:"relative" }}>
+          {children({ width:0, height:0 })}
+          <DrawingCanvas
+            tool={drawTool}
+            color={drawColor}
+            lineWidth={drawLW}
+            visible={drawVisible}
+            drawingMode={drawingMode}
+            shapes={shapes}
+            onShapesChange={setShapes}
+          />
         </div>
  
         {/* ── RIGHT PANEL ──────────────────────────────────── */}
