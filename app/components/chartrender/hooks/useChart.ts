@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
 import positions from '../../trading/positions';
+import { defaultChartTheme } from '../themes/themes';
 
 type ChartPlugins = {
   positions?: any[];
   getPositionLabel?: (position: any) => string;
 };
 
-export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartOptions: any = {}, plugins: ChartPlugins = {}) {
+export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartOptions: any = {}, plugins: ChartPlugins = {}, theme = defaultChartTheme,) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
@@ -18,57 +19,71 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
     if (!containerRef.current) return;
 
     const chart = createChart(containerRef.current, {
-        layout: {
-            background: { type: ColorType.Solid, color: chartOptions.backgroundColor ?? 'transparent' },
-            textColor: chartOptions.textColor ?? 'white',
+      layout: {
+        background: {
+          type: ColorType.Solid,
+          color: theme.background,
         },
-        width: containerRef.current.clientWidth,
-        height: containerRef.current.clientHeight,
-        handleScroll: {
-            mouseWheel: true,
-            pressedMouseMove: true,
-            horzTouchDrag: true,
-            vertTouchDrag: true,
-        },
-        handleScale: {
-            mouseWheel: true,
-            pinch: true,
-            axisPressedMouseMove: true,
-        },
-        timeScale: {
-            rightOffset: 30,
-            timeVisible: true,
-            secondsVisible: false,
-            fixLeftEdge: false,
-            fixRightEdge: false,
-            ...chartOptions.timeScale,
-        },
-        grid: {
-            vertLines: { color: chartOptions.gridColor ?? '#444' },
-            horzLines: { color: chartOptions.gridColor ?? '#444' },
-        },
-        ...chartOptions.extra,
+        textColor: theme.text,
+      },
+
+      grid: {
+        vertLines: { color: theme.grid },
+        horzLines: { color: theme.grid },
+      },
+
+      width: containerRef.current.clientWidth,
+      height: containerRef.current.clientHeight,
+
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: true,
+      },
+
+      handleScale: {
+        mouseWheel: true,
+        pinch: true,
+        axisPressedMouseMove: true,
+      },
+
+      timeScale: {
+        rightOffset: 30,
+        timeVisible: true,
+        secondsVisible: false,
+        ...chartOptions.timeScale,
+      },
+
+      ...chartOptions.extra,
     });
 
-    const series = chart.addSeries(seriesConstructor, seriesOptions);
+    const series = chart.addSeries(seriesConstructor, {
+      ...seriesOptions,
+
+      upColor: theme.bullCandle,
+      downColor: theme.bearCandle,
+      borderUpColor: theme.bullCandle,
+      borderDownColor: theme.bearCandle,
+      wickUpColor: theme.bullCandle,
+      wickDownColor: theme.bearCandle,
+    });
+
     chartRef.current = chart;
     seriesRef.current = series;
 
-    const handleVisibleRangeChange = () => forceUpdate(n => n + 1);
-    chart.timeScale().subscribeVisibleTimeRangeChange(handleVisibleRangeChange);
-
-    const handleResize = () => {
-      if (chartRef.current && containerRef.current) {
-        chartRef.current.applyOptions({ width: containerRef.current.clientWidth });
-        forceUpdate(n => n + 1);
-      }
+    const onResize = () => {
+      if (!containerRef.current || !chartRef.current) return;
+      chartRef.current.applyOptions({
+        width: containerRef.current.clientWidth,
+      });
+      forceUpdate((n) => n + 1);
     };
 
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', onResize);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.timeScale().unsubscribeVisibleTimeRangeChange(handleVisibleRangeChange);
+      window.removeEventListener('resize', onResize);
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -129,3 +144,8 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
 
   return { containerRef, chartRef, seriesRef };
 }
+
+
+
+
+
