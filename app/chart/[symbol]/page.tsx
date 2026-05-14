@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ChartProvider, useChartContext } from "../chartcontext";
 import TradeLayout from "../TradeLayout";
 import { CandleStickChart } from "@/app/components/chartrender/charts/CandleStickChart";
@@ -18,11 +19,13 @@ function ChartPageInner() {
     placeTrade, closeTrade, handlePositionClosed,
   } = useChartContext();
 
+  const [quantity, setQuantity] = useState(1);
+
   const tradeUI = (
     <>
       {!connected && <p className="text-xs text-yellow-500 mb-1">Connecting to feed...</p>}
       {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
-      <TradeButtons data={tick} onTrade={(action) => placeTrade(action, tick, shortname)} />
+      <TradeButtons data={tick} onTrade={(action) => placeTrade(action, tick, shortname, quantity)} quantity={quantity} onQuantityChange={setQuantity} />
     </>
   );
 

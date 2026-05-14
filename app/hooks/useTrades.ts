@@ -30,14 +30,14 @@ export function useTrades(
     return () => socket.close();
   }, []);
 
-  function placeTrade(action: "buy" | "sell", data: any, ticker: string, sessionId?: string) {
+  function placeTrade(action: "buy" | "sell", data: any, ticker: string, quantity: number, sessionId?: string) {
     const price = action === "buy" ? data.buy_price : data.close;
     if (typeof price !== "number") {
       setError("Invalid price data.");
       return;
     }
     // Fire and forget — confirm comes back through the socket
-    postTrade({ ticker, action, price, quantity: 1, session_id: sessionId });
+    postTrade({ ticker, action, price, quantity, session_id: sessionId });
   }
 
   async function closeTrade(positionId: string, exitPrice: number, sessionId?: string) {
