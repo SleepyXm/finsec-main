@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
+import positions from '../../trading/positions';
 
-export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartOptions: any = {}) {
+type ChartPlugins = {
+  positions?: any[];
+  getPositionLabel?: (position: any) => string;
+};
+
+export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartOptions: any = {}, plugins: ChartPlugins = {}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
+  const positionLinesRef = useRef<Map<string, any>>(new Map());
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -67,6 +74,58 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
       seriesRef.current = null;
     };
   }, []);
+
+
+  useEffect(() => {
+  if (!seriesRef.current || !plugins.positions) return;
+
+  const active = new Set();
+
+  plugins.positions.forEach((position) => {
+    const id = position.position_id ?? position.id;
+
+    active.add(id);
+
+    const existing = positionLinesRef.current.get(id);
+
+    const color =
+      position.side === 'long'
+        ? '#089981'
+        : '#f23645';
+
+    const title =
+      plugins.getPositionLabel?.(position)
+      ?? position.symbol;
+
+    if (existing) {
+      existing.applyOptions({
+        price: position.entry_price,
+        title,
+        color,
+      });
+
+      return;
+    }
+
+    const line = seriesRef.current.createPriceLine({
+      price: position.entry_price,
+      color,
+      lineWidth: 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title,
+    });
+
+    positionLinesRef.current.set(id, line);
+  });
+
+  positionLinesRef.current.forEach((line, id) => {
+    if (!active.has(id)) {
+      seriesRef.current.removePriceLine(line);
+      positionLinesRef.current.delete(id);
+    }
+  });
+}, [plugins.positions, plugins.getPositionLabel]);
 
   return { containerRef, chartRef, seriesRef };
 }

@@ -1,7 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { CandlestickSeries } from 'lightweight-charts';
 import { useChart } from '../hooks/useChart';
-import { PositionTags } from '../overlays/PositionOverlay';
 import { StrategyOverlay } from '../overlays/Strategy';
 import { PriceLines } from '../../trading/price';
 import { useCandleHighlight } from '../overlays/CandleHighlight';
@@ -19,13 +18,48 @@ export const CandleStickChart: React.FC<{
 }> = ({ data, colors = {}, renderTradeUI, trades = [], positions = [], livePnLMap = {}, isCreatingStrategy = false, onClosePosition, onAnnotation }) => {
   const { upColor = 'rgb(69,197,133)', downColor = '#ad4b44ff' } = colors;
   const priceLinesRef = useRef<any[]>([]);
-  const positionLinesRef = useRef<any[]>([]);
 
-  const { containerRef, chartRef, seriesRef } = useChart(CandlestickSeries, {
-    upColor, downColor,
-    borderUpColor: upColor, borderDownColor: downColor,
-    wickUpColor: upColor, wickDownColor: downColor,
-  });
+  const getPositionLabel = useCallback((position) => {
+  const id = position.position_id ?? position.id;
+  const pnl = livePnLMap[id] ?? 0;
+
+  return (
+    `${position.side.toUpperCase()} ` +
+    `${position.symbol} ` +
+    `${pnl >= 0 ? '+' : ''}` +
+    `$${pnl.toFixed(2)}`
+  );
+}, [livePnLMap]);
+
+  const { containerRef, chartRef, seriesRef } = useChart(
+  CandlestickSeries,
+  {
+    upColor,
+    downColor,
+    borderUpColor: upColor,
+    borderDownColor: downColor,
+    wickUpColor: upColor,
+    wickDownColor: downColor, getPositionLabel,
+  },
+  {},
+  {
+    positions,
+
+    getPositionLabel: (position) => {
+      const id =
+        position.position_id ?? position.id;
+
+      const pnl = livePnLMap[id] ?? 0;
+
+      return (
+        `${position.side.toUpperCase()} ` +
+        `${position.symbol} ` +
+        `${pnl >= 0 ? '+' : ''}` +
+        `$${pnl.toFixed(2)}`
+      );
+    },
+  }
+);
 
   const { setSelection, clearSelection } = useCandleHighlight({
     chartRef,
@@ -54,28 +88,10 @@ export const CandleStickChart: React.FC<{
   seriesRef.current.setData([...data, ...whitespace]);
 }, [data]);
 
-  useEffect(() => {
-    if (!seriesRef.current) return;
-    positionLinesRef.current.forEach(line => { try { seriesRef.current.removePriceLine(line); } catch {} });
-    positionLinesRef.current = [];
-    positions.forEach((position) => {
-      const id = position.position_id ?? position.id;
-      const livePnL = livePnLMap[id] ?? 0;
-      const isLong = position.side === 'long';
-      const line = seriesRef.current.createPriceLine({
-        price: position.entry_price,
-        color: isLong ? '#22c55e' : '#ef4444',
-        lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
-        title: `${position.side.toUpperCase()} ${position.symbol} ${livePnL >= 0 ? '+' : ''}$${livePnL.toFixed(2)}`,
-      });
-      positionLinesRef.current.push(line);
-    });
-  }, [positions, livePnLMap]);
 
   return (
     <div style={{ position: 'relative', width: '97vw', height: '70vh' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-      <PositionTags positions={positions} livePnLMap={livePnLMap} seriesRef={seriesRef} onClosePosition={onClosePosition} />
       {renderTradeUI && <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10 }}>{renderTradeUI}</div>}
       {isCreatingStrategy && <StrategyOverlay chartRef={chartRef} seriesRef={seriesRef} data={data} onAnnotation={onAnnotation} setSelection={setSelection} clearSelection={clearSelection} />}
     </div>

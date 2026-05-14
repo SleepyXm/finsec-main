@@ -3,7 +3,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
 revision = '004_add_strategies'
-down_revision = '003_add_unrealised_pnl'
+down_revision = '003_prefs_favs_lvrg'
 branch_labels = None
 depends_on = None
 

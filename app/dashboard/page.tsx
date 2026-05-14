@@ -62,9 +62,8 @@ export default function DashboardPage() {
     <div style={{ background: tokens.bg0, minHeight: "100vh", padding: "24px 28px 48px", display: "flex", flexDirection: "column", gap: 16 }}>
 
       {/* Header */}
-      <PageHeader title={`Welcome back, ${user?.username}`} subtitle="Saturday, 9 May 2026 · Markets closed">
-        <Btn>This week</Btn>
-        <Btn primary>+ Log trade</Btn>
+      <PageHeader title={`Welcome back, ${user?.username}`} subtitle={`Date today: ${new Date().toLocaleDateString("en-GB")}`}>
+
       </PageHeader>
 
       {/* Stat strip */}
