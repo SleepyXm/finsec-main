@@ -19,7 +19,7 @@ export const CandleStickChart: React.FC<{
   const { upColor = 'rgb(69,197,133)', downColor = '#ad4b44ff' } = colors;
   const priceLinesRef = useRef<any[]>([]);
 
-  const getPositionLabel = useCallback((position) => {
+  const getPositionLabel = useCallback((position: any) => {
   const id = position.position_id ?? position.id;
   const pnl = livePnLMap[id] ?? 0;
 
@@ -39,7 +39,7 @@ export const CandleStickChart: React.FC<{
     borderUpColor: upColor,
     borderDownColor: downColor,
     wickUpColor: upColor,
-    wickDownColor: downColor, getPositionLabel,
+    wickDownColor: downColor,getPositionLabel,
   },
   {},
   {
