@@ -2,7 +2,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { RawData } from "../types/charts";
 import { Asset } from "../types/assets";
-import { LinechartIntraday } from "../chart/chartrender";
+import { LinechartIntraday } from "./chartrender/charts/LinechartIntraday";
 
 interface AssetSearchBarProps {
   onSearch: (query: string) => void;

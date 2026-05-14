@@ -1,4 +1,5 @@
 
+import { useState } from "react";
 import { usePositions } from "@/app/hooks/usePositions";
 import { useTrades } from "../../hooks/useTrades";
 import TradeButtons from "./tradebuttons";
@@ -16,12 +17,16 @@ export default function TradeButtonRow({
 }: TradeButtonRowProps) {
   const { positions, setPositions, handlePositionClosed, } = usePositions(ticker);
   const { placeTrade, closeTrade, error } = useTrades(positions, setPositions);
+  const [accountUnrealisedPnL, setAccountUnrealisedPnL] = useState(0);
 
+  
   const { tick, connected, livePnLMap } = useStockSocket(
     ticker,
     interval,
     positions, 
-    handlePositionClosed 
+    handlePositionClosed,
+    setAccountUnrealisedPnL
+    
   );
 
   const handleTrade = async (action: "buy" | "sell") => {
@@ -40,6 +45,7 @@ export default function TradeButtonRow({
         positions={positions}
         livePnLMap={livePnLMap}
         onClose={(positionId) => closeTrade(positionId, tick?.close ?? 0)}
+        accountUnrealisedPnL={accountUnrealisedPnL}
       />
     </>
   );

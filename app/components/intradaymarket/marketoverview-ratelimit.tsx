@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { MarketOverviewItem } from "../../types/assets";
 import { RawData } from "../../types/charts";
-import { LinechartIntraday } from "../../chart/chartrender";
+import { LinechartIntraday } from "../chartrender/charts/LinechartIntraday";
 import { fetchMarketOverview, fetchIntraday } from "../../types/assets";
 import { MarketSection } from "./MarketSection";
 import { connectMarketOverview } from "@/app/types/websocket";
@@ -63,7 +63,7 @@ export default function MarketOverview() {
     ...tab,
     tickers: tab.tickers.map(t => {
       const live = items.find(i => i.ticker === t.ticker);
-      return { ...t, close: live?.close ?? null };
+      return { ...t, close: live?.close ?? 0 };
     })
   }));
 

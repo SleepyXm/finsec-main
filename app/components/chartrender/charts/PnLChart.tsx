@@ -19,7 +19,7 @@ export const PnLChart: React.FC<{
     topLineColor, bottomLineColor, topFillColor1, bottomFillColor1,
     lineWidth: 1,
   } satisfies BaselineSeriesPartialOptions, {
-    timeScale: { fixLeftEdge: true },
+    timeScale: { fixLeftEdge: true, rightOffset: -300, },
   });
 
   useEffect(() => { if (seriesRef.current) seriesRef.current.setData(data); }, [data]);

@@ -27,7 +27,7 @@ export function AssetPill({
 }: {
   ticker: string;
   name: string;
-  close: number | null;
+  close: number;
   selected: boolean;
   onSelect: () => void;
 }) {

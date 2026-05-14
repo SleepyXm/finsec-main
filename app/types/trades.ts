@@ -18,6 +18,7 @@ export interface OpenPositionsProps {
   positions: Trade[];
   livePnLMap: Record<string, number>;
   onClose: (positionId: string) => void;
+  accountUnrealisedPnL: number;
 }
 
 let socket: WebSocket | null = null;

@@ -10,6 +10,19 @@ export interface TradeHistory {
   closed_at: string | null;
 }
 
+export interface TradeHistoryRow {
+  id: string;
+  symbol: string;
+  side: string;
+  quantity: number;
+  entry_price: string;   // formatted: "$847.20"
+  exit_price: string;    // formatted: "$172.40" | "—"
+  realised_pnl: string;  // formatted: "+$12.50" | "—"
+  rr: string;
+  date: string;
+  note: string;
+}
+
 export interface PortfolioStats {
   total_realised_pnl: number;
   trade_count: number;

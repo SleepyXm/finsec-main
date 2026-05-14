@@ -45,7 +45,7 @@ export async function fetchIntraday(
   return data.map((d: any) => ({ time: d.time, value: d.close }));
 }
 
-export async function fetchMarketOverview(): Promise<Asset[]> {
+export async function fetchMarketOverview(): Promise<MarketOverviewItem[]> {
   const res = await fetch(`${BACKEND_URL}/market/overview`);
   if (!res.ok) throw new Error(`Market overview failed: ${res.status}`);
   return res.json();
