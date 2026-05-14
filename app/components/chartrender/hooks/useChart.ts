@@ -14,6 +14,7 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
   const seriesRef = useRef<any>(null);
   const positionLinesRef = useRef<Map<string, any>>(new Map());
   const [, forceUpdate] = useState(0);
+  const [chartKey, setChartKey] = useState(0);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -71,6 +72,7 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
 
     chartRef.current = chart;
     seriesRef.current = series;
+    setChartKey(k => k + 1);
 
     const onResize = () => {
       if (!containerRef.current || !chartRef.current) return;
@@ -87,6 +89,7 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      positionLinesRef.current.clear();
     };
   }, []);
 
@@ -140,12 +143,7 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
       positionLinesRef.current.delete(id);
     }
   });
-}, [plugins.positions, plugins.getPositionLabel]);
+}, [chartKey, plugins.positions, plugins.getPositionLabel]);
 
   return { containerRef, chartRef, seriesRef };
 }
-
-
-
-
-
