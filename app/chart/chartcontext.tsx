@@ -36,7 +36,7 @@ interface ChartContextValue {
   positions: any[];
   livePnLMap: Record<string, number>;
   accountUnrealisedPnL: number;
-  placeTrade: (action: "buy" | "sell", tick: any, symbol: string) => void;
+  placeTrade: (action: "buy" | "sell", tick: any, symbol: string, quantity: number) => void;
   closeTrade: (id: string, price: number) => void;
   handlePositionClosed: (id: string) => void;
   error: string | null;
