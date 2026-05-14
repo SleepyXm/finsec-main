@@ -45,7 +45,7 @@ export default function () {
 
             socket.setTimeout(() => {
                 socket.close();
-            }, 2000);
+            }, 500);
             return;
           }
 

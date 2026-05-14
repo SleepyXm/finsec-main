@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	workerHardLimit  = 100
-	workerSpawnLimit = 65
+	workerHardLimit  = 150
+	workerSpawnLimit = 100
 )
 
 type Message struct {

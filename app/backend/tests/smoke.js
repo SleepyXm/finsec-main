@@ -7,9 +7,9 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 0,
       stages: [
-        { duration: '10s', target: 50 },   // trickle
-        { duration: '20s', target: 250 },  // market open rush
-        { duration: '30s', target: 1000 },  // sustained
+        { duration: '10s', target: 250 },   // trickle
+        { duration: '20s', target: 1000 },  // market open rush
+        { duration: '40s', target: 10000 },  // sustained
         { duration: '10s', target: 0 },    // close
       ],
     },
@@ -26,7 +26,7 @@ export const options = {
 };
 
 export default function () {
-  const url = 'ws://localhost:9000/api/ws/stockdata?ticker_symbol=MNQ=F&interval=1m';
+  const url = 'ws://localhost:9000/api/ws/stockdata?ticker_symbol=NQ=F&interval=5m';
   
   const res = ws.connect(url, {}, function (socket) {
     socket.on('open', () => {
