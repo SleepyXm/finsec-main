@@ -39,7 +39,7 @@ export const CandleStickChart: React.FC<{
     borderUpColor: upColor,
     borderDownColor: downColor,
     wickUpColor: upColor,
-    wickDownColor: downColor,getPositionLabel,
+    wickDownColor: downColor
   },
   {},
   {

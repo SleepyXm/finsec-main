@@ -37,7 +37,7 @@ function ChartPageInner() {
           accountUnrealisedPnL={accountUnrealisedPnL}
           positions={positions}
           livePnLMap={livePnLMap}
-          onClose={handlePositionClosed}
+          onClose={(id) => closeTrade(id, tick?.close ?? 0)}
         />
       }
     >
