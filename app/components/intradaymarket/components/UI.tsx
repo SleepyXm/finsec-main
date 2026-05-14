@@ -15,6 +15,13 @@ export const LOGO_MAP: Record<string, string> = {
   "SI=F":     "/logos/silver.png",
   "CL=F":     "/logos/crudeoil.png",
   "NG=F":     "/logos/natgas.png",
+  "TSLA":     "/logos/tesla.png",
+  "AAPL":     "/logos/apple.png",
+  "NVDA":     "/logos/nvidia.png",
+  "META":     "/logos/meta.png",
+  "GOOGL":     "/logos/google.png",
+  "NFLX":     "/logos/netflix.png",
+
 };
 
 
