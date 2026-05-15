@@ -10,7 +10,14 @@ export interface ChartTheme {
   grid: string;
 
   bullCandle: string;
+  
   bearCandle: string;
+
+  wickUpColor: string;
+  wickDownColor: string;
+
+  borderUpColor: string,
+  borderDownColor: string,
 
   longPosition: string;
   shortPosition: string;
@@ -37,6 +44,12 @@ export const defaultChartTheme: ChartTheme = {
   bullCandle: '#089981',
   bearCandle: '#f23645',
 
+  wickUpColor: '#089981',
+  wickDownColor: '#f23645',
+
+  borderUpColor: '#089981',
+  borderDownColor: '#f23645',
+
   longPosition: '#ffffff',
   shortPosition: '#000000',
 
@@ -58,9 +71,6 @@ export const intradayChartTheme: ChartTheme = {
   text: '#e8e8e8',
 
   grid: '#2a2e3a00',
-
-  bullCandle: '#c2c2c2',
-  bearCandle: '#000000',
 
   longPosition: '#ffffff',
   shortPosition: '#000000',
@@ -88,6 +98,12 @@ export const gradientChartTheme: ChartTheme = {
 
   bullCandle: '#089981',
   bearCandle: '#f23645',
+
+  wickUpColor: '#089981',
+  wickDownColor: '#f23645',
+
+  borderUpColor: '#089981',
+  borderDownColor: '#f23645',
 
   longPosition: '#ffffff',
   shortPosition: '#000000',

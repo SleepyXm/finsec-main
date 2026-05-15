@@ -18,7 +18,6 @@ export const CandleStickChart: React.FC<{
   onAnnotation?: (annotation: any) => void;
   theme?: ChartTheme; 
 }> = ({ data, colors = {}, renderTradeUI, trades = [], positions = [], livePnLMap = {}, isCreatingStrategy = false, onClosePosition, onAnnotation, theme = defaultChartTheme }) => {
-  const { upColor = 'rgb(69,197,133)', downColor = '#ad4b44ff' } = colors;
   const priceLinesRef = useRef<any[]>([]);
 
   const getPositionLabel = useCallback((position: any) => {
@@ -40,8 +39,8 @@ export const CandleStickChart: React.FC<{
     downColor: theme.bearCandle,
     borderUpColor: theme.bullCandle,
     borderDownColor: theme.bearCandle,
-    wickUpColor: theme.bullCandle,
-    wickDownColor: theme.bearCandle,
+    wickUpColor: theme.wickUpColor,
+    wickDownColor: theme.wickDownColor,
   },
   {
     layout: {

@@ -77,8 +77,8 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
       downColor: theme.bearCandle,
       borderUpColor: theme.bullCandle,
       borderDownColor: theme.bearCandle,
-      wickUpColor: theme.bullCandle,
-      wickDownColor: theme.bearCandle,
+      wickUpColor: theme.wickUpColor,
+      wickDownColor: theme.wickDownColor,
     });
 
     chartRef.current = chart;
@@ -121,10 +121,10 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
     seriesRef.current.applyOptions({
       upColor: theme.bullCandle,
       downColor: theme.bearCandle,
-      borderUpColor: theme.bullCandle,
-      borderDownColor: theme.bearCandle,
-      wickUpColor: theme.bullCandle,
-      wickDownColor: theme.bearCandle,
+      borderUpColor: theme.borderUpColor,
+      borderDownColor: theme.borderDownColor,
+      wickUpColor: theme.wickUpColor,
+      wickDownColor: theme.wickDownColor,
     });
   }, [theme, chartKey]);
 
