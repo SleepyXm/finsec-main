@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AssetSearchBar, AssetListItem  } from "./assetsearchcomponents";
 import { useAssetSearch } from "../hooks/utility";
+import { usePathname } from "next/navigation";
  
 const Navbar = () => {
   const { user, setUser } = useUser();
@@ -13,7 +14,9 @@ const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
   const { assets, loading, error, search } = useAssetSearch();
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const pathname = usePathname();
+  const isChartPage = pathname.startsWith("/chart/"); 
  
   useEffect(() => {
     setMounted(true);
@@ -60,20 +63,23 @@ const Navbar = () => {
  
   return (
     <>
-    <div className="h-16" aria-hidden="true" />
-    <header className={`fixed top-3 left-1/2 -translate-x-1/2 w-[80vw] flex items-center justify-between px-6 py-[12px] bg-white/[0.055] backdrop-blur-sm border rounded-4xl border-white/[0.09] ${isVisible ? "translate-y-0" : "-translate-y-full"}`}>
+    <header className={`fixed top-0 left-0 z-50 flex items-center justify-between px-6 py-[12px] border-b border-white/[0.09] backdrop-blur-sm bg-white/[0.055] transition-all
+      ${isChartPage ? "relative w-full rounded-none border-b"
+        : `top-3 left-1/2 -translate-x-1/2 w-[80vw] rounded-4xl border ${isVisible ? "translate-y-0" : "-translate-y-full"}`
+      }
+    `}>
  
       {/* Logo */}
       <Link href="/" className="flex items-center no-underline">
           <span className="text-2xl font-thin tracking-[-0.4px] text-[#f0f0f0] whitespace-nowrap">
-            Hyjacked
+          Finsec
           </span>
       </Link>
 
-      <div className="relative w-[280px]">
+      <div className="relative w-[280px] z-30">
         <AssetSearchBar onSearch={search} />
         {assets.length > 0 && (
-          <ul className="absolute top-full mt-1 left-0 w-full bg-[#131722] border border-[#2a2e3a] rounded-xl shadow-xl z-1 overflow-hidden list-none p-0 m-0">
+          <ul className="absolute top-full mt-1 left-0 w-full bg-[#131722] border border-[#2a2e3a] rounded-xl shadow-xl overflow-hidden list-none p-0 m-0">
             {assets.map((asset) => (
               <AssetListItem
                 key={asset.symbol}

@@ -11,7 +11,7 @@ function Select({ value, onChange, children, style }: {
   style?: React.CSSProperties;
 }) {
   return (
-    <div style={{ position: "relative", flexShrink: 0, ...style }}>
+    <div style={{ position: "relative", zIndex: 1, flexShrink: 0, ...style }}>
       <select
         value={value}
         onChange={onChange}
