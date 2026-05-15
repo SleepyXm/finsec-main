@@ -8,18 +8,16 @@ type ChartPlugins = {
   getPositionLabel?: (position: any) => string;
 };
 
-function resolveBackground(bg: ChartBackground) {
-  if (bg.type === 'transparent') {
-    return { type: ColorType.Solid, color: 'rgba(0,0,0,0)' };
+export function resolveBackground(bg: ChartBackground) {
+  switch (bg.type) {
+    case 'solid':
+      return { type: 'solid', color: bg.color };
+    case 'gradient':
+      return { type: 'gradient', topColor: bg.topColor, bottomColor: bg.bottomColor };
+    case 'transparent':
+    default:
+      return { type: 'solid', color: 'transparent' };
   }
-  if (bg.type === 'gradient') {
-    return {
-      type: ColorType.VerticalGradient,
-      topColor: bg.topColor,
-      bottomColor: bg.bottomColor,
-    };
-  }
-  return { type: ColorType.Solid, color: bg.color };
 }
 
 export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartOptions: any = {}, plugins: ChartPlugins = {}, theme = defaultChartTheme,) {

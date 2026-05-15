@@ -66,52 +66,73 @@ export const ChartThemeModal: React.FC<{
             </h2>
 
             <Row label="Background">
-                <div className="relative w-17 h-7 rounded overflow-hidden border border-white/15">
-                    <input
-                        type="color"
-                        value={
-                            merged.background.type === "solid"
-                            ? merged.background.color
-                            : "#000000"
-                        }
-                        onChange={(e) =>
-                            set("background", {
-                                type: "solid",
-                                color: e.target.value,
-                            })
-                        }
-                    />
+              <div className="flex items-center gap-2">
+                {/* Type toggle */}
+                <select
+                  className="bg-white/6 border border-white/12 rounded-md text-white/80 text-[11px] px-2 py-1 focus:outline-none"
+                  value={merged.background.type}
+                  onChange={e => {
+                    const t = e.target.value;
+                    if (t === 'solid')       set('background', { type: 'solid', color: '#000000' });
+                    if (t === 'gradient')    set('background', { type: 'gradient', topColor: '#1d2129', bottomColor: '#0a0e14' });
+                    if (t === 'transparent') set('background', { type: 'transparent' });
+                  }}
+                  >
+                    <option value="solid">Solid</option>
+                    <option value="gradient">Gradient</option>
+                    <option value="transparent">None</option>
+                  </select>
+
+                  {/* Solid */}
+                  {merged.background.type === 'solid' && (
+                    <div className="relative w-17 h-7 rounded border border-white/15">
+                      <div className="absolute inset-0 rounded" style={{ background: merged.background.color }} />
+                      <ColorPicker value={merged.background.color} onChange={v => set('background', { type: 'solid', color: v })} />
+                    </div>
+                  )}
+
+                  {/* Gradient — top color → bottom color */}
+                  {merged.background.type === 'gradient' && (
+                    <div className="flex items-center gap-1.5">
+                      <div className="relative w-7 h-7 rounded border border-white/15">
+                        <div className="absolute inset-0 rounded" style={{ background: merged.background.topColor }} />
+                        <ColorPicker value={merged.background.topColor} onChange={v => set('background', { ...merged.background, topColor: v })} />
+                      </div>
+                      <span className="text-white/30 text-xs">→</span>
+                      <div className="relative w-7 h-7 rounded border border-white/15">
+                        <div className="absolute inset-0 rounded" style={{ background: merged.background.bottomColor }} />
+                        <ColorPicker value={merged.background.bottomColor} onChange={v => set('background', { ...merged.background, bottomColor: v })}/>
+                  </div>
                 </div>
+              )}
+              </div>
             </Row>
 
             <Row label="Text">
+              <div className="flex gap-2">
                 <div className="relative w-17 h-7 rounded overflow-hidden border border-white/15">
-                    <input
-                        type="color"
-                        value={merged.text}
-                        onChange={(e) => set("text", e.target.value)}
-                    />
+                  <div className="absolute inset-0" style={{ background: merged.text }} />
+                  <ColorPicker value={merged.text} onChange={v => set('text', v)} />
                 </div>
+              </div>
             </Row>
 
             <Row label="Grid">
+              <div className="flex gap-2">
                 <div className="relative w-17 h-7 rounded overflow-hidden border border-white/15">
-                    <input
-                        type="color"
-                        value={merged.grid}
-                        onChange={(e) => set("grid", e.target.value)}
-                    />
+                  <div className="absolute inset-0" style={{ background: merged.grid }} />
+                  <ColorPicker value={merged.grid} onChange={v => set('grid', v)} />
                 </div>
+              </div>
             </Row>
 
             <Row label="Crosshair">
+              <div className="flex gap-2">
                 <div className="relative w-17 h-7 rounded overflow-hidden border border-white/15">
-                    <input
-                        type="color"
-                        value={merged.crosshair}
-                        onChange={(e) => set("crosshair", e.target.value)}
-                    />
+                  <div className="absolute inset-0" style={{ background: merged.crosshair }} />
+                  <ColorPicker value={merged.crosshair} onChange={v => set('crosshair', v)} />
                 </div>
+              </div>
             </Row>
 
             {isCandle ? (
@@ -120,17 +141,11 @@ export const ChartThemeModal: React.FC<{
                     <div className="flex gap-2">
                         <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
                             <div className="absolute inset-0" style={{ background: merged.bullCandle }} />
-                            <input type="color" value={merged.bullCandle}
-                            //<ColorPicker value={merged.bullCandle} onChange={v => set('bullCandle', v)} /> <-- should be instead of input, but bugged right now.
-
-                                onChange={e => set('bullCandle', e.target.value)}
-                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                            <ColorPicker value={merged.bullCandle} onChange={v => set('bullCandle', v)} />
                         </div>
                         <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
                             <div className="absolute inset-0" style={{ background: merged.bearCandle }} />
-                            <input type="color" value={merged.bearCandle}
-                                onChange={e => set('bearCandle', e.target.value)}
-                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                            <ColorPicker value={merged.bearCandle} onChange={v => set('bearCandle', v)} /> 
                         </div>
                     </div>
                 </Row>
@@ -139,15 +154,11 @@ export const ChartThemeModal: React.FC<{
                     <div className="flex gap-2">
                         <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
                             <div className="absolute inset-0" style={{ background: merged.borderUpColor }} />
-                            <input type="color" value={merged.borderUpColor}
-                                onChange={e => set('borderUpColor', e.target.value)}
-                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                            <ColorPicker value={merged.borderUpColor} onChange={v => set('borderUpColor', v)} />
                         </div>
                         <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
                             <div className="absolute inset-0" style={{ background: merged.borderDownColor }} />
-                            <input type="color" value={merged.borderDownColor}
-                                onChange={e => set('borderDownColor', e.target.value)}
-                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                            <ColorPicker value={merged.borderDownColor} onChange={v => set('borderDownColor', v)} /> 
                         </div>
                     </div>
                 </Row>
@@ -156,15 +167,11 @@ export const ChartThemeModal: React.FC<{
                     <div className="flex gap-2">
                         <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
                             <div className="absolute inset-0" style={{ background: merged.wickUpColor }} />
-                            <input type="color" value={merged.wickUpColor}
-                                onChange={e => set('wickUpColor', e.target.value)}
-                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                            <ColorPicker value={merged.wickUpColor} onChange={v => set('wickUpColor', v)} />
                         </div>
                         <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
                             <div className="absolute inset-0" style={{ background: merged.wickDownColor }} />
-                            <input type="color" value={merged.wickDownColor}
-                                onChange={e => set('wickDownColor', e.target.value)}
-                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                            <ColorPicker value={merged.wickDownColor} onChange={v => set('wickDownColor', v)} /> 
                         </div>
                     </div>
                 </Row>
@@ -174,15 +181,11 @@ export const ChartThemeModal: React.FC<{
                     <div className="flex gap-2">
                         <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
                             <div className="absolute inset-0" style={{ background: merged.longPosition }} />
-                            <input type="color" value={merged.longPosition}
-                                onChange={e => set('longPosition', e.target.value)}
-                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                            <ColorPicker value={merged.longPosition} onChange={v => set('longPosition', v)} />
                         </div>
                         <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
                             <div className="absolute inset-0" style={{ background: merged.shortPosition }} />
-                            <input type="color" value={merged.shortPosition}
-                                onChange={e => set('shortPosition', e.target.value)}
-                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                            <ColorPicker value={merged.shortPosition} onChange={v => set('shortPosition', v)} /> 
                         </div>
                     </div>
                 </Row>
@@ -272,7 +275,7 @@ export const ChartThemeModal: React.FC<{
 );
 };
 
-const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+export const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div className="flex items-center justify-between">
     <span className="text-sm text-gray-300">{label}</span>
     {children}

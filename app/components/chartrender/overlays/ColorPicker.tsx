@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { createPortal } from "react-dom";
 
 interface HSVa { h: number; s: number; v: number; a: number; }
 
@@ -84,6 +85,10 @@ export const ColorPicker: React.FC<{
   value: string;
   onChange: (value: string) => void;
 }> = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const swatchRef = useRef<HTMLDivElement>(null);
+
   const [hsva, setHsva] = useState<HSVa>(() => colorToHsva(value));
   const [hexInput, setHexInput] = useState('');
   const [alphaInput, setAlphaInput] = useState('');
@@ -98,10 +103,7 @@ export const ColorPicker: React.FC<{
     onChange(hsvaToString(next));
   }, [onChange]);
 
-  useEffect(() => {
-    setHsva(colorToHsva(value));
-  }, [value]);
-
+  useEffect(() => { setHsva(colorToHsva(value)); }, [value]);
   useEffect(() => {
     setHexInput(rgbToHex(r, g, b));
     setAlphaInput(String(Math.round(hsva.a * 100)));
@@ -121,7 +123,7 @@ export const ColorPicker: React.FC<{
     g2.addColorStop(0, 'rgba(0,0,0,0)');
     g2.addColorStop(1, '#000');
     ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
-  }, [hsva.h]);
+  }, [hsva.h, open]); // re-draw when opened
 
   useEffect(() => {
     const canvas = hueRef.current;
@@ -131,7 +133,7 @@ export const ColorPicker: React.FC<{
     for (let i = 0; i <= 360; i += 30) grad.addColorStop(i / 360, `hsl(${i},100%,50%)`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, []);
+  }, [open]);
 
   useEffect(() => {
     const canvas = alphaRef.current;
@@ -143,120 +145,142 @@ export const ColorPicker: React.FC<{
     grad.addColorStop(1, `rgba(${r},${g},${b},1)`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, [r, g, b]);
+  }, [r, g, b, open]);
 
   const onSatDrag = useDrag((x, y, rect) => {
-    emit({
-      ...hsva,
-      s: Math.max(0, Math.min(1, (x - rect.left) / rect.width)),
-      v: Math.max(0, Math.min(1, 1 - (y - rect.top) / rect.height)),
-    });
+    emit({ ...hsva, s: Math.max(0, Math.min(1, (x - rect.left) / rect.width)), v: Math.max(0, Math.min(1, 1 - (y - rect.top) / rect.height)) });
   });
-
   const onHueDrag = useDrag((x, y, rect) => {
     emit({ ...hsva, h: Math.max(0, Math.min(360, ((x - rect.left) / rect.width) * 360)) });
   });
-
   const onAlphaDrag = useDrag((x, y, rect) => {
     emit({ ...hsva, a: Math.max(0, Math.min(1, (x - rect.left) / rect.width)) });
   });
 
+  const handleSwatchClick = () => {
+    if (swatchRef.current) {
+      const rect = swatchRef.current.getBoundingClientRect();
+      // Try to show picker below, but flip up if too close to bottom
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const pickerHeight = 320; // approx
+      const top = spaceBelow > pickerHeight
+        ? rect.bottom + 6
+        : rect.top - pickerHeight - 6;
+      setPos({ top, left: rect.left });
+    }
+    setOpen(v => !v);
+  };
+
   const cursorDark = hsva.v > 0.5 && hsva.s < 0.5;
 
-  return (
-    <div className="bg-[#0f1117] border border-white/10 rounded-xl overflow-hidden w-[260px]" style={{ fontFamily: "'DM Mono', monospace" }}>
-      <div className="relative cursor-crosshair" onMouseDown={onSatDrag}>
-        <canvas ref={satRef} width={260} height={160} className="w-full block" />
-        <div
-          className="absolute w-3 h-3 rounded-full border-2 border-white pointer-events-none -translate-x-1/2 -translate-y-1/2"
-          style={{
-            left: `${hsva.s * 100}%`,
-            top: `${(1 - hsva.v) * 100}%`,
-            boxShadow: cursorDark ? '0 0 0 1px rgba(0,0,0,0.4)' : '0 0 0 1px rgba(255,255,255,0.4)',
-          }}
-        />
-      </div>
-
-      <div className="px-3.5 py-3 flex flex-col gap-2.5">
-        <div className="flex items-center gap-2.5">
+  const picker = (
+    <>
+      <div className="fixed inset-0 z-[100]" onClick={() => setOpen(false)} />
+      <div
+        className="fixed z-[101] bg-[#0f1117] border border-white/10 rounded-xl overflow-hidden w-[260px]"
+        style={{ top: pos.top, left: pos.left, fontFamily: "'DM Mono', monospace" }}
+      >
+        <div className="relative cursor-crosshair" onMouseDown={onSatDrag}>
+          <canvas ref={satRef} width={260} height={160} className="w-full block" />
           <div
-            className="w-7 h-7 rounded-md border border-white/15 flex-shrink-0"
-            style={{ background: `rgba(${r},${g},${b},${hsva.a})` }}
+            className="absolute w-3 h-3 rounded-full border-2 border-white pointer-events-none -translate-x-1/2 -translate-y-1/2"
+            style={{
+              left: `${hsva.s * 100}%`,
+              top: `${(1 - hsva.v) * 100}%`,
+              boxShadow: cursorDark ? '0 0 0 1px rgba(0,0,0,0.4)' : '0 0 0 1px rgba(255,255,255,0.4)',
+            }}
           />
-          <div className="flex-1 flex flex-col gap-1.5">
-            <div
-              className="relative h-2.5 rounded cursor-pointer"
-              onMouseDown={onHueDrag}
-            >
-              <canvas ref={hueRef} width={220} height={10} className="w-full h-full block rounded" />
-              <div
-                className="absolute top-1/2 w-3 h-[18px] rounded-sm border-2 border-white pointer-events-none -translate-x-1/2 -translate-y-1/2"
-                style={{ left: `${(hsva.h / 360) * 100}%` }}
-              />
-            </div>
+        </div>
 
+        <div className="px-3.5 py-3 flex flex-col gap-2.5">
+          <div className="flex items-center gap-2.5">
             <div
-              className="relative h-2.5 rounded cursor-pointer"
-              style={{
-                backgroundImage: 'linear-gradient(45deg, #555 25%, transparent 25%), linear-gradient(-45deg, #555 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #555 75%), linear-gradient(-45deg, transparent 75%, #555 75%)',
-                backgroundSize: '6px 6px',
-                backgroundPosition: '0 0, 0 3px, 3px -3px, -3px 0px',
-              }}
-              onMouseDown={onAlphaDrag}
-            >
-              <canvas ref={alphaRef} width={220} height={10} className="w-full h-full block rounded relative z-10" />
+              className="w-7 h-7 rounded-md border border-white/15 flex-shrink-0"
+              style={{ background: `rgba(${r},${g},${b},${hsva.a})` }}
+            />
+            <div className="flex-1 flex flex-col gap-1.5">
+              <div className="relative h-2.5 rounded cursor-pointer" onMouseDown={onHueDrag}>
+                <canvas ref={hueRef} width={220} height={10} className="w-full h-full block rounded" />
+                <div
+                  className="absolute top-1/2 w-3 h-[18px] rounded-sm border-2 border-white pointer-events-none -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: `${(hsva.h / 360) * 100}%` }}
+                />
+              </div>
               <div
-                className="absolute top-1/2 w-3 h-[18px] rounded-sm border-2 border-white pointer-events-none -translate-x-1/2 -translate-y-1/2 z-20"
-                style={{ left: `${hsva.a * 100}%` }}
-              />
+                className="relative h-2.5 rounded cursor-pointer"
+                style={{
+                  backgroundImage: 'linear-gradient(45deg, #555 25%, transparent 25%), linear-gradient(-45deg, #555 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #555 75%), linear-gradient(-45deg, transparent 75%, #555 75%)',
+                  backgroundSize: '6px 6px',
+                  backgroundPosition: '0 0, 0 3px, 3px -3px, -3px 0px',
+                }}
+                onMouseDown={onAlphaDrag}
+              >
+                <canvas ref={alphaRef} width={220} height={10} className="w-full h-full block rounded relative z-10" />
+                <div
+                  className="absolute top-1/2 w-3 h-[18px] rounded-sm border-2 border-white pointer-events-none -translate-x-1/2 -translate-y-1/2 z-20"
+                  style={{ left: `${hsva.a * 100}%` }}
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-white/30 tracking-wider">#</span>
-          <input
-            className="bg-white/6 border border-white/12 rounded-md text-white/80 text-[11px] px-2 py-1 w-20 tracking-wider focus:outline-none focus:border-white/30"
-            value={hexInput}
-            onChange={e => setHexInput(e.target.value.replace('#', '').toUpperCase())}
-            onBlur={() => {
-              if (hexInput.length === 6) {
-                const [hr, hgv, hb] = hexToRgb(hexInput);
-                const [nh, ns, nv] = rgbToHsv(hr, hgv, hb);
-                emit({ ...hsva, h: nh, s: ns, v: nv });
-              }
-            }}
-            maxLength={6}
-          />
-          <span className="text-[10px] text-white/30 ml-auto">A</span>
-          <input
-            className="bg-white/6 border border-white/12 rounded-md text-white/80 text-[11px] px-2 py-1 w-11 tracking-wider focus:outline-none focus:border-white/30"
-            value={alphaInput}
-            onChange={e => setAlphaInput(e.target.value)}
-            onBlur={() => {
-              const parsed = Math.max(0, Math.min(100, parseInt(alphaInput) || 0));
-              emit({ ...hsva, a: parsed / 100 });
-            }}
-            maxLength={3}
-          />
-          <span className="text-[10px] text-white/30">%</span>
-        </div>
-
-        <div className="grid grid-cols-8 gap-1">
-          {SWATCHES.map(hex => (
-            <button
-              key={hex}
-              className="aspect-square rounded w-full border border-white/8 hover:scale-110 transition-transform"
-              style={{ background: hex }}
-              onClick={() => {
-                const [hr, hg, hb] = hexToRgb(hex.replace('#', ''));
-                const [nh, ns, nv] = rgbToHsv(hr, hg, hb);
-                emit({ ...hsva, h: nh, s: ns, v: nv });
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-white/30 tracking-wider">#</span>
+            <input
+              className="bg-white/6 border border-white/12 rounded-md text-white/80 text-[11px] px-2 py-1 w-20 tracking-wider focus:outline-none focus:border-white/30"
+              value={hexInput}
+              onChange={e => setHexInput(e.target.value.replace('#', '').toUpperCase())}
+              onBlur={() => {
+                if (hexInput.length === 6) {
+                  const [hr, hgv, hb] = hexToRgb(hexInput);
+                  const [nh, ns, nv] = rgbToHsv(hr, hgv, hb);
+                  emit({ ...hsva, h: nh, s: ns, v: nv });
+                }
               }}
+              maxLength={6}
             />
-          ))}
+            <span className="text-[10px] text-white/30 ml-auto">A</span>
+            <input
+              className="bg-white/6 border border-white/12 rounded-md text-white/80 text-[11px] px-2 py-1 w-11 tracking-wider focus:outline-none focus:border-white/30"
+              value={alphaInput}
+              onChange={e => setAlphaInput(e.target.value)}
+              onBlur={() => {
+                const parsed = Math.max(0, Math.min(100, parseInt(alphaInput) || 0));
+                emit({ ...hsva, a: parsed / 100 });
+              }}
+              maxLength={3}
+            />
+            <span className="text-[10px] text-white/30">%</span>
+          </div>
+
+          <div className="grid grid-cols-8 gap-1">
+            {SWATCHES.map(hex => (
+              <button
+                key={hex}
+                className="aspect-square rounded w-full border border-white/8 hover:scale-110 transition-transform"
+                style={{ background: hex }}
+                onClick={() => {
+                  const [hr, hg, hb] = hexToRgb(hex.replace('#', ''));
+                  const [nh, ns, nv] = rgbToHsv(hr, hg, hb);
+                  emit({ ...hsva, h: nh, s: ns, v: nv });
+                }}
+              />
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Swatch trigger — sits inside your existing wrapper div */}
+      <div
+        ref={swatchRef}
+        className="absolute inset-0 cursor-pointer"
+        onClick={handleSwatchClick}
+      />
+      {open && createPortal(picker, document.body)}
+    </>
   );
 };

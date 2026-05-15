@@ -3,6 +3,8 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import DrawingCanvas, {DrawingCanvasProps} from "../components/chartrender/overlays/DrawingCanvas";
 import { Shape } from "../components/chartrender/overlays/DrawingCanvas";
+import { ColorPicker } from "../components/chartrender/overlays/ColorPicker";
+import { Row } from "../components/chartrender/overlays/ThemeSettings";
  
 const TOP_BAR_H = 40;
 const LEFT_BAR_W = 48;
@@ -53,9 +55,6 @@ export default function TradeLayout({
   const [drawColor,  setDrawColor]  = useState("#3b82f6");
   const [drawLW,     setDrawLW]     = useState(2);
   const [drawVisible,setDrawVisible]= useState(true);
-  // undo/clear are forwarded via ref callbacks
-  const undoRef  = useRef<() => void>(() => {});
-  const clearRef = useRef<() => void>(() => {});
  
   // ── bottom drag ──────────────────────────────────────────────
 
@@ -213,13 +212,14 @@ export default function TradeLayout({
           <div style={{ width:28, height:1, background:"#1e2130", margin:"4px 0", flexShrink:0 }} />
 
           {/* Color picker */}
-          <input
-            type="color"
-            value={drawColor}
-            onChange={e => setDrawColor(e.target.value)}
-            title="Stroke color"
-            style={{ width:28, height:22, border:"none", background:"none", cursor:"pointer", padding:0, flexShrink:0 }}
-          />
+           <Row label="">
+              <div className="flex gap-2">
+                <div className="relative w-9 h-5 rounded overflow-hidden border border-white/15">
+                  <div className="absolute inset-0" style={{ background: drawColor }} />
+                  <ColorPicker value={drawColor} onChange={v => setDrawColor(v)} />
+                </div>
+              </div>
+            </Row>
 
           {/* Line width */}
           <select
