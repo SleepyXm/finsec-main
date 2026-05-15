@@ -9,8 +9,8 @@ export function SidebarTab({ label, active, onClick,}:
       onClick={onClick}
       className={`w-full px-4 py-2 text-left rounded-md text-sm transition-all duration-200 ${
         active
-          ? "text-black font-semibold dark:text-zinc-100 bg-black/5 dark:bg-white/10"
-          : "text-black/50 dark:text-zinc-400 hover:bg-black/70 hover:text-white dark:hover:bg-white/10 dark:hover:text-zinc-100"
+          ? "text-zinc-200 font-semibold dark:text-zinc-200 bg-zinc-100/40 dark:bg-white/10"
+          : "text-zinc-100/80 dark:text-zinc-600 hover:bg-zinc-200/20 hover:text-white dark:hover:bg-white/10 dark:hover:text-zinc-100"
       }`}
     >
       {label}

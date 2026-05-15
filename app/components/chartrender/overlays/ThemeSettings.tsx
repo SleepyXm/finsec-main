@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChartTheme } from '../themes/themes';
 import { SidebarTab } from '@/app/profile/profilecomponents';
+import { ColorPicker } from './ColorPicker';
 
 
 type Tab = "trading" | "chart" | "positions";
@@ -65,110 +66,125 @@ export const ChartThemeModal: React.FC<{
             </h2>
 
             <Row label="Background">
-              <input
-                type="color"
-                value={
-                  merged.background.type === "solid"
-                    ? merged.background.color
-                    : "#000000"
-                }
-                onChange={(e) =>
-                  set("background", {
-                    type: "solid",
-                    color: e.target.value,
-                  })
-                }
-              />
+                <div className="relative w-17 h-7 rounded overflow-hidden border border-white/15">
+                    <input
+                        type="color"
+                        value={
+                            merged.background.type === "solid"
+                            ? merged.background.color
+                            : "#000000"
+                        }
+                        onChange={(e) =>
+                            set("background", {
+                                type: "solid",
+                                color: e.target.value,
+                            })
+                        }
+                    />
+                </div>
             </Row>
 
             <Row label="Text">
-              <input
-                type="color"
-                value={merged.text}
-                onChange={(e) => set("text", e.target.value)}
-              />
+                <div className="relative w-17 h-7 rounded overflow-hidden border border-white/15">
+                    <input
+                        type="color"
+                        value={merged.text}
+                        onChange={(e) => set("text", e.target.value)}
+                    />
+                </div>
             </Row>
 
             <Row label="Grid">
-              <input
-                type="color"
-                value={merged.grid}
-                onChange={(e) => set("grid", e.target.value)}
-              />
+                <div className="relative w-17 h-7 rounded overflow-hidden border border-white/15">
+                    <input
+                        type="color"
+                        value={merged.grid}
+                        onChange={(e) => set("grid", e.target.value)}
+                    />
+                </div>
             </Row>
 
             <Row label="Crosshair">
-              <input
-                type="color"
-                value={merged.crosshair}
-                onChange={(e) => set("crosshair", e.target.value)}
-              />
+                <div className="relative w-17 h-7 rounded overflow-hidden border border-white/15">
+                    <input
+                        type="color"
+                        value={merged.crosshair}
+                        onChange={(e) => set("crosshair", e.target.value)}
+                    />
+                </div>
             </Row>
 
             {isCandle ? (
               <>
-                <Row label="Bull Candle">
-                  <input
-                    type="color"
-                    value={merged.bullCandle}
-                    onChange={(e) => set("bullCandle", e.target.value)}
-                  />
+                <Row label="Candle">
+                    <div className="flex gap-2">
+                        <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
+                            <div className="absolute inset-0" style={{ background: merged.bullCandle }} />
+                            <input type="color" value={merged.bullCandle}
+                            //<ColorPicker value={merged.bullCandle} onChange={v => set('bullCandle', v)} /> <-- should be instead of input, but bugged right now.
+
+                                onChange={e => set('bullCandle', e.target.value)}
+                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                        </div>
+                        <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
+                            <div className="absolute inset-0" style={{ background: merged.bearCandle }} />
+                            <input type="color" value={merged.bearCandle}
+                                onChange={e => set('bearCandle', e.target.value)}
+                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                        </div>
+                    </div>
                 </Row>
 
-                <Row label="Bear Candle">
-                  <input
-                    type="color"
-                    value={merged.bearCandle}
-                    onChange={(e) => set("bearCandle", e.target.value)}
-                  />
+                <Row label="Border">
+                    <div className="flex gap-2">
+                        <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
+                            <div className="absolute inset-0" style={{ background: merged.borderUpColor }} />
+                            <input type="color" value={merged.borderUpColor}
+                                onChange={e => set('borderUpColor', e.target.value)}
+                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                        </div>
+                        <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
+                            <div className="absolute inset-0" style={{ background: merged.borderDownColor }} />
+                            <input type="color" value={merged.borderDownColor}
+                                onChange={e => set('borderDownColor', e.target.value)}
+                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                        </div>
+                    </div>
                 </Row>
 
-                <Row label="Border Bull">
-                  <input
-                    type="color"
-                    value={merged.borderUpColor}
-                    onChange={(e) => set("borderUpColor", e.target.value)}
-                  />
+                <Row label="Wick">
+                    <div className="flex gap-2">
+                        <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
+                            <div className="absolute inset-0" style={{ background: merged.wickUpColor }} />
+                            <input type="color" value={merged.wickUpColor}
+                                onChange={e => set('wickUpColor', e.target.value)}
+                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                        </div>
+                        <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
+                            <div className="absolute inset-0" style={{ background: merged.wickDownColor }} />
+                            <input type="color" value={merged.wickDownColor}
+                                onChange={e => set('wickDownColor', e.target.value)}
+                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                        </div>
+                    </div>
                 </Row>
 
-                <Row label="Border Bear">
-                  <input
-                    type="color"
-                    value={merged.borderDownColor}
-                    onChange={(e) => set("borderDownColor", e.target.value)}
-                  />
-                </Row>
 
-                <Row label="Wick Bull">
-                  <input
-                    type="color"
-                    value={merged.wickUpColor}
-                    onChange={(e) => set("wickUpColor", e.target.value)}
-                  />
-                </Row>
-
-                <Row label="Wick Bear">
-                  <input
-                    type="color"
-                    value={merged.wickDownColor}
-                    onChange={(e) => set("wickDownColor", e.target.value)}
-                  />
-                </Row>
-
-                <Row label="Long Position">
-                  <input
-                    type="color"
-                    value={merged.longPosition}
-                    onChange={(e) => set("longPosition", e.target.value)}
-                  />
-                </Row>
-
-                <Row label="Short Position">
-                  <input
-                    type="color"
-                    value={merged.shortPosition}
-                    onChange={(e) => set("shortPosition", e.target.value)}
-                  />
+                <Row label="Positions">
+                    <div className="flex gap-2">
+                        <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
+                            <div className="absolute inset-0" style={{ background: merged.longPosition }} />
+                            <input type="color" value={merged.longPosition}
+                                onChange={e => set('longPosition', e.target.value)}
+                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                        </div>
+                        <div className="relative w-7 h-7 rounded overflow-hidden border border-white/15">
+                            <div className="absolute inset-0" style={{ background: merged.shortPosition }} />
+                            <input type="color" value={merged.shortPosition}
+                                onChange={e => set('shortPosition', e.target.value)}
+                                className="absolute opacity-0 cursor-pointer" style={{ inset: '-4px', width: '140%', height: '140%' }} />
+                        </div>
+                    </div>
                 </Row>
               </>
             ) : (
