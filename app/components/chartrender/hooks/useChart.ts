@@ -12,6 +12,13 @@ function resolveBackground(bg: ChartBackground) {
   if (bg.type === 'transparent') {
     return { type: ColorType.Solid, color: 'rgba(0,0,0,0)' };
   }
+  if (bg.type === 'gradient') {
+    return {
+      type: ColorType.VerticalGradient,
+      topColor: bg.topColor,
+      bottomColor: bg.bottomColor,
+    };
+  }
   return { type: ColorType.Solid, color: bg.color };
 }
 
