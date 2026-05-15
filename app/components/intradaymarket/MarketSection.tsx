@@ -35,7 +35,7 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
 
 
 
-        <div className="flex gap-2 px-6 overflow-x-auto pb-2 max-w-375 scrollbar-hide">
+        <div className="flex gap-2 px-6 overflow-x-auto pb-2 max-w-375 scrollbar-hide z-10">
           {items.map((item) => (
             <AssetPill
               key={item.ticker}

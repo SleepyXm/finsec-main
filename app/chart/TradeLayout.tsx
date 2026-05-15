@@ -11,7 +11,7 @@ const LEFT_BAR_W = 48;
 const RIGHT_PANEL_W = 280;
 const BOTTOM_MIN_H = 64;   // collapsed — just the tab bar
 const BOTTOM_MAX_H = 500;
-const BOTTOM_DEFAULT_H = 330;
+const BOTTOM_DEFAULT_H = 230;
 
 // ── Drawing tool config ──────────────────────────────────────────────────────
 type DrawTool = "select"|"trendline"|"hline"|"rect"|"freehand"|"text"|"fibonacci";
