@@ -96,6 +96,7 @@ func main() {
 	routes.RegisterStockRoutes(api.Group("/"), utils.RDB)
 	routes.RegisterTradeRoutes(api.Group("/"), db, utils.RDB, pool)
 	routes.RegisterBacktestRoutes(api.Group("/"), db)
+	routes.RegisterProfileRoutes(api.Group("/"), db)
 
 	router.Run(":9000")
 }

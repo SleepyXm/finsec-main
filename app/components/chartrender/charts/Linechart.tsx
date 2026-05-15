@@ -3,12 +3,14 @@ import { AreaSeries } from 'lightweight-charts';
 import { useChart } from '../hooks/useChart';
 import { PriceLines } from '../../trading/price';
 import { useRef } from 'react';
+import { ChartTheme } from '../themes/themes';
 
 export const Linechart: React.FC<{
   data: any[];
   colors?: any;
   renderTradeUI?: React.ReactNode;
   trades?: any[];
+  theme?: ChartTheme; 
 }> = ({ data, colors = {}, renderTradeUI, trades = [] }) => {
   const { lineColor = '#2962FF', areaTopColor = '#2962FF', areaBottomColor = 'rgba(41,98,255,0.28)' } = colors;
   const priceLinesRef = useRef<any[]>([]);

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { CandlestickSeries } from 'lightweight-charts';
+import { CandlestickSeries, ColorType } from 'lightweight-charts';
 import { useChart } from '../hooks/useChart';
 import { StrategyOverlay } from '../overlays/Strategy';
 import { PriceLines } from '../../trading/price';
 import { useCandleHighlight } from '../overlays/CandleHighlight';
+import { ChartTheme, defaultChartTheme } from '../themes/themes';
 
 export const CandleStickChart: React.FC<{
   data: any[];
@@ -15,7 +16,8 @@ export const CandleStickChart: React.FC<{
   isCreatingStrategy?: boolean;
   onClosePosition?: (id: string) => void;
   onAnnotation?: (annotation: any) => void;
-}> = ({ data, colors = {}, renderTradeUI, trades = [], positions = [], livePnLMap = {}, isCreatingStrategy = false, onClosePosition, onAnnotation }) => {
+  theme?: ChartTheme; 
+}> = ({ data, colors = {}, renderTradeUI, trades = [], positions = [], livePnLMap = {}, isCreatingStrategy = false, onClosePosition, onAnnotation, theme = defaultChartTheme }) => {
   const { upColor = 'rgb(69,197,133)', downColor = '#ad4b44ff' } = colors;
   const priceLinesRef = useRef<any[]>([]);
 
@@ -34,14 +36,29 @@ export const CandleStickChart: React.FC<{
   const { containerRef, chartRef, seriesRef } = useChart(
   CandlestickSeries,
   {
-    upColor,
-    downColor,
-    borderUpColor: upColor,
-    borderDownColor: downColor,
-    wickUpColor: upColor,
-    wickDownColor: downColor
+    upColor: theme.bullCandle,
+    downColor: theme.bearCandle,
+    borderUpColor: theme.bullCandle,
+    borderDownColor: theme.bearCandle,
+    wickUpColor: theme.bullCandle,
+    wickDownColor: theme.bearCandle,
   },
-  {},
+  {
+    layout: {
+      background: theme.background.type === 'solid'
+        ? { type: ColorType.Solid, color: theme.background.color }
+        : { type: ColorType.Solid, color: 'transparent' },
+      textColor: theme.text,
+    },
+    grid: {
+      vertLines: { color: theme.grid },
+      horzLines: { color: theme.grid },
+    },
+    crosshair: {
+      vertLine: { color: theme.crosshair },
+      horzLine: { color: theme.crosshair },
+    },
+  },
   {
     positions,
 
@@ -58,7 +75,8 @@ export const CandleStickChart: React.FC<{
         `$${pnl.toFixed(2)}`
       );
     },
-  }
+  },
+  theme
 );
 
   const { setSelection, clearSelection } = useCandleHighlight({

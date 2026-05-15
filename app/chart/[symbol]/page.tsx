@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChartProvider, useChartContext } from "../chartcontext";
 import TradeLayout from "../TradeLayout";
 import { CandleStickChart } from "@/app/components/chartrender/charts/CandleStickChart";
@@ -9,6 +9,10 @@ import TradingPanel from "@/app/components/trading/panel";
 import TradeButtons from "@/app/components/trading/tradebuttons";
 import { TopBar } from "./TopBar";
 import DrawingCanvas from "@/app/components/chartrender/overlays/DrawingCanvas";
+import { ChartTheme } from "@/app/components/chartrender/themes/themes";
+import { ChartThemeModal } from "@/app/components/chartrender/overlays/ThemeSettings";
+import { defaultChartTheme } from "@/app/components/chartrender/themes/themes";
+import { getPreferences, savePreferences } from "@/app/handlers/profile";
 
 
 function ChartPageInner() {
@@ -20,7 +24,26 @@ function ChartPageInner() {
   } = useChartContext();
 
   const [quantity, setQuantity] = useState(1);
+  const [themeModalOpen, setThemeModalOpen] = useState(false);
+  const [themeOverrides, setThemeOverrides] = useState<Partial<ChartTheme>>({});
 
+  useEffect(() => {
+    getPreferences().then(data => {
+      if (data?.color_scheme?.colours) {
+        setThemeOverrides(data.color_scheme.colours);
+      }
+    });
+  }, []);
+
+  const activeTheme = { ...defaultChartTheme, ...themeOverrides };
+  console.log("activeTheme bullCandle:", activeTheme.bullCandle);
+
+  // save on modal save
+  const handleSave = (overrides: Partial<ChartTheme>) => {
+    const next = { ...themeOverrides, ...overrides };
+    setThemeOverrides(next);
+    savePreferences(isCandle ? "candlestick" : "line", next);
+  };
   const tradeUI = (
     <>
       {!connected && <p className="text-xs text-yellow-500 mb-1">Connecting to feed...</p>}
@@ -42,9 +65,7 @@ function ChartPageInner() {
       }
     >
       {() => (
-        // ↓ This wrapper gives the canvas its coordinate space
-        <div className="relative w-full h-full">
-
+        <div className="relative w-full h-full" onContextMenu={e => {console.log('context menu fired');  e.preventDefault(); setThemeModalOpen(true); }}>
           {chartData.length > 0 ? (
             isCandle ? (
               <CandleStickChart
@@ -56,17 +77,23 @@ function ChartPageInner() {
                 onClosePosition={(id) => closeTrade(id, tick?.close ?? 0)}
                 isCreatingStrategy={isCreatingStrategy}
                 onAnnotation={handleAnnotation}
+                theme={activeTheme}
               />
             ) : (
-              <Linechart data={chartData} renderTradeUI={tradeUI} trades={[]} />
+              <Linechart data={chartData} renderTradeUI={tradeUI} trades={[]} theme={activeTheme} />
             )
           ) : (
             <p style={{ color: "#6b7280", padding: 16 }}>Loading chart...</p>
           )}
 
-          {/* ↓ Sits on top of whichever chart is rendered */}
-          {/*<DrawingCanvas />*/}
-
+          {themeModalOpen && (
+            <ChartThemeModal
+              isCandle={isCandle}
+              theme={activeTheme}
+              onSave={handleSave}
+              onClose={() => setThemeModalOpen(false)}
+            />
+          )}
         </div>
       )}
     </TradeLayout>
