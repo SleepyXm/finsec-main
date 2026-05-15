@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
 import positions from '../../trading/positions';
-import { defaultChartTheme } from '../themes/themes';
+import { defaultChartTheme, ChartBackground } from '../themes/themes';
 
 type ChartPlugins = {
   positions?: any[];
   getPositionLabel?: (position: any) => string;
 };
+
+function resolveBackground(bg: ChartBackground) {
+  if (bg.type === 'transparent') {
+    return { type: ColorType.Solid, color: 'rgba(0,0,0,0)' };
+  }
+  return { type: ColorType.Solid, color: bg.color };
+}
 
 export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartOptions: any = {}, plugins: ChartPlugins = {}, theme = defaultChartTheme,) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -21,10 +28,7 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
 
     const chart = createChart(containerRef.current, {
       layout: {
-        background: {
-          type: ColorType.Solid,
-          color: theme.background,
-        },
+        background: resolveBackground(theme.background),
         textColor: theme.text,
       },
 
@@ -92,6 +96,30 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
       positionLinesRef.current.clear();
     };
   }, []);
+
+  useEffect(() => {
+    if (!chartRef.current || !seriesRef.current) return;
+
+    chartRef.current.applyOptions({
+      layout: {
+        background: resolveBackground(theme.background),
+        textColor: theme.text,
+      },
+      grid: {
+        vertLines: { color: theme.grid },
+        horzLines: { color: theme.grid },
+      },
+    });
+
+    seriesRef.current.applyOptions({
+      upColor: theme.bullCandle,
+      downColor: theme.bearCandle,
+      borderUpColor: theme.bullCandle,
+      borderDownColor: theme.bearCandle,
+      wickUpColor: theme.bullCandle,
+      wickDownColor: theme.bearCandle,
+    });
+  }, [theme, chartKey]);
 
 
   useEffect(() => {
