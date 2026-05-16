@@ -1,5 +1,5 @@
 "use client";
-import { CandleStickChart, Linechart } from "../chart/chartrender";
+import { CandleStickChart } from "../components/chartrender";
 import { useState } from "react";
 import BacktestForm from "./components/BacktestForm";
 import BacktestControls from "./components/BacktestControls";
