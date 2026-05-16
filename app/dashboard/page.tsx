@@ -1,20 +1,6 @@
 "use client";
 
-import {
-  Btn,
-  Badge,
-  BarRow,
-  Card,
-  CardFooter,
-  DataTable,
-  Grid2,
-  PageHeader,
-  Row,
-  Sep,
-  StatCard,
-  StatRow,
-  tokens,
-} from "@/app/dashboard/components/dashboard";
+import { Btn, Badge, BarRow, Card, CardFooter, DataTable, Grid2, PageHeader, Row, Sep, StatCard, StatRow, tokens } from "@/app/dashboard/components/dashboard";
 import { useState, useEffect } from "react";
 import { fetchPortfolio } from "../handlers/portfolio";
 import { Portfolio } from "../types/portfolio";
@@ -24,12 +10,12 @@ import { fetchOpenPositions } from "../handlers/positions";
 import { Trade } from "../types/trades";
 import { PnLChart } from "../components/chartrender/charts/PnLChart";
 import { TradeHistoryRow } from "../types/portfolio";
-
 import { STATS } from "./constants/stats";
 import { ASSETS } from "./constants/assets";
 import { JOURNAL } from "./constants/journal";
 import { INDICATORS } from "./constants/indicators";
 import { TRADE_COLUMNS } from "./constants/tradeColumns";
+import { buildCalendar } from "./constants/journal";
 
 // ── Page ─────────────────────────────────────────────────────
 
@@ -57,6 +43,10 @@ export default function DashboardPage() {
     date:   new Date(t.opened_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
     note:   "",
   }));
+
+  const journalEntries = JOURNAL(portfolio);
+  const cal = buildCalendar(journalEntries);
+  const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   return (
     <div style={{ background: tokens.bg0, minHeight: "100vh", padding: "24px 28px 48px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -104,30 +94,102 @@ export default function DashboardPage() {
 
       {/* Row 2 — Journal + Indicators */}
       <Grid2>
-        <Card title="Journal — recent" action="See all →">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", border: `1px solid ${tokens.border}` }}>
-            {Object.entries(
-              JOURNAL(portfolio).reduce((groups, j) => {
-                (groups[j.date] ??= []).push(j);
-                return groups;
-              }, {} as Record<string, ReturnType<typeof JOURNAL>>)
-            ).map(([date, entries]) => (
-              <div key={date} style={{ borderRight: `1px solid ${tokens.border}`, borderBottom: `1px solid ${tokens.border}`, padding: 8, minHeight: 80 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: tokens.text3, marginBottom: 6 }}>
-                  {date}
-                </div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: entries[0].full_pnl >= 0 ? tokens.green : tokens.red, marginTop: 4, borderTop: `1px solid ${tokens.border}`, paddingTop: 4 }}>
-                  {entries[0].full_pnl >= 0 ? "+" : "-"}${Math.abs(entries[0].full_pnl).toFixed(2)}
-                </div>
-                {entries.map((j) => (
-                  <div key={j.id} style={{ fontSize: 11, color: j.up ? tokens.green : tokens.red, marginBottom: 2 }}>
-                    {j.symbol} {j.pnl}
-                  </div>
-                ))}
+        <Card title={`Journal — ${cal.month} ${cal.year}`} action="See all →">
+  {/* Day-of-week header */}
+  <div style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(7, 1fr)",
+    borderLeft: `1px solid ${tokens.border}`,
+    borderTop: `1px solid ${tokens.border}`,
+  }}>
+    {DOW.map((d) => (
+      <div key={d} style={{
+        padding: "4px 6px",
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        color: tokens.text3,
+        textTransform: "uppercase",
+        borderRight: `1px solid ${tokens.border}`,
+        borderBottom: `1px solid ${tokens.border}`,
+      }}>
+        {d}
+      </div>
+    ))}
+
+    {/* Calendar cells */}
+    {cal.weeks.flatMap((week, wi) =>
+      week.days.map((cell, di) => {
+        if (!cell) {
+          // Empty padding cell
+          return (
+            <div key={`pad-${wi}-${di}`} style={{
+              borderRight: `1px solid ${tokens.border}`,
+              borderBottom: `1px solid ${tokens.border}`,
+              minHeight: 72,
+              backgroundColor: "transparent",
+            }} />
+          );
+        }
+
+        const profit = cell.hasData && cell.pnl >= 0;
+        const loss   = cell.hasData && cell.pnl < 0;
+
+        return (
+          <div key={cell.day} style={{
+            borderRight: `1px solid ${tokens.border}`,
+            borderBottom: `1px solid ${tokens.border}`,
+            minHeight: 72,
+            padding: "5px 6px",
+            backgroundColor: profit
+              ? `${tokens.green}18`   // ~10% opacity tint
+              : loss
+              ? `${tokens.red}18`
+              : "transparent",
+            position: "relative",
+          }}>
+            {/* Day number */}
+            <div style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: cell.hasData
+                ? profit ? tokens.green : tokens.red
+                : tokens.text3,
+              marginBottom: 3,
+            }}>
+              {cell.day}
+            </div>
+
+            {/* Daily net P&L */}
+            {cell.hasData && (
+              <div style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: profit ? tokens.green : tokens.red,
+                marginBottom: 4,
+              }}>
+                {cell.pnl >= 0 ? "+" : "-"}${Math.abs(cell.pnl).toFixed(2)}
+              </div>
+            )}
+
+            {/* Individual trades */}
+            {cell.trades.map((j) => (
+              <div key={j.id} style={{
+                fontSize: 10,
+                color: j.up ? tokens.green : tokens.red,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}>
+                {j.symbol} {j.pnl}
               </div>
             ))}
           </div>
-        </Card>
+        );
+      })
+    )}
+  </div>
+</Card>
 
         <Card title="Most used indicators" action="All time ▾" divided>
           <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 11 }}>
