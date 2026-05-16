@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"fmt"
 	"net/http"
 
 	"finsec-backend/structs"
@@ -142,26 +141,22 @@ func Login(db *sql.DB) gin.HandlerFunc {
 func Refresh() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, err := c.Cookie("refresh_token")
-		fmt.Println("raw cookie value:", token)
 		if err != nil || token == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing refresh token"})
 			return
 		}
 
 		userID, err := utils.DecodeRefreshToken(token)
-		fmt.Println("decoded userID:", userID)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
 		}
 
-		val, err := utils.GetStoredRefreshToken(c, token)
-		fmt.Println("redis lookup result:", val, "error:", err)
-
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		if _, err = utils.GetStoredRefreshToken(c, token); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Refresh token invalid or expired"})
 			return
 		}
+
 		// Rotate — revoke old, issue new
 		if err := utils.RevokeRefreshToken(c, token); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not revoke token"})
