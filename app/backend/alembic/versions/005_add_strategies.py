@@ -1,9 +1,11 @@
+# 005_add_strategies.py
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
-revision = '004_add_strategies'
-down_revision = '003_prefs_favs_lvrg'
+revision = '005_add_strategies'
+down_revision = '004_update_user_accounts'
 branch_labels = None
 depends_on = None
 

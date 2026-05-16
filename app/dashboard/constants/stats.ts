@@ -1,22 +1,20 @@
 import { tokens } from "@/app/dashboard/components/dashboard";
-import { Portfolio } from "@/app/types/portfolio";
+import { AccountStats } from "@/app/types/accounts";
 import { Trade } from "@/app/types/trades";
 
-export const STATS = (portfolio: Portfolio | null, openPositions: Trade[]) => [
+export const STATS = (stats: AccountStats | null, openPositions: Trade[]) => [
   {
     label: "Net P&L",
-    value: portfolio
-      ? `${portfolio.stats.total_realised_pnl >= 0 ? "+" : "-"}$${Math.abs(portfolio.stats.total_realised_pnl).toFixed(2)}`
+    value: stats
+      ? `${stats.net_pnl >= 0 ? "+" : "-"}$${Math.abs(stats.net_pnl).toFixed(2)}`
       : "—",
-    sub:   portfolio ? `${portfolio.stats.trade_count} trades` : "",
-    color: portfolio
-      ? portfolio.stats.total_realised_pnl >= 0 ? tokens.green : tokens.red
-      : undefined,
+    sub:   stats ? `${stats.trade_count} trades` : "",
+    color: stats ? (stats.net_pnl >= 0 ? tokens.green : tokens.red) : undefined,
   },
   {
     label: "Win rate",
-    value: portfolio ? `${portfolio.stats.win_rate}%` : "—",
-    sub:   portfolio ? `${portfolio.stats.wins} of ${portfolio.stats.trade_count} trades` : "",
+    value: stats ? `${stats.win_rate}%` : "—",
+    sub:   stats ? `${stats.wins} of ${stats.trade_count} trades` : "",
     color: undefined,
   },
   {
@@ -27,7 +25,7 @@ export const STATS = (portfolio: Portfolio | null, openPositions: Trade[]) => [
   },
   {
     label: "Largest loss",
-    value: portfolio ? `-$${Math.abs(portfolio.stats.worst_trade).toFixed(2)}` : "—",
+    value: stats ? `-$${Math.abs(stats.worst_trade).toFixed(2)}` : "—",
     sub:   "",
     color: tokens.red,
   },
