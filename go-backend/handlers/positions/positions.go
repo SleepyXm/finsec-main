@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -79,12 +80,47 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		rows, err := db.QueryContext(c,
-			`SELECT id, symbol, side, quantity, entry_price, exit_price, realised_pnl, opened_at, closed_at
-			 FROM positions
-			 WHERE account_id = $1 AND status = 'closed'
-			 ORDER BY closed_at DESC`, accountID,
-		)
+		// --- Pagination params ---
+		limit := 20
+		if l, err := strconv.Atoi(c.DefaultQuery("limit", "20")); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+
+		cursorTime := time.Now()
+		cursorID := ""
+
+		if ct := c.Query("cursor_time"); ct != "" {
+			if t, err := time.Parse(time.RFC3339, ct); err == nil {
+				cursorTime = t
+			}
+		}
+		if ci := c.Query("cursor_id"); ci != "" {
+			cursorID = ci
+		}
+
+		// --- Query ---
+		// On first page cursorID is empty, so we skip the cursor filter entirely.
+		var rows *sql.Rows
+		if cursorID == "" {
+			rows, err = db.QueryContext(c,
+				`SELECT id, symbol, side, quantity, entry_price, exit_price, realised_pnl, opened_at, closed_at
+				 FROM positions
+				 WHERE account_id = $1 AND status = 'closed'
+				 ORDER BY closed_at DESC, id DESC
+				 LIMIT $2`,
+				accountID, limit,
+			)
+		} else {
+			rows, err = db.QueryContext(c,
+				`SELECT id, symbol, side, quantity, entry_price, exit_price, realised_pnl, opened_at, closed_at
+				 FROM positions
+				 WHERE account_id = $1 AND status = 'closed'
+				   AND (closed_at, id) < ($2, $3)
+				 ORDER BY closed_at DESC, id DESC
+				 LIMIT $4`,
+				accountID, cursorTime, cursorID, limit,
+			)
+		}
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch position history"})
 			return
@@ -120,7 +156,8 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 
 		if len(rawPositions) == 0 {
 			c.JSON(http.StatusOK, gin.H{
-				"history": []any{},
+				"history":     []any{},
+				"next_cursor": nil,
 				"stats": gin.H{
 					"total_realised_pnl": 0.0,
 					"trade_count":        0,
@@ -135,6 +172,7 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// --- Build history ---
 		history := make([]gin.H, 0, len(rawPositions))
 		for _, p := range rawPositions {
 			entry := gin.H{
@@ -160,7 +198,19 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 			history = append(history, entry)
 		}
 
-		// Aggregate stats over positions with a recorded realised_pnl
+		// --- Next cursor (only set when a full page was returned) ---
+		var nextCursor gin.H
+		if len(rawPositions) == limit {
+			last := rawPositions[len(rawPositions)-1]
+			if last.closedAt.Valid {
+				nextCursor = gin.H{
+					"cursor_time": last.closedAt.Time.Format(time.RFC3339),
+					"cursor_id":   last.id,
+				}
+			}
+		}
+
+		// --- Stats (unchanged) ---
 		var pnlValues []float64
 		for _, p := range rawPositions {
 			if p.realisedPnl.Valid {
@@ -212,8 +262,9 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"history": history,
-			"stats":   stats,
+			"history":     history,
+			"next_cursor": nextCursor,
+			"stats":       stats,
 		})
 	}
 }

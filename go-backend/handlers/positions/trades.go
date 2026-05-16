@@ -21,6 +21,28 @@ import (
 
 var BacktestSessionTTL = 1 * time.Hour
 
+func updateAccountStats(ctx context.Context, tx *sql.Tx, accountID string, pnl float64) error {
+	isWin := 0
+	isLoss := 0
+	if pnl > 0 {
+		isWin = 1
+	} else {
+		isLoss = 1
+	}
+
+	_, err := tx.ExecContext(ctx, `
+		UPDATE user_accounts SET
+			net_pnl      = net_pnl + $1,
+			trade_count  = trade_count + 1,
+			wins         = wins + $2,
+			losses       = losses + $3,
+			best_trade   = GREATEST(best_trade, $1),
+			worst_trade  = LEAST(worst_trade, $1)
+		WHERE id = $4
+	`, pnl, isWin, isLoss, accountID)
+	return err
+}
+
 func PlaceTrade(db *sql.DB, redisClient *redis.Client, pool *services.WorkerPool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
@@ -296,6 +318,12 @@ func CloseTrade(db *sql.DB, redisClient *redis.Client) gin.HandlerFunc {
 		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not update balance"})
+			return
+		}
+
+		// ↓ add this
+		if err = updateAccountStats(c, tx, accountID, req.RealisedPnl); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not update account stats"})
 			return
 		}
 

@@ -10,9 +10,9 @@ import { ReactNode } from "react";
  
 // ── Tokens ───────────────────────────────────────────────────
 export const tokens = {
-  bg0:      "#0e1018",
-  bg1:      "#13151f",
-  bg2:      "#1c1f2e",
+  bg0:      "#0e101800",
+  bg1:      "#1a1a1a5b",
+  bg2:      "#161616",
   bg3:      "#20233a",
   border:   "#252838",
   borderHi: "#2e3248",
@@ -109,63 +109,25 @@ export function PageHeader({
 export function Card({
   title,
   action,
-  onAction,
   divided = false,
   children,
 }: {
   title?: string;
   action?: ReactNode;
-  onAction?: () => void;
   divided?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div
-      style={{
-        background: tokens.bg1,
-        border: `0.5px solid ${tokens.border}`,
-        borderRadius: 14,
-        overflow: "hidden",
-      }}
-    >
+    <div style={{ background: tokens.bg1, border: `0.5px solid ${tokens.border}`, borderRadius: 14, overflow: "hidden" }}>
       {title && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "13px 16px 12px",
-            borderBottom: `0.5px solid ${tokens.border}`,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 500,
-              color: tokens.text2,
-              letterSpacing: "0.5px",
-              textTransform: "uppercase",
-            }}
-          >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 16px 12px", borderBottom: `0.5px solid ${tokens.border}` }}>
+          <span style={{ fontSize: 11, fontWeight: 500, color: tokens.text2, letterSpacing: "0.5px", textTransform: "uppercase" }}>
             {title}
           </span>
           {action && (
-            <button
-              onClick={onAction}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                fontSize: 11,
-                color: tokens.text3,
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: 0,
-              }}
-            >
+            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: tokens.text3 }}>
               {action}
-            </button>
+            </div>
           )}
         </div>
       )}

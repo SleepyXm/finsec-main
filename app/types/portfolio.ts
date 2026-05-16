@@ -23,6 +23,7 @@ export interface TradeHistoryRow {
   note: string;
 }
 
+
 export interface PortfolioStats {
   total_realised_pnl: number;
   trade_count: number;
@@ -37,4 +38,15 @@ export interface PortfolioStats {
 export interface Portfolio {
   history: TradeHistory[];
   stats: PortfolioStats;
+}
+
+export interface PortfolioPage {
+  history: TradeHistory[];
+  next_cursor: PositionCursor | null;
+  stats: PortfolioStats;
+}
+
+export interface PositionCursor {
+  cursor_time: string; // RFC3339
+  cursor_id: string;
 }
