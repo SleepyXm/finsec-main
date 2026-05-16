@@ -47,7 +47,7 @@ func CreateRefreshToken(userID string) (string, error) {
 }
 
 func VerifyToken(tokenStr string) (string, error) {
-	tokenStr = strings.TrimPrefix(tokenStr, "Bearer ")
+	tokenStr = strings.TrimPrefix(tokenStr, "Bearer+")
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method")
@@ -65,7 +65,7 @@ func VerifyToken(tokenStr string) (string, error) {
 }
 
 func DecodeRefreshToken(tokenStr string) (string, error) {
-	tokenStr = strings.TrimPrefix(tokenStr, "Bearer ")
+	tokenStr = strings.TrimPrefix(tokenStr, "Bearer+")
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method")
@@ -86,14 +86,12 @@ func DecodeRefreshToken(tokenStr string) (string, error) {
 
 func StoreRefreshToken(ctx context.Context, userID, token string) error {
 	key := fmt.Sprintf("refresh:%s", token)
-	fmt.Println("redis key lookup:", key)
 	ttl := time.Duration(Cfg.RefreshTokenExpireDays) * 24 * time.Hour
 	return RDB.SetEx(ctx, key, userID, ttl).Err()
 }
 
 func GetStoredRefreshToken(ctx context.Context, token string) (string, error) {
 	key := fmt.Sprintf("refresh:%s", token)
-	fmt.Println("redis key lookup:", key)
 	val, err := RDB.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return "", fmt.Errorf("refresh token invalid or expired")
