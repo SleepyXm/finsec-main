@@ -119,7 +119,7 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) {
 		"refresh_token",
 		refreshToken,
 		60*60*24*Cfg.RefreshTokenExpireDays,
-		"/api/auth/refresh",
+		"/",
 		"",
 		true,
 		true,
@@ -128,5 +128,5 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) {
 
 func ClearAuthCookies(c *gin.Context) {
 	c.SetCookie("access_token", "", -1, "/", "", true, true)
-	c.SetCookie("refresh_token", "", -1, "/api/auth/refresh", "", true, true)
+	c.SetCookie("refresh_token", "", -1, "/", "", true, true)
 }

@@ -1,5 +1,16 @@
 import { Portfolio } from "@/app/types/portfolio";
+import { TradeHistoryRow } from "@/app/types/portfolio";
+import { AccountStats } from "@/app/types/accounts";
 
+
+interface RealisedPnLProps {
+  rows: TradeHistoryRow[];
+  stats: AccountStats | null;
+  loading: boolean;
+  statsLoading: boolean;
+  hasMore: boolean;
+  sentinelRef: React.RefObject<HTMLDivElement | null>;
+}
 
 function StatCard({ label, value, suffix }: { label: string; value: number; suffix?: string }) {
   const pos = value >= 0;
@@ -17,71 +28,73 @@ function StatCard({ label, value, suffix }: { label: string; value: number; suff
   );
 }
 
-export default function RealisedPnL({ portfolio, loading }: {
-  portfolio: Portfolio | null;
-  loading: boolean;
-}) {
-  if (loading)
+export default function RealisedPnL({ rows, stats, loading, statsLoading, hasMore, sentinelRef }: RealisedPnLProps) {
+  if (loading && rows.length === 0)
     return <p className="text-xs text-zinc-600">Loading…</p>;
-  if (!portfolio || portfolio.history.length === 0)
+  if (!loading && rows.length === 0)
     return <p className="text-xs text-zinc-600">No realised PnL history yet.</p>;
-
-  const { stats, history } = portfolio;
 
   return (
     <div className="space-y-3">
-
-      {/* Stats bar */}
+      {/* Stats bar — from useAccountStats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 rounded-lg border border-zinc-800 overflow-hidden">
-        <StatCard label="Total PnL"   value={stats.total_realised_pnl} />
-        <StatCard label="Win Rate"    value={stats.win_rate} suffix="%" />
-        <StatCard label="Best Trade"  value={stats.best_trade} />
-        <StatCard label="Worst Trade" value={stats.worst_trade} />
+        {statsLoading || !stats ? (
+          <p className="text-xs text-zinc-600 col-span-4 p-2">Loading stats…</p>
+        ) : (
+          <>
+            <StatCard label="Total PnL"   value={stats.net_pnl} />
+            <StatCard label="Win Rate"    value={stats.win_rate} suffix="%" />
+            <StatCard label="Best Trade"  value={stats.best_trade} />
+            <StatCard label="Worst Trade" value={stats.worst_trade} />
+          </>
+        )}
       </div>
 
-      {/* Trade history */}
+      {/* Trade list — from usePortfolio */}
       <div className="max-h-60 overflow-y-auto space-y-px pr-px">
-        {history.map((trade) => {
-          const pnl = trade.realised_pnl ?? null;
+        {rows.map((row) => {
+          const pnl = row.realised_pnl === "—" ? null : parseFloat(row.realised_pnl.replace(/[^0-9.-]/g, ""));
           const pos = pnl !== null && pnl >= 0;
           return (
             <div
-              key={trade.id}
+              key={row.id}
               className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-zinc-800/50 transition-colors"
             >
-              {/* Left: side badge + symbol + qty */}
               <div className="flex items-center gap-2 min-w-0">
                 <span className={[
                   "shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded",
-                  trade.side === "long"
-                    ? "bg-emerald-500/10 text-emerald-400"
-                    : "bg-red-500/10 text-red-400",
+                  row.side === "Long" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400",
                 ].join(" ")}>
-                  {trade.side}
+                  {row.side}
                 </span>
-                <span className="text-sm font-medium text-zinc-200 truncate">{trade.symbol}</span>
-                <span className="text-xs text-zinc-600">×{trade.quantity}</span>
+                <span className="text-sm font-medium text-zinc-200 truncate">{row.symbol}</span>
+                <span className="text-xs text-zinc-600">×{row.quantity}</span>
               </div>
-
-              {/* Right: route + pnl */}
               <div className="flex items-center gap-4 shrink-0">
                 <span className="text-xs text-zinc-600 tabular-nums hidden sm:block">
-                  {trade.entry_price} → {trade.exit_price ?? "—"}
+                  {row.entry_price} → {row.exit_price}
                 </span>
                 <span className={[
                   "text-sm font-semibold tabular-nums w-20 text-right",
                   pnl === null ? "text-zinc-600" : pos ? "text-emerald-400" : "text-red-400",
                 ].join(" ")}>
-                  {pnl === null
-                    ? "—"
-                    : `${pos ? "+" : "−"}$${Math.abs(pnl).toFixed(2)}`}
+                  {row.realised_pnl}
                 </span>
               </div>
             </div>
           );
         })}
-      </div>
 
+        {/* Sentinel — watched by IntersectionObserver in usePortfolio */}
+        <div ref={sentinelRef} style={{ height: 1 }} />
+
+        {loading && (
+          <p className="text-xs text-zinc-600 text-center py-2">Loading…</p>
+        )}
+        {!hasMore && rows.length > 0 && (
+          <p className="text-xs text-zinc-600 text-center py-2">All trades loaded</p>
+        )}
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import RealisedPnL from "../portfolio/portfolio";
 import { fetchPortfolio } from "@/app/handlers/portfolio";
 import { Portfolio } from "@/app/types/portfolio";
 import { OpenPositionsProps } from "@/app/types/trades";
+import { usePortfolio, useAccountStats } from "@/app/hooks/usePortfolio";
 
 type Tab = "unrealised" | "realised" | "positions";
 const TABS: { key: Tab; label: string }[] = [
@@ -14,28 +15,16 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 export default function TradingPanel({ positions, livePnLMap, onClose }: OpenPositionsProps) {
-  const [activeTab, setActiveTab]   = useState<Tab>("unrealised");
-  const [portfolio, setPortfolio]   = useState<Portfolio | null>(null);
-  const [pnlLoading, setPnlLoading] = useState(false);
-  const [pnlFetched, setPnlFetched] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("unrealised");
+
+  const { rows, loading, hasMore, sentinelRef } = usePortfolio();
+  const { stats, loading: statsLoading }        = useAccountStats();
 
   const accountUnrealisedPnL = Object.values(livePnLMap).reduce((sum, pnl) => sum + pnl, 0);
   const isPositive = accountUnrealisedPnL >= 0;
 
-  function handleTabClick(tab: Tab) {
-    setActiveTab(tab);
-    if (tab === "realised" && !pnlFetched) {
-      setPnlLoading(true);
-      fetchPortfolio()
-        .then(setPortfolio)
-        .catch(console.error)
-        .finally(() => { setPnlLoading(false); setPnlFetched(true); });
-    }
-  }
-
   return (
     <div className="mt-4 rounded-xl border border-zinc-800 bg-[#0d0f14] overflow-hidden">
-
       {/* Tab bar */}
       <div className="flex border-b border-zinc-800">
         {TABS.map((tab) => {
@@ -43,7 +32,7 @@ export default function TradingPanel({ positions, livePnLMap, onClose }: OpenPos
           return (
             <button
               key={tab.key}
-              onClick={() => handleTabClick(tab.key)}
+              onClick={() => setActiveTab(tab.key)}
               className={[
                 "relative px-4 py-2.5 text-xs font-medium tracking-wide transition-colors duration-150 select-none",
                 isActive
@@ -64,25 +53,26 @@ export default function TradingPanel({ positions, livePnLMap, onClose }: OpenPos
 
       {/* Content */}
       <div className="min-h-[120px] p-4">
-
         {activeTab === "unrealised" && (
           <div className="flex flex-col gap-0.5">
             <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-600">
               Account Unrealised PnL
             </span>
-            <span
-              className={[
-                "text-2xl font-semibold tabular-nums",
-                isPositive ? "text-emerald-400" : "text-red-400",
-              ].join(" ")}
-            >
+            <span className={["text-2xl font-semibold tabular-nums", isPositive ? "text-emerald-400" : "text-red-400"].join(" ")}>
               {isPositive ? "+" : "−"}${Math.abs(accountUnrealisedPnL).toFixed(2)}
             </span>
           </div>
         )}
 
         {activeTab === "realised" && (
-          <RealisedPnL portfolio={portfolio} loading={pnlLoading} />
+          <RealisedPnL
+            rows={rows}
+            stats={stats}
+            loading={loading}
+            statsLoading={statsLoading}
+            hasMore={hasMore}
+            sentinelRef={sentinelRef}
+          />
         )}
 
         {activeTab === "positions" && (
@@ -95,7 +85,6 @@ export default function TradingPanel({ positions, livePnLMap, onClose }: OpenPos
               />
             : <p className="text-xs text-zinc-600">No open positions.</p>
         )}
-
       </div>
     </div>
   );
