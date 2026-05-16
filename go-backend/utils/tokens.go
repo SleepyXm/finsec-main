@@ -117,7 +117,7 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) {
 	)
 	c.SetCookie(
 		"refresh_token",
-		refreshToken,
+		"Bearer "+refreshToken,
 		60*60*24*Cfg.RefreshTokenExpireDays,
 		"/api/auth/refresh",
 		"",
