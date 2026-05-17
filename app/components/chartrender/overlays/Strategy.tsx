@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
 
 const LABELS = [
-  { value: 'fvg', label: 'Fair Value Gap' },
-  {value: 'failed_fvg', label: "Failed Fair Value Gap"},
+  {value: 'bearish_fvg', label: "Bearish Fair Value Gap"},
+  {value: 'bullish_fvg', label: "Bullish Fair Value Gap"},
+  {value: 'failed_bullish_fvg', label: "Failed Fair Value Gap"},
+  {value: 'failed_bearish_fvg', label: "Failed Fair Value Gap"},
   { value: 'head_and_shoulders', label: 'Head & Shoulders' },
   { value: 'entry', label: 'Entry' },
   { value: 'exit', label: 'Exit' },
