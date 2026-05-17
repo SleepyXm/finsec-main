@@ -1,0 +1,381 @@
+<h2 class="sr-only">DTW pattern library analyser — upload CSVs to find outliers and similarities across pattern classes</h2>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font-sans);color:var(--color-text-primary);padding:1rem}
+  .card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:1rem}
+  .sec{font-size:13px;color:var(--color-text-secondary);margin-bottom:10px;font-weight:500}
+  .metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.75rem 1rem}
+  .ml{font-size:12px;color:var(--color-text-secondary);margin-bottom:4px}
+  .mv{font-size:20px;font-weight:500}
+  .ms{font-size:11px;color:var(--color-text-tertiary);margin-top:2px}
+  .grid{display:grid;gap:10px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .drop{border:1.5px dashed var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:2rem;text-align:center;cursor:pointer;transition:background .15s;position:relative}
+  .drop:hover,.drop.over{background:var(--color-background-secondary)}
+  .drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  .drop p{font-size:13px;color:var(--color-text-secondary);margin-top:4px}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:var(--border-radius-md);margin:2px}
+  .tag-has{background:#E6F1FB;color:#0C447C}
+  .tag-fvg{background:#FAECE7;color:#993C1D}
+  .tag-acc{background:#E1F5EE;color:#085041}
+  .tag-other{background:#F1EFE8;color:#5F5E5A}
+  .tag-fail{background:#FCEBEB;color:#A32D2D}
+  .row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px}
+  .row:last-child{border-bottom:none}
+  .outlier{color:var(--color-text-danger);font-weight:500}
+  .good{color:var(--color-text-success)}
+  .bar-wrap{margin:4px 0}
+  .bar-track{background:var(--color-background-secondary);border-radius:4px;height:10px;overflow:hidden;margin-top:2px}
+  .bar-fill{height:100%;border-radius:4px}
+  .tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+  .tab{padding:5px 12px;font-size:13px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);cursor:pointer;background:transparent;color:var(--color-text-secondary)}
+  .tab.active{background:var(--color-background-secondary);color:var(--color-text-primary);font-weight:500}
+  .empty{color:var(--color-text-tertiary);font-size:13px;text-align:center;padding:2rem}
+  .pill{font-size:11px;padding:1px 6px;border-radius:10px;margin-left:4px}
+  select,input[type=range]{width:100%}
+  .sim-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
+  .sim-row:last-child{border-bottom:none}
+  canvas{display:block;width:100%!important}
+</style>
+
+<div class="card">
+  <p class="sec"><i class="ti ti-upload" aria-hidden="true"></i> load your csv library</p>
+  <div class="drop" id="dropZone">
+    <input type="file" id="fileInput" accept=".csv" multiple>
+    <i class="ti ti-file-text" style="font-size:28px;color:var(--color-text-tertiary)" aria-hidden="true"></i>
+    <p>drop CSV files here or click to browse</p>
+    <p style="font-size:11px;margin-top:4px">expects: symbol, label, timeStart, timeEnd, candle_count, annotatedAt, candles</p>
+  </div>
+  <div id="fileStatus" style="margin-top:8px;font-size:12px;color:var(--color-text-secondary)"></div>
+</div>
+
+<div id="statsRow" class="grid g4" style="margin-bottom:1rem;display:none"></div>
+
+<div id="mainContent" style="display:none">
+  <div class="tabs" id="mainTabs">
+    <button class="tab active" onclick="showTab('outliers')">outlier detection</button>
+    <button class="tab" onclick="showTab('similarity')">similarity search</button>
+    <button class="tab" onclick="showTab('matrix')">distance matrix</button>
+    <button class="tab" onclick="showTab('overview')">library overview</button>
+  </div>
+
+  <div id="tab-outliers">
+    <div class="card">
+      <p class="sec">intra-class outliers — series far from their class centroid</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+        <label style="font-size:12px;color:var(--color-text-secondary)">class</label>
+        <select id="outlierClass" onchange="renderOutliers()" style="width:auto;font-size:12px"></select>
+        <label style="font-size:12px;color:var(--color-text-secondary);margin-left:8px">threshold</label>
+        <input type="range" min="1" max="3" step="0.1" value="1.5" id="outlierThresh" oninput="document.getElementById('threshVal').textContent=this.value+'×';renderOutliers()" style="width:80px">
+        <span id="threshVal" style="font-size:12px;min-width:28px">1.5×</span>
+      </div>
+      <div id="outlierList"></div>
+    </div>
+  </div>
+
+  <div id="tab-similarity" style="display:none">
+    <div class="card">
+      <p class="sec">find similar patterns — pick a series, find its nearest neighbours</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+        <label style="font-size:12px;color:var(--color-text-secondary)">query series</label>
+        <select id="querySelect" onchange="renderSimilarity()" style="font-size:12px;flex:1;min-width:180px"></select>
+        <label style="font-size:12px;color:var(--color-text-secondary)">top k</label>
+        <select id="topK" onchange="renderSimilarity()" style="width:auto;font-size:12px">
+          <option>5</option><option selected>10</option><option>20</option>
+        </select>
+      </div>
+      <div id="similarityList"></div>
+    </div>
+  </div>
+
+  <div id="tab-matrix" style="display:none">
+    <div class="card">
+      <p class="sec">inter-class distance matrix — are your classes separable?</p>
+      <div id="matrixContent"></div>
+    </div>
+  </div>
+
+  <div id="tab-overview" style="display:none">
+    <div class="card">
+      <p class="sec">library breakdown by class and symbol</p>
+      <div id="overviewContent"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let library = [];
+let classMeans = {};
+let activeTab = 'outliers';
+
+function dtw(a,b){
+  const n=a.length,m=b.length;
+  const dp=Array.from({length:n},()=>new Float32Array(m).fill(Infinity));
+  dp[0][0]=Math.abs(a[0]-b[0]);
+  for(let i=1;i<n;i++) dp[i][0]=dp[i-1][0]+Math.abs(a[i]-b[0]);
+  for(let j=1;j<m;j++) dp[0][j]=dp[0][j-1]+Math.abs(a[0]-b[j]);
+  for(let i=1;i<n;i++) for(let j=1;j<m;j++)
+    dp[i][j]=Math.abs(a[i]-b[j])+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[n-1][m-1];
+}
+
+function parseCSV(text){
+  const lines=text.trim().split('\n');
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const line=lines[i].trim();
+    if(!line) continue;
+    const parts=line.split('\t');
+    if(parts.length<7) continue;
+    try{
+      const candles=JSON.parse(parts[6]);
+      const closes=candles.map(c=>+c.close);
+      rows.push({
+        symbol:parts[0]?.trim()||'?',
+        label:(parts[1]?.trim()||'unknown').toLowerCase(),
+        candle_count:+parts[4]||closes.length,
+        annotatedAt:parts[5]?.trim()||'',
+        closes,
+        id:`${parts[0]}_${parts[1]}_${parts[5]}`
+      });
+    }catch(e){}
+  }
+  return rows;
+}
+
+function tagClass(label){
+  if(label.includes('head')) return 'tag-has';
+  if(label.includes('fvg')) return 'tag-fvg';
+  if(label.includes('accum')) return 'tag-acc';
+  if(label.includes('fail')) return 'tag-fail';
+  return 'tag-other';
+}
+
+function shortId(s,i){
+  return `${s.label.substring(0,3).toUpperCase()}-${i}`;
+}
+
+function computeIntraDistances(series){
+  const n=series.length;
+  const dists=Array.from({length:n},()=>new Array(n).fill(0));
+  for(let i=0;i<n;i++) for(let j=i+1;j<n;j++){
+    const d=dtw(series[i].closes,series[j].closes);
+    dists[i][j]=d; dists[j][i]=d;
+  }
+  return dists;
+}
+
+function mean(arr){return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0;}
+
+function processLibrary(){
+  const classes={};
+  for(const s of library){
+    if(!classes[s.label]) classes[s.label]=[];
+    classes[s.label].push(s);
+  }
+
+  classMeans={};
+  for(const [label,series] of Object.entries(classes)){
+    if(series.length<2){classMeans[label]={mean:0,std:0,dists:[],series};continue;}
+    const dists=computeIntraDistances(series);
+    const perMean=series.map((_,i)=>{
+      const row=dists[i].filter((_,j)=>j!==i);
+      return mean(row);
+    });
+    const m=mean(perMean);
+    const std=Math.sqrt(mean(perMean.map(v=>(v-m)**2)));
+    classMeans[label]={mean:m,std,perMean,dists,series};
+  }
+}
+
+function renderStats(){
+  const labels=Object.keys(classMeans);
+  const total=library.length;
+  const symbols=[...new Set(library.map(s=>s.symbol))];
+
+  document.getElementById('statsRow').style.display='grid';
+  document.getElementById('statsRow').innerHTML=`
+    <div class="metric"><div class="ml">total series</div><div class="mv">${total}</div><div class="ms">across all classes</div></div>
+    <div class="metric"><div class="ml">pattern classes</div><div class="mv">${labels.length}</div><div class="ms">${labels.join(', ')}</div></div>
+    <div class="metric"><div class="ml">symbols</div><div class="mv">${symbols.length}</div><div class="ms">${symbols.join(', ')}</div></div>
+    <div class="metric"><div class="ml">avg candles</div><div class="mv">${Math.round(mean(library.map(s=>s.candle_count)))}</div><div class="ms">per series</div></div>
+  `;
+}
+
+function renderOutliers(){
+  const sel=document.getElementById('outlierClass');
+  const label=sel.value;
+  const thresh=+document.getElementById('outlierThresh').value;
+  const cm=classMeans[label];
+  if(!cm||cm.series.length<2){document.getElementById('outlierList').innerHTML='<div class="empty">not enough series in this class</div>';return;}
+
+  const {series,perMean,mean:m,std}=cm;
+  const items=series.map((s,i)=>({s,i,d:perMean[i]})).sort((a,b)=>b.d-a.d);
+  const maxD=Math.max(...items.map(x=>x.d));
+
+  let html='';
+  for(const {s,i,d} of items){
+    const isOut=d>m+thresh*std;
+    const pct=maxD>0?Math.round(d/maxD*100):0;
+    const color=isOut?'#E24B4A':'#1D9E75';
+    html+=`<div class="row">
+      <span style="min-width:80px;font-size:11px;color:var(--color-text-tertiary)">${shortId(s,i)}</span>
+      <span class="tag ${tagClass(s.label)}">${s.label}</span>
+      <span style="font-size:11px;color:var(--color-text-secondary);min-width:36px">${s.symbol}</span>
+      <div style="flex:1">
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>
+      <span style="min-width:52px;text-align:right;font-size:12px;${isOut?'color:#E24B4A;font-weight:500':''}">${d.toFixed(1)}${isOut?' ⚠':''}</span>
+      <span style="font-size:11px;color:var(--color-text-tertiary);min-width:40px">${s.candle_count}c</span>
+    </div>`;
+  }
+  document.getElementById('outlierList').innerHTML=html||'<div class="empty">no series found</div>';
+}
+
+function renderSimilarity(){
+  const idx=+document.getElementById('querySelect').value;
+  const k=+document.getElementById('topK').value;
+  const query=library[idx];
+  if(!query){document.getElementById('similarityList').innerHTML='<div class="empty">select a series</div>';return;}
+
+  const others=library.map((s,i)=>({s,i,d:i===idx?Infinity:dtw(query.closes,s.closes)}))
+    .filter(x=>x.i!==idx).sort((a,b)=>a.d-b.d).slice(0,k);
+
+  const maxD=others[others.length-1]?.d||1;
+  let html=`<div style="margin-bottom:8px;font-size:12px;color:var(--color-text-secondary)">query: <span class="tag ${tagClass(query.label)}">${query.label}</span> ${query.symbol} ${query.candle_count}c</div>`;
+  for(const {s,i,d} of others){
+    const same=s.label===query.label;
+    const pct=Math.round((1-d/maxD)*100);
+    html+=`<div class="sim-row">
+      <span style="min-width:24px;color:var(--color-text-tertiary)">#${others.indexOf(others.find(x=>x.i===i))+1}</span>
+      <span class="tag ${tagClass(s.label)}">${s.label}</span>
+      <span style="min-width:36px;color:var(--color-text-secondary)">${s.symbol}</span>
+      <div style="flex:1"><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${same?'#1D9E75':'#D85A30'}"></div></div></div>
+      <span style="min-width:48px;text-align:right">${d.toFixed(1)}</span>
+      <span style="min-width:32px;font-size:11px;color:var(--color-text-tertiary)">${s.candle_count}c</span>
+      <span style="font-size:11px;${same?'color:var(--color-text-success)':'color:var(--color-text-secondary)'}">${same?'✓ same class':'↗ cross-class'}</span>
+    </div>`;
+  }
+  document.getElementById('similarityList').innerHTML=html;
+}
+
+function renderMatrix(){
+  const labels=Object.keys(classMeans);
+  if(labels.length<2){document.getElementById('matrixContent').innerHTML='<div class="empty">need at least 2 classes</div>';return;}
+
+  const interMeans={};
+  for(let i=0;i<labels.length;i++) for(let j=i+1;j<labels.length;j++){
+    const a=classMeans[labels[i]].series, b=classMeans[labels[j]].series;
+    const ds=[];
+    for(const sa of a.slice(0,8)) for(const sb of b.slice(0,8)) ds.push(dtw(sa.closes,sb.closes));
+    interMeans[`${labels[i]}|${labels[j]}`]=mean(ds);
+  }
+
+  let html='<table style="width:100%;border-collapse:collapse;font-size:12px"><tr><th style="padding:6px;text-align:left;color:var(--color-text-secondary)"></th>';
+  for(const l of labels) html+=`<th style="padding:6px;color:var(--color-text-secondary)">${l}</th>`;
+  html+='</tr>';
+
+  for(const l1 of labels){
+    html+=`<tr><td style="padding:6px;font-weight:500;color:var(--color-text-secondary)">${l1}</td>`;
+    for(const l2 of labels){
+      if(l1===l2){
+        const v=classMeans[l1].mean;
+        html+=`<td style="padding:6px;text-align:center;background:var(--color-background-secondary);border-radius:4px">${v.toFixed(1)}<br><span style="font-size:10px;color:var(--color-text-tertiary)">intra</span></td>`;
+      } else {
+        const key=`${l1}|${l2}` in interMeans?`${l1}|${l2}`:`${l2}|${l1}`;
+        const v=interMeans[key]||0;
+        const intra=Math.max(classMeans[l1].mean,classMeans[l2].mean);
+        const ratio=intra>0?(v/intra):0;
+        const good=ratio>1.2;
+        html+=`<td style="padding:6px;text-align:center;${good?'color:var(--color-text-success)':'color:var(--color-text-danger)'}">${v.toFixed(1)}<br><span style="font-size:10px">${ratio.toFixed(2)}×</span></td>`;
+      }
+    }
+    html+='</tr>';
+  }
+  html+='</table><p style="font-size:11px;color:var(--color-text-tertiary);margin-top:8px">diagonal = intra-class mean. off-diagonal = inter-class mean + separation ratio (>1.2× = good separation, green)</p>';
+  document.getElementById('matrixContent').innerHTML=html;
+}
+
+function renderOverview(){
+  const byClass={};
+  for(const s of library){
+    if(!byClass[s.label]) byClass[s.label]={count:0,symbols:new Set(),totalCandles:0};
+    byClass[s.label].count++;
+    byClass[s.label].symbols.add(s.symbol);
+    byClass[s.label].totalCandles+=s.candle_count;
+  }
+
+  let html='<div class="grid g2" style="gap:8px">';
+  for(const [label,data] of Object.entries(byClass)){
+    const cm=classMeans[label];
+    html+=`<div class="metric">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <span class="tag ${tagClass(label)}">${label}</span>
+        <span style="font-size:20px;font-weight:500">${data.count}</span>
+        <span style="font-size:11px;color:var(--color-text-tertiary)">series</span>
+      </div>
+      <div style="font-size:12px;color:var(--color-text-secondary)">symbols: ${[...data.symbols].join(', ')}</div>
+      <div style="font-size:12px;color:var(--color-text-secondary)">avg candles: ${Math.round(data.totalCandles/data.count)}</div>
+      ${cm&&cm.mean>0?`<div style="font-size:12px;color:var(--color-text-secondary)">intra-class mean DTW: ${cm.mean.toFixed(1)}</div>`:''}
+    </div>`;
+  }
+  html+='</div>';
+  document.getElementById('overviewContent').innerHTML=html;
+}
+
+function showTab(name){
+  activeTab=name;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  ['outliers','similarity','matrix','overview'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===name?'block':'none';
+  });
+  if(name==='matrix') renderMatrix();
+  if(name==='overview') renderOverview();
+  if(name==='similarity') renderSimilarity();
+  if(name==='outliers') renderOutliers();
+}
+
+function populateControls(){
+  const labels=[...new Set(library.map(s=>s.label))];
+  const cls=document.getElementById('outlierClass');
+  cls.innerHTML=labels.map(l=>`<option value="${l}">${l}</option>`).join('');
+
+  const qs=document.getElementById('querySelect');
+  qs.innerHTML=library.map((s,i)=>`<option value="${i}">[${s.label}] ${s.symbol} ${s.candle_count}c</option>`).join('');
+}
+
+function onFiles(files){
+  let loaded=0;
+  library=[];
+  const statusEl=document.getElementById('fileStatus');
+  statusEl.textContent=`loading ${files.length} file(s)...`;
+
+  for(const f of files){
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const rows=parseCSV(e.target.result);
+      library.push(...rows);
+      loaded++;
+      if(loaded===files.length){
+        statusEl.textContent=`loaded ${library.length} series from ${files.length} file(s)`;
+        processLibrary();
+        renderStats();
+        populateControls();
+        document.getElementById('mainContent').style.display='block';
+        renderOutliers();
+      }
+    };
+    reader.readAsText(f);
+  }
+}
+
+const dz=document.getElementById('dropZone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');onFiles([...e.dataTransfer.files].filter(f=>f.name.endsWith('.csv')))});
+document.getElementById('fileInput').addEventListener('change',e=>onFiles([...e.target.files]));
+</script>
