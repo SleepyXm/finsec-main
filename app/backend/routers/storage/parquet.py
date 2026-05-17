@@ -8,23 +8,23 @@ from .retrieveparquet import invalidate_cache
 # --- Config ---
 TICKERS = ["AAPL", "BTC-USD", "MSFT", "NQ=F"]  # expand as needed
 
-#INTERVAL_CONFIG = {
-#    "1m":  {"period": "7d",  "capped": True},
-#    "5m":  {"period": "60d",  "capped": True},
-#    "15m": {"period": "60d", "capped": False},
-#    "30m": {"period": "60d", "capped": False},
-#    "1h":  {"period": "2y", "capped": False},
-#    "1d":  {"period": "max", "capped": False},
-#}
-
 INTERVAL_CONFIG = {
-    "1m":  {"period": "3d",  "capped": False},
-    "5m":  {"period": "1wk",  "capped": False},
-    "15m": {"period": "1mo", "capped": False},
-    "30m": {"period": "1mo", "capped": False},
-    "1h":  {"period": "3mo", "capped": False},
+    "1m":  {"period": "7d",  "capped": True},
+    "5m":  {"period": "60d",  "capped": True},
+    "15m": {"period": "60d", "capped": False},
+    "30m": {"period": "60d", "capped": False},
+    "1h":  {"period": "2y", "capped": False},
     "1d":  {"period": "max", "capped": False},
 }
+
+#INTERVAL_CONFIG = {
+#    "1m":  {"period": "3d",  "capped": False},
+#    "5m":  {"period": "1wk",  "capped": False},
+#    "15m": {"period": "1mo", "capped": False},
+#    "30m": {"period": "1mo", "capped": False},
+#    "1h":  {"period": "3mo", "capped": False},
+#    "1d":  {"period": "max", "capped": False},
+#}
 
 BASE_DIR = Path("data/history")
 
