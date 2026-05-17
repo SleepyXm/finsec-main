@@ -6,6 +6,7 @@ from routers.storage.retrieveparquet import load_parquet
 from routers.storage.parquet import BASE_DIR, mark_worker_active
 from routers.search import search_router
 from routers.websocket import websocket_router, broadcast_stock_data, subscriptions, fetch_tasks
+from routers.annotations.annotations import annotations_router
 from routers.auth.auth import auth_router as auth
 from routers.positions.positions import positions_router
 from routers.auth.profile import profile_router
@@ -42,6 +43,7 @@ app.include_router(search_router, prefix="/api")
 #app.include_router(trades_router, prefix="/api")
 app.include_router(backtest_router, prefix="/api")
 app.include_router(price_router, prefix="/api")
+app.include_router(annotations_router, prefix="/api")
 
 
 

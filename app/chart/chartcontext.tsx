@@ -53,6 +53,17 @@ export function useChartContext() {
   return ctx;
 }
 
+function normalizeCandles(candles: any[]) {
+  const anchor = candles[0].open;
+
+  return candles.map(c => ({
+    open:  +((c.open  - anchor) / anchor * 100).toFixed(6),
+    high:  +((c.high  - anchor) / anchor * 100).toFixed(6),
+    low:   +((c.low   - anchor) / anchor * 100).toFixed(6),
+    close: +((c.close - anchor) / anchor * 100).toFixed(6),
+  }));
+}
+
 export function ChartProvider({ children }: { children: ReactNode }) {
   const params = useParams();
   const router = useRouter();
@@ -87,10 +98,27 @@ export function ChartProvider({ children }: { children: ReactNode }) {
     ? data
     : data?.map((item: any) => ({ ...item, value: item.close }));
 
-  const handleAnnotation = (annotation: any) => {
+  const handleAnnotation = async (annotation: any) => {
     setAnnotations(prev => [...prev, annotation]);
     setIsCreatingStrategy(false);
-    console.log("annotation saved:", annotation);
+    
+
+    const payload = {
+      ...annotation,
+      symbol: shortname,
+      candles: normalizeCandles(annotation.candles),
+    };
+
+    if (annotation.candles.length < 5) {
+      console.warn("Annotation too short, skipping save");
+      return; 
+    }
+
+    await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/annotations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
   };
 
   return (
