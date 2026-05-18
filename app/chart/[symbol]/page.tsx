@@ -3,15 +3,14 @@
 import { useState, useEffect } from "react";
 import { ChartProvider, useChartContext } from "../chartcontext";
 import TradeLayout from "../TradeLayout";
-import { CandleStickChart } from "@/app/components/chartrender/charts/CandleStickChart";
-import { Linechart } from "@/app/components/chartrender/charts/Linechart";
+import { CandleStickChart } from "@/app/chart/chartrender/charts/CandleStickChart";
+import { Linechart } from "@/app/chart/chartrender/charts/Linechart";
 import TradingPanel from "@/app/components/trading/panel";
 import TradeButtons from "@/app/components/trading/tradebuttons";
 import { TopBar } from "./TopBar";
-import DrawingCanvas from "@/app/components/chartrender/overlays/DrawingCanvas";
-import { ChartTheme } from "@/app/components/chartrender/themes/themes";
-import { ChartThemeModal } from "@/app/components/chartrender/overlays/ThemeSettings";
-import { defaultChartTheme } from "@/app/components/chartrender/themes/themes";
+import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
+import { ChartThemeModal } from "@/app/chart/chartrender/overlays/ThemeSettings";
+import { defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { getPreferences, savePreferences } from "@/app/handlers/profile";
 
 

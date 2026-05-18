@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { LinechartIntraday } from "../chartrender/charts/LinechartIntraday";
+import { LinechartIntraday } from "@/app/chart/chartrender/charts/LinechartIntraday";
 import { fetchIntraday } from "@/app/types/assets";
 import { AssetPill } from "@/app/components/intradaymarket/components/UI";
 

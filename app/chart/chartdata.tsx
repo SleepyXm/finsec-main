@@ -1,8 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import axios from 'axios';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE2
-const STOCK_DATA_URL = `${API_BASE}/stockdata?ticker_symbol=`;
 
 export function useChartData<T extends { time: string | number }>(ticker: string, interval: string, historicalData: T[] | null) {
   const [data, setData] = useState<T[] | null>(null);

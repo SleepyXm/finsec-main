@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType } from 'lightweight-charts';
-import positions from '../../trading/positions';
+import positions from '@/app/components/trading/positions';
 import { defaultChartTheme, ChartBackground } from '../themes/themes';
 
 type ChartPlugins = {
