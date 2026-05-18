@@ -1,59 +1,130 @@
 import { useEffect, useRef } from "react"
-import { StockTick } from "@/app/types/websocket"
 import { LineSeries } from "lightweight-charts"
+import { OHLCVBar, SeriesPoint, computeSMA, computeEMA } from "@/app/indicators/primitives"
+import { computeSuperTrend, SuperTrendConfig } from "@/app/indicators/supertrend"
+import { computeLiquidityVoids, LiquidityVoidConfig } from "@/app/indicators/liquidityvoids"
 
-interface IndicatorConfig {
-  sma?: { enabled: boolean, period: number }
-  ema?: { enabled: boolean, period: number }
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export type SeriesStyle = {
+  color?: string
+  lineWidth?: 1 | 2 | 3 | 4
 }
 
-export type OHLCPoint = {
-  time: number
-  open: number
-  high: number
-  low: number
-  close: number
+export type SeriesIndicatorConfig = {
+  sma?:        { enabled: boolean; period: number; style?: SeriesStyle }
+  ema?:        { enabled: boolean; period: number; style?: SeriesStyle }
+  supertrend?: { enabled: boolean; config?: SuperTrendConfig; style?: SeriesStyle }
 }
 
-export type IndicatorPoint = {
-  time: number
-  value: number
+export type ZoneIndicatorConfig = {
+  liquidityVoid?: { enabled: boolean; config?: LiquidityVoidConfig }
 }
 
-export function computeSMA(data: StockTick[], period: number): IndicatorPoint[] {
-  const result: IndicatorPoint[] = []
-  for (let i = period - 1; i < data.length; i++) {
-    let sum = 0
-    for (let j = 0; j < period; j++) {
-      sum += data[i - j].close
-    }
-    result.push({ time: data[i].time, value: sum / period })
-  }
-  return result
+export type IndicatorConfig = {
+  series?: SeriesIndicatorConfig
+  zones?:  ZoneIndicatorConfig
 }
 
-export function useIndicatorSeries(
+// ── Registries ────────────────────────────────────────────────────────────────
+
+type SimpleCompute = (data: OHLCVBar[], period: number) => SeriesPoint[]
+
+const SERIES_COMPUTE: Partial<Record<keyof SeriesIndicatorConfig, SimpleCompute>> = {
+  sma: computeSMA,
+  ema: computeEMA,
+}
+
+const DEFAULT_STYLES: Partial<Record<keyof SeriesIndicatorConfig, SeriesStyle>> = {
+  sma:        { color: "#2962FF", lineWidth: 2 },
+  ema:        { color: "#FF6D00", lineWidth: 2 },
+  supertrend: { color: "#00FFBB", lineWidth: 2 },
+}
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
+export function useIndicators(
   chartRef: React.MutableRefObject<any>,
-  data: any[],
+  data: OHLCVBar[],
   config: IndicatorConfig
 ) {
-  const smaRef = useRef<any>(null)
+  const seriesMap  = useRef<Map<string, any>>(new Map())
+  const pluginMap  = useRef<Map<string, any>>(new Map())
 
+  // ── Series: mount / unmount ───────────────────────────────────────────────
   useEffect(() => {
     if (!chartRef.current) return
-    smaRef.current = chartRef.current.addSeries(LineSeries, {
-      color: '#2962FF',
-      lineWidth: 2,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    })
-    return () => {
-      chartRef.current?.removeSeries(smaRef.current)
-    }
-  }, [chartRef.current])
+    const cfg = config.series ?? {}
 
+    for (const _key of Object.keys(cfg) as (keyof SeriesIndicatorConfig)[]) {
+      const entry    = cfg[_key]
+      const existing = seriesMap.current.get(_key)
+      if (!entry) continue
+
+      if (entry.enabled && !existing) {
+        const style = { ...DEFAULT_STYLES[_key], ...entry.style }
+        const series = chartRef.current.addSeries(LineSeries, {
+          color:            style.color,
+          lineWidth:        style.lineWidth,
+          priceLineVisible: false,
+          lastValueVisible: false,
+        })
+        seriesMap.current.set(_key, series)
+      }
+
+      if (!entry.enabled && existing) {
+        chartRef.current.removeSeries(existing)
+        seriesMap.current.delete(_key)
+      }
+    }
+
+    return () => {
+      seriesMap.current.forEach(s => chartRef.current?.removeSeries(s))
+      seriesMap.current.clear()
+    }
+  }, [chartRef.current, config.series])
+
+  // ── Series: recompute on data / config change ─────────────────────────────
   useEffect(() => {
-    if (!smaRef.current || !data.length) return
-    smaRef.current.setData(computeSMA(data, config.sma?.period ?? 14))
-  }, [data, config])
+    if (!data.length) return
+    const cfg = config.series ?? {}
+
+    // Simple period-based indicators — SMA, EMA
+    for (const _key of Object.keys(SERIES_COMPUTE) as (keyof typeof SERIES_COMPUTE)[]) {
+      const entry   = cfg[_key]
+      const series  = seriesMap.current.get(_key)
+      const compute = SERIES_COMPUTE[_key]
+      if (!entry?.enabled || !series || !compute) continue
+      series.setData(compute(data, entry.period))
+    }
+
+    // SuperTrend — separate because it takes a config object not a period
+    const st = cfg.supertrend
+    if (st?.enabled) {
+      const series = seriesMap.current.get("supertrend")
+      if (series) {
+        const points = computeSuperTrend(data, st.config)
+        // Split into up/down series so colour can differ per direction
+        const up   = points.filter(p => p.direction === -1).map(p => ({ time: p.time, value: p.value }))
+        const down = points.filter(p => p.direction ===  1).map(p => ({ time: p.time, value: p.value }))
+        // For now push both into the same series — split series is a follow up
+        series.setData([...up, ...down].sort((a, b) => a.time - b.time))
+      }
+    }
+
+  }, [data, config.series])
+
+  // ── Zones: liquidity void ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!data.length) return
+    const lv = config.zones?.liquidityVoid
+    if (!lv?.enabled) return
+
+    const zones = computeLiquidityVoids(data, lv.config)
+
+    // TODO: pass zones to canvas plugin
+    // pluginMap.current.get("liquidityVoid")?.setZones(zones)
+    console.log("liquidity void zones", zones)
+
+  }, [data, config.zones?.liquidityVoid])
 }
