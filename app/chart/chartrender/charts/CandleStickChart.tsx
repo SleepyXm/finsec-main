@@ -5,7 +5,7 @@ import { StrategyOverlay } from '../overlays/Strategy';
 import { PriceLines } from '@/app/components/trading/price';
 import { useCandleHighlight } from '@/app/chart/chartrender/overlays/CandleHighlight';
 import { ChartTheme, defaultChartTheme } from '../themes/themes';
-import { useIndicatorSeries } from '@/app/indicators/hooks/useIndicator';
+import { useIndicators } from '@/app/indicators/hooks/useIndicator';
 
 export const CandleStickChart: React.FC<{
   data: any[];
@@ -80,7 +80,7 @@ export const CandleStickChart: React.FC<{
     theme
   );
 
-  useIndicatorSeries(chartRef, data, { sma: { enabled: true, period: 14 } })
+  useIndicators(chartRef, data, { series: { sma: { enabled: true, period: 14 } } });
 
   const { setSelection, clearSelection } = useCandleHighlight({
     chartRef,
