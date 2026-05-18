@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { AreaSeries } from 'lightweight-charts';
 import { useChart } from '../hooks/useChart';
-import { PriceLines } from '../../trading/price';
+import { PriceLines } from '@/app/components/trading/price';
 import { useRef } from 'react';
 import { ChartTheme } from '../themes/themes';
 

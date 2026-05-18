@@ -1,10 +1,10 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import DrawingCanvas, {DrawingCanvasProps} from "../components/chartrender/overlays/DrawingCanvas";
-import { Shape } from "../components/chartrender/overlays/DrawingCanvas";
-import { ColorPicker } from "../components/chartrender/overlays/ColorPicker";
-import { Row } from "../components/chartrender/overlays/ThemeSettings";
+import DrawingCanvas, {DrawingCanvasProps} from "@/app/chart/chartrender/overlays/DrawingCanvas";
+import { Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
+import { ColorPicker } from "@/app/chart/chartrender/overlays/ColorPicker";
+import { Row } from "@/app/chart/chartrender/overlays/ThemeSettings";
  
 const TOP_BAR_H = 40;
 const LEFT_BAR_W = 48;

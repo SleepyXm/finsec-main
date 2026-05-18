@@ -2,9 +2,10 @@ import { useEffect, useRef, useCallback } from 'react';
 import { CandlestickSeries, ColorType } from 'lightweight-charts';
 import { useChart } from '../hooks/useChart';
 import { StrategyOverlay } from '../overlays/Strategy';
-import { PriceLines } from '../../trading/price';
-import { useCandleHighlight } from '../overlays/CandleHighlight';
+import { PriceLines } from '@/app/components/trading/price';
+import { useCandleHighlight } from '@/app/chart/chartrender/overlays/CandleHighlight';
 import { ChartTheme, defaultChartTheme } from '../themes/themes';
+import { useIndicatorSeries } from '@/app/indicators/hooks/useIndicator';
 
 export const CandleStickChart: React.FC<{
   data: any[];
@@ -21,62 +22,65 @@ export const CandleStickChart: React.FC<{
   const priceLinesRef = useRef<any[]>([]);
 
   const getPositionLabel = useCallback((position: any) => {
-  const id = position.position_id ?? position.id;
-  const pnl = livePnLMap[id] ?? 0;
+    const id = position.position_id ?? position.id;
+    const pnl = livePnLMap[id] ?? 0;
 
-  return (
-    `${position.side.toUpperCase()} ` +
-    `${position.symbol} ` +
-    `${pnl >= 0 ? '+' : ''}` +
-    `$${pnl.toFixed(2)}`
-  );
-}, [livePnLMap]);
+    return (
+      `${position.side.toUpperCase()} ` +
+      `${position.symbol} ` +
+      `${pnl >= 0 ? '+' : ''}` +
+      `$${pnl.toFixed(2)}`
+    );
+  }, [livePnLMap]);
 
   const { containerRef, chartRef, seriesRef } = useChart(
-  CandlestickSeries,
-  {
-    upColor: theme.bullCandle,
-    downColor: theme.bearCandle,
-    borderUpColor: theme.bullCandle,
-    borderDownColor: theme.bearCandle,
-    wickUpColor: theme.wickUpColor,
-    wickDownColor: theme.wickDownColor,
-  },
-  {
-    layout: {
-      background: theme.background.type === 'solid'
-        ? { type: ColorType.Solid, color: theme.background.color }
-        : { type: ColorType.Solid, color: 'transparent' },
-      textColor: theme.text,
+    CandlestickSeries,
+    {
+      upColor: theme.bullCandle,
+      downColor: theme.bearCandle,
+      borderUpColor: theme.bullCandle,
+      borderDownColor: theme.bearCandle,
+      wickUpColor: theme.wickUpColor,
+      wickDownColor: theme.wickDownColor,
     },
-    grid: {
-      vertLines: { color: theme.grid },
-      horzLines: { color: theme.grid },
+  
+    {
+      layout: {
+        background: theme.background.type === 'solid'
+          ? { type: ColorType.Solid, color: theme.background.color }
+          : { type: ColorType.Solid, color: 'transparent' },
+        textColor: theme.text,
+      },
+      grid: {
+        vertLines: { color: theme.grid },
+        horzLines: { color: theme.grid },
+      },
+      crosshair: {
+        vertLine: { color: theme.crosshair },
+        horzLine: { color: theme.crosshair },
+      },
     },
-    crosshair: {
-      vertLine: { color: theme.crosshair },
-      horzLine: { color: theme.crosshair },
-    },
-  },
-  {
-    positions,
+    {
+      positions,
 
-    getPositionLabel: (position) => {
-      const id =
-        position.position_id ?? position.id;
+      getPositionLabel: (position) => {
+        const id =
+          position.position_id ?? position.id;
 
-      const pnl = livePnLMap[id] ?? 0;
+        const pnl = livePnLMap[id] ?? 0;
 
-      return (
-        `${position.side.toUpperCase()} ` +
-        `${position.symbol} ` +
-        `${pnl >= 0 ? '+' : ''}` +
-        `$${pnl.toFixed(2)}`
-      );
+        return (
+          `${position.side.toUpperCase()} ` +
+          `${position.symbol} ` +
+          `${pnl >= 0 ? '+' : ''}` +
+          `$${pnl.toFixed(2)}`
+        );
+      },
     },
-  },
-  theme
-);
+    theme
+  );
+
+  useIndicatorSeries(chartRef, data, { sma: { enabled: true, period: 14 } })
 
   const { setSelection, clearSelection } = useCandleHighlight({
     chartRef,
@@ -84,7 +88,7 @@ export const CandleStickChart: React.FC<{
     containerRef,
     data,
     active: isCreatingStrategy,
-});
+  });
 
   useEffect(() => { PriceLines(seriesRef, priceLinesRef, trades); }, [trades, seriesRef.current]);
   useEffect(() => {

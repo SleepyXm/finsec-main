@@ -4,7 +4,7 @@ import { useUser } from "../provider/userprovider";
 import { logout } from "../handlers/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AssetSearchBar, AssetListItem  } from "./assetsearchcomponents";
+import { AssetSearchBar, AssetListItem  } from "@/app/assetsearch/assetsearchcomponents";
 import { useAssetSearch } from "../hooks/utility";
 import { usePathname } from "next/navigation";
  
