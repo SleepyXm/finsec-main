@@ -82,11 +82,17 @@ export const CandleStickChart: React.FC<{
 
   useIndicators(chartRef, seriesRef, data, {
     series: {
-      sma: { enabled: true, period: 14 },
-      //supertrend: { enabled: true, config: { atrPeriod: 10, factor: 3 } }
+      //sma: { enabled: true, period: 14 },
+      supertrend: { enabled: true, config: {
+        atrPeriod: 10, factor: 3,
+        trainingPeriod: 100,
+        highVolPercentile: 0.75,
+        midVolPercentile: 0.5,
+        lowVolPercentile: 0.25,
+      } }
     },
     zones: {
-      liquidityVoid: { enabled: true }
+      //liquidityVoid: { enabled: true }
     }
   })
 

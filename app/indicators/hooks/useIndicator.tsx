@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react"
 import { LineSeries } from "lightweight-charts"
-import { OHLCVBar, SeriesPoint, computeSMA, computeEMA  } from "../primitives"
-import { computeSuperTrend, SuperTrendConfig } from "../supertrend"
+import { OHLCVBar, SeriesPoint, computeSMA, computeEMA } from "@/app/indicators/primitives"
+import { computeSuperTrend, SuperTrendConfig } from "@/app/indicators/supertrend"
 import { computeLiquidityVoids, LiquidityVoidConfig } from "@/app/indicators/liquidityvoids"
 import { LiquidityVoidPlugin } from "@/app/indicators/plugins/liquidityvoidplugin"
+import { SuperTrendFillPlugin } from "@/app/indicators/plugins/supertrendplugin"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -36,23 +37,25 @@ const SERIES_COMPUTE: Partial<Record<keyof SeriesIndicatorConfig, SimpleCompute>
   ema: computeEMA,
 }
 
-const DEFAULT_STYLES: Partial<Record<keyof SeriesIndicatorConfig, SeriesStyle>> = {
-  sma:        { color: "#2962FF", lineWidth: 2 },
-  ema:        { color: "#FF6D00", lineWidth: 2 },
-  supertrend: { color: "#00FFBB", lineWidth: 2 },
+const DEFAULT_STYLES: Partial<Record<string, SeriesStyle>> = {
+  sma:             { color: "#2962FF", lineWidth: 2 },
+  ema:             { color: "#FF6D00", lineWidth: 2 },
+  supertrend_up:   { color: "#00FFBB", lineWidth: 2 },
+  supertrend_down: { color: "#FF1100", lineWidth: 2 },
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useIndicators(
-  chartRef: React.MutableRefObject<any>,
+  chartRef:  React.MutableRefObject<any>,
   seriesRef: React.MutableRefObject<any>,
-  data: OHLCVBar[],
-  config: IndicatorConfig
+  data:      OHLCVBar[],
+  config:    IndicatorConfig
 ) {
-  const seriesMap   = useRef<Map<string, any>>(new Map())
-  const lvPlugin    = useRef<LiquidityVoidPlugin | null>(null)
+  const seriesMap    = useRef<Map<string, any>>(new Map())
+  const lvPlugin     = useRef<LiquidityVoidPlugin | null>(null)
   const lvHostSeries = useRef<any>(null)
+  const stFillPlugin = useRef<SuperTrendFillPlugin | null>(null)
 
   // ── Series: mount / unmount ───────────────────────────────────────────────
   useEffect(() => {
@@ -61,23 +64,43 @@ export function useIndicators(
 
     for (const _key of Object.keys(cfg) as (keyof SeriesIndicatorConfig)[]) {
       const entry    = cfg[_key]
-      const existing = seriesMap.current.get(_key)
+      const existing = _key === "supertrend"
+        ? seriesMap.current.get("supertrend_up")
+        : seriesMap.current.get(_key)
       if (!entry) continue
 
       if (entry.enabled && !existing) {
-        const style = { ...DEFAULT_STYLES[_key], ...entry.style }
-        const series = chartRef.current.addSeries(LineSeries, {
-          color:            style.color,
-          lineWidth:        style.lineWidth,
-          priceLineVisible: false,
-          lastValueVisible: false,
-        })
-        seriesMap.current.set(_key, series)
+        if (_key === "supertrend") {
+          for (const dir of ["supertrend_up", "supertrend_down"] as const) {
+            const style = { ...DEFAULT_STYLES[dir], ...entry.style }
+            seriesMap.current.set(dir, chartRef.current.addSeries(LineSeries, {
+              color:            style.color,
+              lineWidth:        style.lineWidth,
+              priceLineVisible: false,
+              lastValueVisible: false,
+            }))
+          }
+        } else {
+          const style = { ...DEFAULT_STYLES[_key], ...entry.style }
+          seriesMap.current.set(_key, chartRef.current.addSeries(LineSeries, {
+            color:            style.color,
+            lineWidth:        style.lineWidth,
+            priceLineVisible: false,
+            lastValueVisible: false,
+          }))
+        }
       }
 
       if (!entry.enabled && existing) {
-        chartRef.current.removeSeries(existing)
-        seriesMap.current.delete(_key)
+        if (_key === "supertrend") {
+          for (const dir of ["supertrend_up", "supertrend_down"]) {
+            const s = seriesMap.current.get(dir)
+            if (s) { chartRef.current.removeSeries(s); seriesMap.current.delete(dir) }
+          }
+        } else {
+          chartRef.current.removeSeries(existing)
+          seriesMap.current.delete(_key)
+        }
       }
     }
 
@@ -87,47 +110,40 @@ export function useIndicators(
     }
   }, [chartRef.current, config.series])
 
-  // ── Series: recompute on data / config change ─────────────────────────────
+  // ── SuperTrend fill: mount / unmount ──────────────────────────────────────
   useEffect(() => {
-    if (!data.length) return
-    const cfg = config.series ?? {}
+    if (!chartRef.current) return
+    const st = config.series?.supertrend
 
-    // Simple period-based indicators — SMA, EMA
-    for (const _key of Object.keys(SERIES_COMPUTE) as (keyof typeof SERIES_COMPUTE)[]) {
-      const entry   = cfg[_key]
-      const series  = seriesMap.current.get(_key)
-      const compute = SERIES_COMPUTE[_key]
-      if (!entry?.enabled || !series || !compute) continue
-      series.setData(compute(data, entry.period))
+    if (st?.enabled && !stFillPlugin.current) {
+      stFillPlugin.current = new SuperTrendFillPlugin()
+      stFillPlugin.current.setSeries(seriesRef.current)
+      chartRef.current.panes()[0].attachPrimitive(stFillPlugin.current)
     }
 
-    // SuperTrend — separate because it takes a config object not a period
-    const st = cfg.supertrend
-    if (st?.enabled) {
-      const series = seriesMap.current.get("supertrend")
-      if (series) {
-        const points = computeSuperTrend(data, st.config)
-        // Split into up/down series so colour can differ per direction
-        const up   = points.filter(p => p.direction === -1).map(p => ({ time: p.time, value: p.value }))
-        const down = points.filter(p => p.direction ===  1).map(p => ({ time: p.time, value: p.value }))
-        // For now push both into the same series — split series is a follow up
-        series.setData([...up, ...down].sort((a, b) => a.time - b.time))
+    if (!st?.enabled && stFillPlugin.current) {
+      chartRef.current.panes()[0].detachPrimitive(stFillPlugin.current)
+      stFillPlugin.current = null
+    }
+
+    return () => {
+      if (stFillPlugin.current) {
+        chartRef.current?.panes()[0].detachPrimitive(stFillPlugin.current)
+        stFillPlugin.current = null
       }
     }
+  }, [chartRef.current, config.series?.supertrend?.enabled])
 
-  }, [data, config.series])
-
-  // ── Zones: mount liquidity void plugin on empty host series ──────────────
+  // ── Liquidity void: mount / unmount ───────────────────────────────────────
   useEffect(() => {
     if (!chartRef.current) return
     const lv = config.zones?.liquidityVoid
 
     if (lv?.enabled && !lvPlugin.current) {
-      // Empty host series — never gets data, just carries the primitive
       lvHostSeries.current = chartRef.current.addSeries(LineSeries, {
         priceLineVisible: false,
         lastValueVisible: false,
-        visible: false,
+        visible:          false,
       })
       lvPlugin.current = new LiquidityVoidPlugin()
       lvPlugin.current.setSeries(seriesRef.current)
@@ -137,7 +153,7 @@ export function useIndicators(
     if (!lv?.enabled && lvPlugin.current) {
       lvHostSeries.current?.detachPrimitive(lvPlugin.current)
       chartRef.current.removeSeries(lvHostSeries.current)
-      lvPlugin.current    = null
+      lvPlugin.current     = null
       lvHostSeries.current = null
     }
 
@@ -145,18 +161,50 @@ export function useIndicators(
       if (lvPlugin.current && lvHostSeries.current) {
         lvHostSeries.current.detachPrimitive(lvPlugin.current)
         chartRef.current?.removeSeries(lvHostSeries.current)
-        lvPlugin.current    = null
+        lvPlugin.current     = null
         lvHostSeries.current = null
       }
     }
   }, [chartRef.current, config.zones?.liquidityVoid?.enabled])
 
-  // ── Zones: recompute and push to plugin ───────────────────────────────────
+  // ── Recompute all on data / config change ─────────────────────────────────
   useEffect(() => {
-    if (!data.length || !lvPlugin.current) return
+    if (!data.length) return
+    const cfg = config.series ?? {}
+
+    // SMA, EMA
+    for (const _key of Object.keys(SERIES_COMPUTE) as (keyof typeof SERIES_COMPUTE)[]) {
+      const entry   = cfg[_key]
+      const series  = seriesMap.current.get(_key)
+      const compute = SERIES_COMPUTE[_key]
+      if (!entry?.enabled || !series || !compute) continue
+      series.setData(compute(data, entry.period))
+    }
+
+    // SuperTrend
+    const st = cfg.supertrend
+    if (st?.enabled) {
+      const upSeries   = seriesMap.current.get("supertrend_up")
+      const downSeries = seriesMap.current.get("supertrend_down")
+      if (upSeries && downSeries) {
+        const points = computeSuperTrend(data, st.config)
+        upSeries.setData(points
+          .filter(p => p.direction === -1)
+          .map(p => ({ time: p.time, value: p.value }))
+        )
+        downSeries.setData(points
+          .filter(p => p.direction === 1)
+          .map(p => ({ time: p.time, value: p.value }))
+        )
+        stFillPlugin.current?.setData(points, data)
+      }
+    }
+
+    // Liquidity void
     const lv = config.zones?.liquidityVoid
-    if (!lv?.enabled) return
-    const zones = computeLiquidityVoids(data, lv.config)
-    lvPlugin.current.setZones(zones)
-  }, [data, config.zones?.liquidityVoid])
+    if (lv?.enabled && lvPlugin.current) {
+      lvPlugin.current.setZones(computeLiquidityVoids(data, lv.config))
+    }
+
+  }, [data, config])
 }
