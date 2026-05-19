@@ -80,7 +80,15 @@ export const CandleStickChart: React.FC<{
     theme
   );
 
-  useIndicators(chartRef, data, { series: { sma: { enabled: true, period: 14 } } });
+  useIndicators(chartRef, seriesRef, data, {
+    series: {
+      sma: { enabled: true, period: 14 },
+      //supertrend: { enabled: true, config: { atrPeriod: 10, factor: 3 } }
+    },
+    zones: {
+      liquidityVoid: { enabled: true }
+    }
+  })
 
   const { setSelection, clearSelection } = useCandleHighlight({
     chartRef,

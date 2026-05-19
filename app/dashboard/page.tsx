@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useUser } from "../provider/userprovider";
 import { usePortfolio, useAccountStats, useJournal, usePnLCurve } from "../hooks/usePortfolio";
 import { usePositions } from "../hooks/usePositions";
-import { PnLChart } from "../components/chartrender/charts/PnLChart";
+import { PnLChart } from "@/app/chart/chartrender/charts/PnLChart";
 import { ASSETS } from "./constants/assets";
 import { INDICATORS } from "./constants/indicators";
 import { TRADE_COLUMNS } from "./constants/tradeColumns";

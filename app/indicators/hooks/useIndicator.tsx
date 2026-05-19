@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react"
 import { LineSeries } from "lightweight-charts"
-import { OHLCVBar, SeriesPoint, computeSMA, computeEMA } from "@/app/indicators/primitives"
-import { computeSuperTrend, SuperTrendConfig } from "@/app/indicators/supertrend"
+import { OHLCVBar, SeriesPoint, computeSMA, computeEMA  } from "../primitives"
+import { computeSuperTrend, SuperTrendConfig } from "../supertrend"
 import { computeLiquidityVoids, LiquidityVoidConfig } from "@/app/indicators/liquidityvoids"
+import { LiquidityVoidPlugin } from "@/app/indicators/plugins/liquidityvoidplugin"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -45,11 +46,13 @@ const DEFAULT_STYLES: Partial<Record<keyof SeriesIndicatorConfig, SeriesStyle>> 
 
 export function useIndicators(
   chartRef: React.MutableRefObject<any>,
+  seriesRef: React.MutableRefObject<any>,
   data: OHLCVBar[],
   config: IndicatorConfig
 ) {
-  const seriesMap  = useRef<Map<string, any>>(new Map())
-  const pluginMap  = useRef<Map<string, any>>(new Map())
+  const seriesMap   = useRef<Map<string, any>>(new Map())
+  const lvPlugin    = useRef<LiquidityVoidPlugin | null>(null)
+  const lvHostSeries = useRef<any>(null)
 
   // ── Series: mount / unmount ───────────────────────────────────────────────
   useEffect(() => {
@@ -114,17 +117,46 @@ export function useIndicators(
 
   }, [data, config.series])
 
-  // ── Zones: liquidity void ─────────────────────────────────────────────────
+  // ── Zones: mount liquidity void plugin on empty host series ──────────────
   useEffect(() => {
-    if (!data.length) return
+    if (!chartRef.current) return
+    const lv = config.zones?.liquidityVoid
+
+    if (lv?.enabled && !lvPlugin.current) {
+      // Empty host series — never gets data, just carries the primitive
+      lvHostSeries.current = chartRef.current.addSeries(LineSeries, {
+        priceLineVisible: false,
+        lastValueVisible: false,
+        visible: false,
+      })
+      lvPlugin.current = new LiquidityVoidPlugin()
+      lvPlugin.current.setSeries(seriesRef.current)
+      lvHostSeries.current.attachPrimitive(lvPlugin.current)
+    }
+
+    if (!lv?.enabled && lvPlugin.current) {
+      lvHostSeries.current?.detachPrimitive(lvPlugin.current)
+      chartRef.current.removeSeries(lvHostSeries.current)
+      lvPlugin.current    = null
+      lvHostSeries.current = null
+    }
+
+    return () => {
+      if (lvPlugin.current && lvHostSeries.current) {
+        lvHostSeries.current.detachPrimitive(lvPlugin.current)
+        chartRef.current?.removeSeries(lvHostSeries.current)
+        lvPlugin.current    = null
+        lvHostSeries.current = null
+      }
+    }
+  }, [chartRef.current, config.zones?.liquidityVoid?.enabled])
+
+  // ── Zones: recompute and push to plugin ───────────────────────────────────
+  useEffect(() => {
+    if (!data.length || !lvPlugin.current) return
     const lv = config.zones?.liquidityVoid
     if (!lv?.enabled) return
-
     const zones = computeLiquidityVoids(data, lv.config)
-
-    // TODO: pass zones to canvas plugin
-    // pluginMap.current.get("liquidityVoid")?.setZones(zones)
-    console.log("liquidity void zones", zones)
-
+    lvPlugin.current.setZones(zones)
   }, [data, config.zones?.liquidityVoid])
 }
