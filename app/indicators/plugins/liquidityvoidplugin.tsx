@@ -10,11 +10,11 @@ import { LiquidityVoidZone } from "../liquidityvoids"
 // ── Renderer ──────────────────────────────────────────────────────────────────
 
 class LiquidityVoidRenderer implements IPrimitivePaneRenderer {
-  private _zones:      LiquidityVoidZone[]
-  private _priceToY:   (price: number) => number | null
-  private _timeToX:    (time: number) => number | null
-  private _rightEdgeX: number
-  private _colors:     { bull: string; bear: string; filled: string }
+  private zones:      LiquidityVoidZone[]
+  private priceToY:   (price: number) => number | null
+  private timeToX:    (time: number) => number | null
+  private rightEdgeX: number
+  private colors:     { bull: string; bear: string; filled: string }
 
   constructor(
     zones:      LiquidityVoidZone[],
@@ -23,11 +23,11 @@ class LiquidityVoidRenderer implements IPrimitivePaneRenderer {
     rightEdgeX: number,
     colors:     { bull: string; bear: string; filled: string }
   ) {
-    this._zones      = zones
-    this._priceToY   = priceToY
-    this._timeToX    = timeToX
-    this._rightEdgeX = rightEdgeX
-    this._colors     = colors
+    this.zones      = zones
+    this.priceToY   = priceToY
+    this.timeToX    = timeToX
+    this.rightEdgeX = rightEdgeX
+    this.colors     = colors
   }
 
   draw(target: any): void {
@@ -35,20 +35,20 @@ class LiquidityVoidRenderer implements IPrimitivePaneRenderer {
       const ctx   = scope.context as CanvasRenderingContext2D
       const ratio = scope.horizontalPixelRatio
 
-      for (const zone of this._zones) {
-        const x1 = this._timeToX(zone.startTime)
-        const x2 = zone.endTime ? this._timeToX(zone.endTime) : this._rightEdgeX
-        const y1 = this._priceToY(zone.top)
-        const y2 = this._priceToY(zone.bottom)
+      for (const zone of this.zones) {
+        const x1 = this.timeToX(zone.startTime)
+        const x2 = zone.endTime ? this.timeToX(zone.endTime) : this.rightEdgeX
+        const y1 = this.priceToY(zone.top)
+        const y2 = this.priceToY(zone.bottom)
 
         if (x1 === null || x2 === null || y1 === null || y2 === null) continue
         console.log({ x1, x2, y1, y2 })
 
         ctx.fillStyle = zone.status === "filled"
-          ? this._colors.filled
+          ? this.colors.filled
           : zone.direction === "bull"
-            ? this._colors.bull
-            : this._colors.bear
+            ? this.colors.bull
+            : this.colors.bear
 
         ctx.fillRect(
           x1 * ratio,

@@ -83,13 +83,13 @@ export const CandleStickChart: React.FC<{
   useIndicators(chartRef, seriesRef, data, {
     series: {
       //sma: { enabled: true, period: 14 },
-      supertrend: { enabled: true, config: {
-        atrPeriod: 10, factor: 3,
-        trainingPeriod: 100,
-        highVolPercentile: 0.75,
-        midVolPercentile: 0.5,
-        lowVolPercentile: 0.25,
-      } }
+      //supertrend: { enabled: true, config: {
+        //atrPeriod: 10, factor: 3,
+        //trainingPeriod: 100,
+        //highVolPercentile: 0.75,
+        //midVolPercentile: 0.5,
+        //lowVolPercentile: 0.25,
+      //} }
     },
     zones: {
       //liquidityVoid: { enabled: true }
@@ -125,7 +125,7 @@ export const CandleStickChart: React.FC<{
 
 
   return (
-    <div style={{ position: 'relative', width: '97vw', height: '70vh' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       {renderTradeUI && <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 10 }}>{renderTradeUI}</div>}
       {isCreatingStrategy && <StrategyOverlay chartRef={chartRef} seriesRef={seriesRef} data={data} onAnnotation={onAnnotation} setSelection={setSelection} clearSelection={clearSelection} />}

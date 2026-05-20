@@ -83,23 +83,23 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
     seriesRef.current = series;
     setChartKey(k => k + 1);
 
-    const onResize = () => {
-      if (!containerRef.current || !chartRef.current) return;
-      chartRef.current.applyOptions({
-        width: containerRef.current.clientWidth,
-      });
-      forceUpdate((n) => n + 1);
-    };
+    const observer = new ResizeObserver(() => {
+  if (!containerRef.current || !chartRef.current) return;
+  chartRef.current.applyOptions({
+    width: containerRef.current.clientWidth,
+  });
+  forceUpdate(n => n + 1);
+});
 
-    window.addEventListener('resize', onResize);
+observer.observe(containerRef.current);
 
-    return () => {
-      window.removeEventListener('resize', onResize);
-      chart.remove();
-      chartRef.current = null;
-      seriesRef.current = null;
-      positionLinesRef.current.clear();
-    };
+return () => {
+  observer.disconnect();
+  chart.remove();
+  chartRef.current = null;
+  seriesRef.current = null;
+  positionLinesRef.current.clear();
+};
   }, []);
 
   useEffect(() => {

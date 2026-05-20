@@ -2,14 +2,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { RawData } from "../types/charts";
 import { Asset } from "../types/assets";
-import { LinechartIntraday } from "./chartrender/charts/LinechartIntraday";
 
 interface AssetSearchBarProps {
   onSearch: (query: string) => void;
 }
 
+
 interface AssetListItemProps {
   asset: Asset;
+  onSelect?: (asset: Asset) => void;
 }
 
 export function AssetSearchBar({ onSearch }: AssetSearchBarProps) {
@@ -43,16 +44,27 @@ export function AssetSearchBar({ onSearch }: AssetSearchBarProps) {
     </form>
   );
 }
-export function AssetListItem({ asset }: AssetListItemProps) {
+
+export function AssetListItem({ asset, onSelect }: AssetListItemProps) {
+  const inner = (
+    <div className="flex items-center gap-3 px-4 py-3 hover:bg-[#1e2d40] transition-all">
+      <div className="w-8 h-8 rounded-full bg-[#2a2e3a] shrink-0" />
+      <div>
+        <div className="text-sm font-medium text-white">{asset.symbol}</div>
+        <div className="text-xs text-[#5d6578]">{asset.shortname}</div>
+      </div>
+    </div>
+  );
+
   return (
     <li className="border-b border-[#2a2e3a] last:border-none">
-      <Link href={`/chart/${asset.symbol}`} className="flex items-center gap-3 px-4 py-3 hover:bg-[#1e2d40] transition-all">
-        <div className="w-8 h-8 rounded-full bg-[#2a2e3a] shrink-0" />
-        <div>
-          <div className="text-sm font-medium text-white">{asset.symbol}</div>
-          <div className="text-xs text-[#5d6578]">{asset.shortname}</div>
-        </div>
-      </Link>
+      {onSelect ? (
+        <button className="w-full text-left" onClick={() => onSelect(asset)}>
+          {inner}
+        </button>
+      ) : (
+        <Link href={`/chart/${asset.symbol}`}>{inner}</Link>
+      )}
     </li>
   );
 }

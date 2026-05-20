@@ -64,10 +64,10 @@ function normalizeCandles(candles: any[]) {
   }));
 }
 
-export function ChartProvider({ children }: { children: ReactNode }) {
+export function ChartProvider({ children, symbol }: { children: ReactNode; symbol?: string }) {
   const params = useParams();
   const router = useRouter();
-  const symbolParam = typeof params.symbol === "string" ? decodeURIComponent(params.symbol) : "";
+  const symbolParam = symbol ?? (typeof params.symbol === "string" ? decodeURIComponent(params.symbol) : "");
   const shortname = symbolParam.toUpperCase();
 
   const [interval, setInterval] = useState<Interval>("5m");
