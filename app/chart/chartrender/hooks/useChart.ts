@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import positions from '@/app/components/trading/positions';
 import { defaultChartTheme, ChartBackground } from '../themes/themes';
 
@@ -63,6 +63,9 @@ export function useChart(seriesConstructor: any, seriesOptions: any = {}, chartO
         timeVisible: true,
         secondsVisible: false,
         ...chartOptions.timeScale,
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
       },
 
       ...chartOptions.extra,
