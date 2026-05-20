@@ -20,11 +20,11 @@ export type FillZone = {
 // ── Renderer ──────────────────────────────────────────────────────────────────
 
 class SuperTrendFillRenderer implements IPrimitivePaneRenderer {
-  private _zones:    FillZone[]
-  private _priceToY: (price: number) => number | null
-  private _timeToX:  (time: number) => number | null
-  private _barWidth: number
-  private _colors:   { bull: [string, string]; bear: [string, string] }
+  private zones:    FillZone[]
+  private priceToY: (price: number) => number | null
+  private timeToX:  (time: number) => number | null
+  private barWidth: number
+  private colors:   { bull: [string, string]; bear: [string, string] }
 
   constructor(
     zones:    FillZone[],
@@ -33,11 +33,11 @@ class SuperTrendFillRenderer implements IPrimitivePaneRenderer {
     barWidth: number,
     colors:   { bull: [string, string]; bear: [string, string] }
   ) {
-    this._zones    = zones
-    this._priceToY = priceToY
-    this._timeToX  = timeToX
-    this._barWidth = barWidth
-    this._colors   = colors
+    this.zones    = zones
+    this.priceToY = priceToY
+    this.timeToX  = timeToX
+    this.barWidth = barWidth
+    this.colors   = colors
   }
 
   draw(target: any): void {
@@ -45,17 +45,17 @@ class SuperTrendFillRenderer implements IPrimitivePaneRenderer {
       const ctx   = scope.context as CanvasRenderingContext2D
       const ratio = scope.horizontalPixelRatio
 
-      for (const zone of this._zones) {
-        const x      = this._timeToX(zone.time)
-        const yST    = this._priceToY(zone.stValue)
-        const yBody  = this._priceToY(zone.bodyMid)
+      for (const zone of this.zones) {
+        const x      = this.timeToX(zone.time)
+        const yST    = this.priceToY(zone.stValue)
+        const yBody  = this.priceToY(zone.bodyMid)
 
         if (x === null || yST === null || yBody === null) continue
 
         const xPx    = x     * ratio
         const ySTpx  = yST   * ratio
         const yBodypx = yBody * ratio
-        const w      = this._barWidth * ratio
+        const w      = this.barWidth * ratio
         const top    = Math.min(ySTpx, yBodypx)
         const bottom = Math.max(ySTpx, yBodypx)
         const height = bottom - top
@@ -68,14 +68,14 @@ class SuperTrendFillRenderer implements IPrimitivePaneRenderer {
           // Bullish: ST below price
           // top = bodyMid (price), bottom = ST line
           // fade from transparent at price → strong green at ST
-          grad.addColorStop(0, this._colors.bull[1])  // transparent at body
-          grad.addColorStop(1, this._colors.bull[0])  // strong at ST line
+          grad.addColorStop(0, this.colors.bull[1])  // transparent at body
+          grad.addColorStop(1, this.colors.bull[0])  // strong at ST line
         } else {
           // Bearish: ST above price
           // top = ST line, bottom = bodyMid (price)
           // strong red at ST → fade to transparent at price
-          grad.addColorStop(0, this._colors.bear[0])  // strong at ST line
-          grad.addColorStop(1, this._colors.bear[1])  // transparent at body
+          grad.addColorStop(0, this.colors.bear[0])  // strong at ST line
+          grad.addColorStop(1, this.colors.bear[1])  // transparent at body
         }
 
         ctx.fillStyle = grad
