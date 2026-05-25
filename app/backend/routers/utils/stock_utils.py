@@ -122,10 +122,11 @@ def df_to_chart(df: pd.DataFrame) -> list[dict]:
     return [
         {
             "time": int(row["timestamp"].timestamp()),
-            "open": row["open"],
-            "high": row["high"],
-            "low": row["low"],
-            "close": row["close"],
+            "open": round(float(row["open"]), 2),
+            "high": round(float(row["high"]), 2),
+            "low": round(float(row["low"]), 2),
+            "close": round(float(row["close"]), 2),
+
         }
         for _, row in df.iterrows()
     ]
