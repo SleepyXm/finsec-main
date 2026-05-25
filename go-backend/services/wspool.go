@@ -1,6 +1,8 @@
 package services
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/redis/go-redis/v9"
 )
@@ -49,6 +52,7 @@ type Message struct {
 type WSConn struct {
 	conn   net.Conn
 	active chan struct{}
+	mu     sync.Mutex
 }
 
 func NewWSConn(conn net.Conn) *WSConn {
@@ -69,6 +73,12 @@ func SafeWrite(c *WSConn, msg []byte) error {
 
 func (c *WSConn) Close() {
 	close(c.active)
+}
+
+func SafeWriteBinary(wsc *WSConn, data []byte) error {
+	wsc.mu.Lock()
+	defer wsc.mu.Unlock()
+	return wsutil.WriteServerMessage(wsc.conn, ws.OpBinary, data)
 }
 
 func (c *WSConn) Write(msg []byte) error {
@@ -281,4 +291,22 @@ func (p *WorkerPool) Send(msg Message) {
 
 func (c *WSConn) WriteMsg(msg []byte) error {
 	return SafeWrite(c, msg)
+}
+
+func Compress(data string) ([]byte, error) {
+	var buf bytes.Buffer
+
+	gz := gzip.NewWriter(&buf)
+
+	_, err := gz.Write([]byte(data))
+	if err != nil {
+		return nil, err
+	}
+
+	err = gz.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
