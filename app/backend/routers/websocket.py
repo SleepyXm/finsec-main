@@ -32,10 +32,12 @@ _last_bounds: dict[str, dict] = {}
 
 def build_chart(ticker: str, interval: str, live_period: str) -> str:
     df = load_parquet(ticker, interval)
+    print(f"[parquet] last: {df['timestamp'].iloc[-1]}")
     try:
         t = yf.Ticker(ticker)
         df_live = t.history(period=live_period, interval=interval)
         if not df_live.empty:
+            print(f"[yfinance] first: {df_live.index[0]}, last: {df_live.index[-1]}")
             df_live.columns = [c.lower() for c in df_live.columns]
             df_live.index.name = "timestamp"
             df_live = df_live.reset_index()
@@ -97,6 +99,7 @@ def fetch_latest(ticker: str, interval: str) -> dict | None:
             "close": round(close, 2),
             "buy_price": round(close * multiplier, 2),
             "volume": int(row["volume"]),
+            "source": "real",
         }
         state["real_candle"] = candle
         # reset sim state on real fetch so velocity doesnt carry stale momentum
@@ -105,7 +108,7 @@ def fetch_latest(ticker: str, interval: str) -> dict | None:
         return candle
 
     _fetch_state[key] = state
-    return simulate_next(ticker, state["real_candle"], interval)
+    return simulate_next(ticker, state["real_candle"],  interval)
 
 async def broadcast_stock_data(ticker: str, interval: str):
     channel = f"price:{ticker}:{interval}"
@@ -173,4 +176,5 @@ def simulate_next(ticker: str, real_candle: dict, interval: str) -> dict:
         "close": new_close,
         "buy_price": round(new_close * multiplier, 2),
         "volume": real_candle["volume"],
+        "source": "simulated",
     }
