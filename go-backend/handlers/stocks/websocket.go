@@ -28,7 +28,7 @@ var chartGroup singleflight.Group
 
 var pools sync.Map // key: "ticker:interval" -> *WorkerPool
 
-func primeChart(ctx context.Context, rdb *redis.Client, pythonURL, ticker, interval, chartKey string) ([]byte, error) {
+func primeChart(ctx context.Context, rdb *redis.Client, pythonURL, ticker, interval, chartKey string) (string, error) {
 	_, err, _ := chartGroup.Do(chartKey, func() (interface{}, error) {
 		resp, pyErr := http.Post(
 			pythonURL+"/api/internal/chart/cache?ticker="+ticker+"&interval="+interval,
@@ -40,9 +40,9 @@ func primeChart(ctx context.Context, rdb *redis.Client, pythonURL, ticker, inter
 		return nil, pyErr
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return rdb.Get(ctx, chartKey).Bytes() // []byte, not string
+	return rdb.Get(ctx, chartKey).Result()
 }
 
 func getOrCreatePool(key string, rdb *redis.Client, channel string) *services.WorkerPool {
@@ -61,11 +61,7 @@ func getOrCreatePool(key string, rdb *redis.Client, channel string) *services.Wo
 		pubsub := rdb.Subscribe(ctx, channel)
 		defer pubsub.Close()
 		for msg := range pubsub.Channel() {
-			p.Send(services.Message{
-				Type:    "price",
-				Payload: []byte(msg.Payload), // compressed bytes
-				//Binary:  true,                // add this field if needed
-			})
+			p.Send(services.Message{Type: "price", Payload: []byte(msg.Payload)})
 		}
 	}()
 	log.Printf("[wspool] new pool created for %s", key)
@@ -131,30 +127,30 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 		defer pool.RemoveConn(wsc)
 
 		// cache
-		cachedBytes, err := rdb.Get(ctx, chartKey).Bytes()
+		cached, err := rdb.Get(ctx, chartKey).Result()
 		if err == redis.Nil {
-			cachedBytes, err = primeChart(ctx, rdb, pythonURL, ticker, interval, chartKey)
+			cached, err = primeChart(ctx, rdb, pythonURL, ticker, interval, chartKey)
 		}
+
 		// initial write directly to this connection
 		t4 := time.Now()
 		if err == nil {
-			if err := services.SafeWriteBinary(wsc, []byte(cachedBytes)); err != nil {
+			if err := services.SafeWrite(wsc, []byte(cached)); err != nil {
 				return
 			}
 		} else {
-			msg, err := services.Compress(`{"type":"downloading","message":"data is being prepared"}`)
-			if err != nil {
-				log.Println("compress error:", err)
+			if err := services.SafeWrite(wsc, []byte(
+				`{"type":"downloading","message":"data is being prepared"}`,
+			)); err != nil {
 				return
 			}
-			_ = services.SafeWriteBinary(wsc, msg)
 		}
 		log.Printf("[write] %s/%s | %v", ticker, interval, time.Since(t4))
 
 		// last tick directly to this connection
 		lastKey := fmt.Sprintf("last:price:%s:%s", ticker, interval)
-		if last, err := rdb.Get(ctx, lastKey).Bytes(); err == nil && len(last) > 0 {
-			_ = services.SafeWriteBinary(wsc, last)
+		if last, err := rdb.Get(ctx, lastKey).Result(); err == nil && last != "" {
+			_ = services.SafeWrite(wsc, []byte(last))
 		}
 
 		// connection monitor — block until client disconnects
