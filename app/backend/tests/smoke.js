@@ -1,5 +1,6 @@
 import ws from 'k6/ws';
 import { check } from 'k6';
+import { inflate } from './pako.min.js';
 
 export const options = {
   scenarios: {
@@ -25,34 +26,53 @@ export const options = {
   ],
 };
 
+function decompress(buffer) {
+  // Python wrote gzip frames, pako.inflate with windowBits 31 handles gzip
+  return inflate(new Uint8Array(buffer), { to: 'string', windowBits: 31 });
+}
+
+function validateMsg(msg) {
+  if (msg.type === 'historical')  return Array.isArray(msg.data) && msg.data.length > 0;
+  if (msg.type === 'downloading') return true;
+  return (
+    msg.ticker !== undefined &&
+    typeof msg.time     === 'number' && msg.time > 0 &&
+    typeof msg.open     === 'number' &&
+    typeof msg.high     === 'number' &&
+    typeof msg.low      === 'number' &&
+    typeof msg.close    === 'number' &&
+    typeof msg.buy_price === 'number'
+  );
+}
+
 export default function () {
   const url = 'ws://localhost:9000/api/ws/stockdata?ticker_symbol=NQ=F&interval=5m';
-  
+
   const res = ws.connect(url, {}, function (socket) {
     socket.on('open', () => {
-      check(socket, { 'connected': () => true }); // once on open, fine
+      check(socket, { 'connected': () => true });
     });
 
+    socket.on('binaryMessage', (data) => {
+      let msg;
+      try {
+        msg = JSON.parse(decompress(data));
+      } catch (e) {
+        check(null, { 'decompression ok': () => false });
+        return;
+      }
+      check(msg, { 'has data': validateMsg });
+    });
+
+    // keep the text handler as a safety net during rollout
     socket.on('message', (data) => {
-      console.log(data.length);
-      const msg = JSON.parse(data);
-      check(msg, {
-        'has data': (m) => {
-          if (m.type === 'historical') return Array.isArray(m.data) && m.data.length > 0;
-          if (m.type === 'downloading') return true;
-          return (
-            m.ticker !== undefined &&
-            typeof m.time === 'number' && m.time > 0 &&
-            typeof m.open === 'number' &&
-            typeof m.high === 'number' &&
-            typeof m.low === 'number' &&
-            typeof m.close === 'number' &&
-            typeof m.buy_price === 'number'
-          );
-        },
-      });
+      check(JSON.parse(data), { 'has data (text frame)': validateMsg });
+    });
+
+    socket.on('error', (e) => {
+      check(null, { 'no socket error': () => false });
     });
   });
 
-  check(res, { 'status 101': (r) => r && r.status === 101 }); // once per VU after connect
+  check(res, { 'status 101': (r) => r && r.status === 101 });
 }
