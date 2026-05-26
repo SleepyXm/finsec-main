@@ -1,6 +1,8 @@
 from fastapi import APIRouter
+
 import redis.asyncio as redis
 from redis.asyncio import ConnectionPool
+
 import pandas as pd
 import yfinance as yf
 import numpy as np
@@ -25,6 +27,13 @@ subscriptions = {}
 
 # Store last candle bounds per ticker in Redis or just in-memory dict
 _last_bounds: dict[str, dict] = {}
+
+# helpers
+def compress(data: str) -> bytes:
+    return gzip.compress(data.encode(), compresslevel=6)
+
+def decompress(data: bytes) -> str:
+    return gzip.decompress(data).decode()
 
 # ── Chart cache ──────────────────────────────────────────────────────────────
 
@@ -52,11 +61,11 @@ def build_chart(ticker: str, interval: str, live_period: str) -> str:
     return json.dumps({"type": "historical", "data": chart_data})
 
 
-async def build_and_cache_chart(ticker: str, interval: str) -> str:
+async def build_and_cache_chart(ticker: str, interval: str) -> bytes:
     cache_key = f"chart:{ticker}:{interval}"
     cached = await r.get(cache_key)
     if cached:
-        return cached
+        return cached  # already compressed bytes
     if cache_key not in _chart_locks:
         _chart_locks[cache_key] = asyncio.Lock()
     async with _chart_locks[cache_key]:
@@ -65,8 +74,9 @@ async def build_and_cache_chart(ticker: str, interval: str) -> str:
             return cached
         live_period = INTERVAL_CONFIG.get(interval, {}).get("period", "1d")
         json_str = await asyncio.to_thread(build_chart, ticker, interval, live_period)
-        await r.set(cache_key, json_str, ex=600)
-        return json_str
+        compressed = compress(json_str)
+        await r.set(cache_key, compressed, ex=600)
+        return compressed
 
 
 _fetch_state: dict[str, dict] = {}
@@ -116,13 +126,14 @@ async def broadcast_stock_data(ticker: str, interval: str):
         try:
             candle = await asyncio.to_thread(fetch_latest, ticker, interval)
             if candle is None:
-                await r.publish(channel, json.dumps({"error": "no data"}))
+                payload = compress(json.dumps({"error": "no data"}))
             else:
-                payload = json.dumps(candle)
-                await r.publish(channel, payload)
-                await r.set(last_key, payload, ex=300)
+                payload = compress(json.dumps(candle))
+
+            await r.publish(channel, payload)
+            await r.set(last_key, payload, ex=300)
         except Exception as e:
-            await r.publish(channel, json.dumps({"error": str(e)}))
+            await r.publish(channel, compress(json.dumps({"error": str(e)})))
         await asyncio.sleep(sleep_s)
 
 
