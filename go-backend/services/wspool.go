@@ -181,6 +181,23 @@ func (p *WorkerPool) fanOut() {
 	}
 }
 
+func (p *WorkerPool) newfanOut() {
+    for msg := range p.msgCh {
+        p.mu.Lock()
+        workers := make([]*Worker, len(p.workers))
+        copy(workers, p.workers)
+        p.mu.Unlock()
+
+        for _, w := range workers {
+            select {
+            case w.msgCh <- msg:
+            default:
+                log.Printf("[wspool] worker backed up, skipping message")
+            }
+        }
+    }
+}
+
 func (p *WorkerPool) spawnWorker() *Worker {
 	w := &Worker{
 		name:  newWorkerName(),
