@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { createStockSocket, StockTick, PositionClosedEvent, AccountPnLEvent, WSMessage } from "@/app/types/websocket";
 import { Trade } from "@/app/types/trades";
 
@@ -12,11 +12,6 @@ export function useStockSocket(
   const [tick, setTick] = useState<StockTick | null>(null);
   const [historicalData, setHistoricalData] = useState<StockTick[]>([]);
   const [connected, setConnected] = useState(false);
-<<<<<<< Updated upstream
-  const wsRef = useRef<WebSocket | null>(null);
-  const connectionIdRef = useRef(0);
-  
-=======
   const [loadingMore, setLoadingMore] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -24,7 +19,6 @@ export function useStockSocket(
   const currentPageRef = useRef(1);
   const receivedPagesRef = useRef<Set<number>>(new Set());
   const totalPagesRef = useRef(1);
->>>>>>> Stashed changes
 
   useEffect(() => {
     if (!ticker) return;
@@ -33,78 +27,11 @@ export function useStockSocket(
     connectionIdRef.current += 1;
     const connectionId = connectionIdRef.current;
 
-<<<<<<< Updated upstream
-  if (wsRef.current) {
-    wsRef.current.onmessage = null;
-    wsRef.current.close();
-    wsRef.current = null;
-  }
-
-  setHistoricalData([]);
-  setTick(null);
-
-  const ws = createStockSocket(
-    ticker,
-    interval,
-    (msg: WSMessage) => {
-      // Ignore stale sockets completely
-      if (connectionId !== connectionIdRef.current) {
-        return;
-      }
-
-      if ("type" in msg && msg.type === "position_closed") {
-        onPositionClosed(msg.data.position_id);
-        return;
-      }
-
-      if ("type" in msg && msg.type === "historical") {
-        setHistoricalData(msg.data);
-        return;
-      }
-
-      if ("type" in msg && msg.type === "account_pnl") {
-        onAccountPnL(msg.data.unrealised_pnl);
-        return;
-      }
-
-      const priceTick = msg as StockTick;
-
-      // Extra safety
-      if (priceTick.ticker !== ticker) {
-        return;
-      }
-
-      setTick(priceTick);
-    },
-    () => {
-      if (connectionId === connectionIdRef.current) {
-        setConnected(false);
-      }
-    }
-  );
-
-  ws.onopen = () => {
-    if (connectionId === connectionIdRef.current) {
-      setConnected(true);
-    }
-  };
-  
-
-  wsRef.current = ws;
-
-  return () => {
-    ws.onmessage = null;
-    ws.close();
-
-    if (connectionId === connectionIdRef.current) {
-      connectionIdRef.current += 1;
-=======
     // close previous socket synchronously before opening a new one
     if (wsRef.current) {
       wsRef.current.onmessage = null;
       wsRef.current.close();
       wsRef.current = null;
->>>>>>> Stashed changes
     }
 
     // reset all per-connection state
@@ -172,8 +99,6 @@ export function useStockSocket(
     };
   }, [ticker, interval]);
 
-<<<<<<< Updated upstream
-=======
   const loadPage = useCallback((page: number) => {
     const ws = wsRef.current;
     console.log("[loadPage] page:", page, "| ws state:", ws?.readyState, "| loadingMore:", loadingMore);
@@ -216,10 +141,9 @@ export function useStockSocket(
 }, [loadPage]);
 
   const filteredPositions = positions.filter(p => p.symbol === ticker);
->>>>>>> Stashed changes
   const livePnLMap = computeLivePnL(filteredPositions, tick?.close ?? null);
 
-  return { tick, historicalData, connected, livePnLMap };
+  return { tick, historicalData, connected, livePnLMap, loadingMore, loadPage, loadPreviousPage };
 }
 
 function computeLivePnL(

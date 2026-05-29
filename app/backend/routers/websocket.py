@@ -1,15 +1,13 @@
 from fastapi import APIRouter
-import asyncio
 import redis.asyncio as redis
 from redis.asyncio import ConnectionPool
-import json, os
 import pandas as pd
 import yfinance as yf
 import numpy as np
 from .storage.retrieveparquet import load_parquet
 from .utils.stock_utils import df_to_chart, asset_exists, download_asset_worker
 from .storage.parquet import download_and_save, is_worker_active, mark_worker_active, INTERVAL_CONFIG
-import random
+import random, math, json, os, asyncio
 
 websocket_router = APIRouter()
 
@@ -28,9 +26,11 @@ subscriptions = {}
 # Store last candle bounds per ticker in Redis or just in-memory dict
 _last_bounds: dict[str, dict] = {}
 
+PAGE_SIZE = 500
+
 # ── Chart cache ──────────────────────────────────────────────────────────────
 
-def build_chart(ticker: str, interval: str, live_period: str) -> str:
+def build_chart(ticker: str, interval: str, live_period: str):
     df = load_parquet(ticker, interval)
     print(f"[parquet] last: {df['timestamp'].iloc[-1]}")
     try:
@@ -51,24 +51,52 @@ def build_chart(ticker: str, interval: str, live_period: str) -> str:
     except Exception as e:
         print(f"[chart stitch] {ticker} {interval}: {e}")
     chart_data = df_to_chart(df)
-    return json.dumps({"type": "historical", "data": chart_data})
+    return chart_data  # return the list, not json string
 
 
 async def build_and_cache_chart(ticker: str, interval: str) -> str:
+    # flat key — what Go reads on initial connect (preserves stitching)
     cache_key = f"chart:{ticker}:{interval}"
     cached = await r.get(cache_key)
     if cached:
         return cached
+
     if cache_key not in _chart_locks:
         _chart_locks[cache_key] = asyncio.Lock()
+
     async with _chart_locks[cache_key]:
         cached = await r.get(cache_key)
         if cached:
             return cached
+
         live_period = INTERVAL_CONFIG.get(interval, {}).get("period", "1d")
-        json_str = await asyncio.to_thread(build_chart, ticker, interval, live_period)
-        await r.set(cache_key, json_str, ex=600)
-        return json_str
+        rows = await asyncio.to_thread(build_chart, ticker, interval, live_period)
+        total_rows = len(rows)
+        total_pages = max(1, math.ceil(total_rows / PAGE_SIZE))
+
+        # write flat key — most recent PAGE_SIZE rows, same as before
+        # this is what Go serves on initial connect and what the live tick stitches onto
+        last_page_rows = rows[-PAGE_SIZE:]
+        flat_payload = json.dumps({"type": "historical", "page": 1, "total_pages": total_pages, "data": last_page_rows})
+        await r.set(cache_key, flat_payload, ex=600)
+
+        # write paginated keys — page 1 = most recent, page N = oldest
+        # so loadPreviousPage(2) fetches the next older chunk
+        for page_num in range(1, total_pages + 1):
+            # page 1 → last PAGE_SIZE rows, page 2 → second-to-last, etc.
+            end = total_rows - (page_num - 1) * PAGE_SIZE
+            start = max(0, end - PAGE_SIZE)
+            slice_data = rows[start:end]
+            page_payload = json.dumps({
+                "type": "historical",
+                "page": page_num,
+                "total_pages": total_pages,
+                "total_rows": total_rows,
+                "data": slice_data,
+            })
+            await r.set(f"chart:{ticker}:{interval}:page:{page_num}", page_payload, ex=600)
+
+        return flat_payload
 
 
 _fetch_state: dict[str, dict] = {}
