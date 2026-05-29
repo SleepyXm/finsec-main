@@ -12,150 +12,135 @@ export function useStockSocket(
   const [tick, setTick] = useState<StockTick | null>(null);
   const [historicalData, setHistoricalData] = useState<StockTick[]>([]);
   const [connected, setConnected] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
-  const totalPagesRef = useRef(1);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  const wsRef = useRef<WebSocket | null>(null);
   const connectionIdRef = useRef(0);
-  const currentPageRef = useRef(1); // Curent page
-  const receivedPagesRef = useRef<Set<number>>(new Set()); // Pages on frontend
-  
+  const currentPageRef = useRef(1);
+  const receivedPagesRef = useRef<Set<number>>(new Set());
+  const totalPagesRef = useRef(1);
 
   useEffect(() => {
-  if (!ticker) return;
+    if (!ticker) return;
 
-  connectionIdRef.current += 1;
-  const connectionId = connectionIdRef.current;
+    // increment first — this is the ID for this connection
+    connectionIdRef.current += 1;
+    const connectionId = connectionIdRef.current;
 
-  // Reset count on ticker / interval change
-  currentPageRef.current = 1;
-  receivedPagesRef.current = new Set();
-  totalPagesRef.current = 1;
-
-  if (wsRef.current) {
-    wsRef.current.onmessage = null;
-    wsRef.current.close();
-    wsRef.current = null;
-  }
-
-  setHistoricalData([]);
-  setTick(null);
-
-  const ws = createStockSocket(
-    ticker,
-    interval,
-    (msg: WSMessage) => {
-      // Ignore stale sockets completely
-      if (connectionId !== connectionIdRef.current) {
-        return;
-      }
-
-      if ("type" in msg && msg.type === "position_closed") {
-        onPositionClosed(msg.data.position_id);
-        return;
-      }
-
-      if ("type" in msg && msg.type === "historical") {
-        const page = msg.page ?? 1;   // server should include page number in payload
-        totalPagesRef.current = msg.total_pages ?? 1;
-        console.log("[ws] total pages:", totalPagesRef.current);
-        console.log("[ws] received historical page:", page, "| candles:", msg.data.length);
-        console.log("[ws] already received pages:", [...receivedPagesRef.current]);
-        if (receivedPagesRef.current.has(page)) return;
-        receivedPagesRef.current.add(page);
-
-        setHistoricalData(prev =>
-          // prepend older pages, append newer ones
-          [...prev, ...msg.data].sort((a, b) => a.time - b.time)
-        );
-        setLoadingMore(false);
-        return;
-      }
-
-      if ("type" in msg && msg.type === "account_pnl") {
-        onAccountPnL(msg.data.unrealised_pnl);
-        return;
-      }
-
-      const priceTick = msg as StockTick;
-      // Extra safety
-      if (priceTick.ticker !== ticker) {
-        return;
-      }
-
-      setTick(priceTick);
-    },
-    () => {
-      if (connectionId === connectionIdRef.current) {
-        setConnected(false);
-      }
-    },
-    1,
-  );
-
-  ws.onopen = () => {
-    if (connectionId === connectionIdRef.current) {
-      setConnected(true);
-    }
-  };
-  
-
-  wsRef.current = ws;
-
-  return () => {
-    ws.onmessage = null;
-    ws.close();
-
-    if (connectionId === connectionIdRef.current) {
-      connectionIdRef.current += 1;
+    // close previous socket synchronously before opening a new one
+    if (wsRef.current) {
+      wsRef.current.onmessage = null;
+      wsRef.current.close();
+      wsRef.current = null;
     }
 
-    wsRef.current = null;
-  };
+    // reset all per-connection state
+    currentPageRef.current = 1;
+    receivedPagesRef.current = new Set();
+    totalPagesRef.current = 1;
+    setHistoricalData([]);
+    setTick(null);
+    setLoadingMore(false);
+
+    const ws = createStockSocket(
+      ticker,
+      interval,
+      (msg: WSMessage) => {
+        if (connectionId !== connectionIdRef.current) return;
+
+        if ("type" in msg && msg.type === "position_closed") {
+          onPositionClosed(msg.data.position_id);
+          return;
+        }
+
+        if ("type" in msg && msg.type === "historical") {
+          const page = msg.page ?? 1;
+          totalPagesRef.current = msg.total_pages ?? 1;
+          console.log("[ws] received historical page:", page, "| candles:", msg.data.length, "| total pages:", totalPagesRef.current);
+
+          if (receivedPagesRef.current.has(page)) {
+            console.warn("[ws] duplicate page, skipping:", page);
+            return;
+          }
+          receivedPagesRef.current.add(page);
+
+          setHistoricalData(prev =>
+            [...prev, ...msg.data].sort((a, b) => a.time - b.time)
+          );
+          setLoadingMore(false);
+          return;
+        }
+
+        if ("type" in msg && msg.type === "account_pnl") {
+          onAccountPnL(msg.data.unrealised_pnl);
+          return;
+        }
+
+        const priceTick = msg as StockTick;
+        if (priceTick.ticker !== ticker) return;
+        setTick(priceTick);
+      },
+      () => {
+        if (connectionId === connectionIdRef.current) setConnected(false);
+      },
+    );
+
+    ws.onopen = () => {
+      if (connectionId === connectionIdRef.current) setConnected(true);
+    };
+
+    wsRef.current = ws;
+
+    // cleanup: just close the socket, never touch connectionIdRef here
+    return () => {
+      ws.onmessage = null;
+      ws.close();
+      wsRef.current = null;
+    };
   }, [ticker, interval]);
-  
-  
-  const filteredPositions = positions.filter(
-    p => p.symbol === ticker
-  );
 
-  // call this to load older history (scroll back in time)
   const loadPage = useCallback((page: number) => {
-  const ws = wsRef.current;
-  console.log("[loadPage] called with page:", page, "| ws state:", ws?.readyState, "| loadingMore:", loadingMore);
-  console.log("[loadPage] already received pages:", [...receivedPagesRef.current]);
+    const ws = wsRef.current;
+    console.log("[loadPage] page:", page, "| ws state:", ws?.readyState, "| loadingMore:", loadingMore);
+    console.log("[loadPage] received so far:", [...receivedPagesRef.current], "| total:", totalPagesRef.current);
 
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    console.warn("[loadPage] socket not open, aborting");
-    return;
-  }
-  if (loadingMore) {
-    console.warn("[loadPage] already loading, aborting");
-    return;
-  }
-  if (receivedPagesRef.current.has(page)) {
-    console.warn("[loadPage] page already received, aborting:", page);
-    return;
-  }
-
-  currentPageRef.current = page;
-  setLoadingMore(true);
-  const payload = JSON.stringify({ type: "load_page", page });
-  console.log("[loadPage] sending:", payload);
-  ws.send(payload);
-  }, [loadingMore]);
-
-
-  const loadPreviousPage = useCallback(() => {
-    const loaded = receivedPagesRef.current;
-    const minPage = loaded.size ? Math.min(...loaded) : 1;
-     const nextPage = minPage + 1;
-    if (nextPage > totalPagesRef.current) {
-      console.warn("[loadPreviousPage] no more pages");
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn("[loadPage] socket not open");
       return;
     }
-    loadPage(minPage + 1); // page 2 = older data, not 0
-  }, [loadPage]);
+    if (loadingMore) {
+      console.warn("[loadPage] already loading");
+      return;
+    }
+    if (receivedPagesRef.current.has(page)) {
+      console.warn("[loadPage] already have page:", page);
+      return;
+    }
+    if (page > totalPagesRef.current) {
+      console.warn("[loadPage] page exceeds total:", page, ">", totalPagesRef.current);
+      return;
+    }
 
+    currentPageRef.current = page;
+    setLoadingMore(true);
+    const payload = JSON.stringify({ type: "load_page", page });
+    console.log("[loadPage] sending:", payload);
+    ws.send(payload);
+  }, [loadingMore]);
+
+  const loadPreviousPage = useCallback(() => {
+  const loaded = receivedPagesRef.current;
+  const maxPage = loaded.size ? Math.max(...loaded) : 1; // highest page = oldest loaded
+  const nextPage = maxPage + 1; // next older page
+  
+  if (nextPage > totalPagesRef.current) {
+    console.warn("[loadPreviousPage] no more pages");
+    return;
+  }
+  loadPage(nextPage);
+}, [loadPage]);
+
+  const filteredPositions = positions.filter(p => p.symbol === ticker);
   const livePnLMap = computeLivePnL(filteredPositions, tick?.close ?? null);
 
   return { tick, historicalData, connected, livePnLMap, loadingMore, loadPage, loadPreviousPage };
