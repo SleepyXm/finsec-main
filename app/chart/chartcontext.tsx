@@ -43,6 +43,9 @@ interface ChartContextValue {
 
   // router
   router: ReturnType<typeof useRouter>;
+
+  loadingMore: boolean;
+  loadPreviousPage: () => void;
 }
 
 const ChartContext = createContext<ChartContextValue | null>(null);
@@ -78,7 +81,7 @@ export function ChartProvider({ children, symbol }: { children: ReactNode; symbo
 
   const { positions, setPositions, handlePositionClosed } = usePositions(shortname);
   const { placeTrade, closeTrade, error } = useTrades(positions, setPositions);
-  const { tick, historicalData, connected, livePnLMap } = useStockSocket(
+  const { tick, historicalData, connected, livePnLMap, loadingMore, loadPreviousPage } = useStockSocket(
     shortname, interval, positions, handlePositionClosed, setAccountUnrealisedPnL
   );
   const { data, updateLastCandle } = useChartData(shortname, interval, historicalData);
@@ -139,6 +142,8 @@ export function ChartProvider({ children, symbol }: { children: ReactNode; symbo
         chartData: chartData ?? [],
         positions,
         livePnLMap,
+        loadingMore,
+        loadPreviousPage,
         accountUnrealisedPnL,
         placeTrade,
         closeTrade,

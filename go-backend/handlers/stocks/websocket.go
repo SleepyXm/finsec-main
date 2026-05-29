@@ -1,22 +1,19 @@
 package stocks
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"golang.org/x/sync/singleflight"
 
 	"finsec-backend/services"
 
-	"github.com/gin-gonic/gin"
-	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -28,8 +25,28 @@ var chartGroup singleflight.Group
 
 var pools sync.Map // key: "ticker:interval" -> *WorkerPool
 
-func primeChart(ctx context.Context, rdb *redis.Client, pythonURL, ticker, interval, chartKey string) (string, error) {
+func extractPageKey(ticker, interval string, msg []byte) string {
+	idx := bytes.Index(msg, []byte(`"page":`))
+	if idx == -1 {
+		return ""
+	}
+	numStart := idx + 7
+	numEnd := numStart
+	for numEnd < len(msg) && msg[numEnd] >= '0' && msg[numEnd] <= '9' {
+		numEnd++
+	}
+	if numEnd == numStart {
+		return ""
+	}
+	return fmt.Sprintf("chart:%s:%s:page:%s", ticker, interval, msg[numStart:numEnd])
+}
+
+func primeChart(ctx context.Context, rdb *redis.Client, pythonURL, ticker, interval string) (string, int, error) {
+	chartKey := fmt.Sprintf("chart:%s:%s", ticker, interval)
 	_, err, _ := chartGroup.Do(chartKey, func() (interface{}, error) {
+		if cached, err := rdb.Get(ctx, chartKey).Result(); err == nil && cached != "" {
+			return nil, nil
+		}
 		resp, pyErr := http.Post(
 			pythonURL+"/api/internal/chart/cache?ticker="+ticker+"&interval="+interval,
 			"", nil,
@@ -40,9 +57,21 @@ func primeChart(ctx context.Context, rdb *redis.Client, pythonURL, ticker, inter
 		return nil, pyErr
 	})
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	return rdb.Get(ctx, chartKey).Result()
+	data, err := rdb.Get(ctx, chartKey).Result()
+	if err != nil {
+		return "", 0, err
+	}
+	// parse total_pages out of the flat payload if present
+	var parsed map[string]interface{}
+	totalPages := 1
+	if json.Unmarshal([]byte(data), &parsed) == nil {
+		if tp, ok := parsed["total_pages"].(float64); ok {
+			totalPages = int(tp)
+		}
+	}
+	return data, totalPages, nil
 }
 
 func getOrCreatePool(key string, rdb *redis.Client, channel string) *services.WorkerPool {
@@ -52,10 +81,8 @@ func getOrCreatePool(key string, rdb *redis.Client, channel string) *services.Wo
 	p := services.NewWorkerPool()
 	actual, loaded := pools.LoadOrStore(key, p)
 	if loaded {
-		// another goroutine beat us, use theirs
 		return actual.(*services.WorkerPool)
 	}
-	// we won the race, start the Redis feed
 	go func() {
 		ctx := context.Background()
 		pubsub := rdb.Subscribe(ctx, channel)
@@ -72,7 +99,6 @@ func PrewarmFromRedis(rdb *redis.Client, pythonURL string) {
 	ctx := context.Background()
 	keys, _ := rdb.Keys(ctx, "last:price:*:1m").Result()
 	for _, channel := range keys {
-		// channel is "price:NQ=F:1m", extract ticker
 		parts := strings.Split(channel, ":")
 		if len(parts) < 3 {
 			continue
@@ -83,159 +109,5 @@ func PrewarmFromRedis(rdb *redis.Client, pythonURL string) {
 		pool := getOrCreatePool(key, rdb, channel)
 		log.Printf("[prewarm] pool ready for %s", ticker)
 		_ = pool
-	}
-}
-
-func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ticker := c.Query("ticker_symbol")
-		interval := c.Query("interval")
-		if interval == "" {
-			interval = "1m"
-		}
-
-		t0 := time.Now()
-		conn, _, _, err := ws.UpgradeHTTP(c.Request, c.Writer)
-		log.Printf("[upgrade] %s/%s | %v", ticker, interval, time.Since(t0))
-		if err != nil {
-			return
-		}
-		defer conn.Close()
-
-		// wrap in WSConn
-		wsc := services.NewWSConn(conn)
-		defer wsc.Close()
-
-		ctx := context.Background()
-		pythonURL := os.Getenv("PYTHON_URL")
-
-		channel := fmt.Sprintf("price:%s:%s", ticker, interval)
-		chartKey := fmt.Sprintf("chart:%s:%s", ticker, interval)
-		broadcastKey := fmt.Sprintf("%s:%s", ticker, interval)
-
-		// start broadcast once
-		if _, started := startedBroadcasts.LoadOrStore(broadcastKey, struct{}{}); !started {
-			http.Post(
-				pythonURL+"/api/internal/broadcast/start?ticker="+ticker+"&interval="+interval,
-				"", nil,
-			)
-		}
-
-		// get or create pool for this ticker/interval
-		pool := getOrCreatePool(broadcastKey, rdb, channel)
-		pool.AddConn(wsc)
-		defer pool.RemoveConn(wsc)
-
-		// cache
-		cached, err := rdb.Get(ctx, chartKey).Result()
-		if err == redis.Nil {
-			cached, err = primeChart(ctx, rdb, pythonURL, ticker, interval, chartKey)
-		}
-
-		// initial write directly to this connection
-		t4 := time.Now()
-		if err == nil {
-			if err := services.SafeWrite(wsc, []byte(cached)); err != nil {
-				return
-			}
-		} else {
-			if err := services.SafeWrite(wsc, []byte(
-				`{"type":"downloading","message":"data is being prepared"}`,
-			)); err != nil {
-				return
-			}
-		}
-		log.Printf("[write] %s/%s | %v", ticker, interval, time.Since(t4))
-
-		// last tick directly to this connection
-		lastKey := fmt.Sprintf("last:price:%s:%s", ticker, interval)
-		if last, err := rdb.Get(ctx, lastKey).Result(); err == nil && last != "" {
-			_ = services.SafeWrite(wsc, []byte(last))
-		}
-
-		// connection monitor — block until client disconnects
-		for {
-			if _, _, err := wsutil.ReadClientData(conn); err != nil {
-				return
-			}
-		}
-	}
-}
-
-func MarketOverviewHandler(rdb *redis.Client) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		conn, _, _, err := ws.UpgradeHTTP(c.Request, c.Writer)
-		if err != nil {
-			return
-		}
-		defer conn.Close()
-
-		wsc := services.NewWSConn(conn)
-		defer wsc.Close()
-
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel() // this kills all pubsub goroutines when handler exits
-
-		// scan all active tickers from Redis
-		keys, err := rdb.Keys(ctx, "last:price:*:1m").Result()
-		if err != nil || len(keys) == 0 {
-			return
-		}
-
-		out := make(chan []byte, 256)
-		var wg sync.WaitGroup
-
-		for _, key := range keys {
-			key := key
-			// extract ticker from "last:price:BTC-USD:1m"
-			ticker := strings.TrimPrefix(strings.TrimSuffix(key, ":1m"), "last:price:")
-			channel := fmt.Sprintf("price:%s:1m", ticker)
-
-			// send last known price immediately
-			if last, err := rdb.Get(ctx, key).Result(); err == nil && last != "" {
-				select {
-				case out <- []byte(last):
-				default:
-				}
-			}
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				pubsub := rdb.Subscribe(ctx, channel)
-				defer pubsub.Close()
-
-				for {
-					msg, err := pubsub.ReceiveMessage(ctx)
-					if err != nil {
-						return
-					}
-					select {
-					case out <- []byte(msg.Payload):
-					default:
-					}
-				}
-			}()
-		}
-
-		go func() {
-			wg.Wait()
-			close(out)
-		}()
-
-		go func() {
-			for payload := range out {
-				if err := services.SafeWrite(wsc, payload); err != nil {
-					return
-				}
-			}
-		}()
-
-		// block until client disconnects
-		for {
-			if _, _, err := wsutil.ReadClientData(conn); err != nil {
-				return
-			}
-		}
 	}
 }
