@@ -59,7 +59,7 @@ function ChartPageInner({ extraSymbols, onAddSymbol, onRemoveSymbol }: {
     shortname, tick, connected, error, chartData,
     isCandle, isCreatingStrategy, handleAnnotation,
     positions, livePnLMap, accountUnrealisedPnL,
-    placeTrade, closeTrade,
+    placeTrade, closeTrade, loadingMore, loadPreviousPage
   } = useChartContext();
 
   const [quantity, setQuantity] = useState(1);
@@ -154,6 +154,7 @@ function ChartPageInner({ extraSymbols, onAddSymbol, onRemoveSymbol }: {
                     onClosePosition={(id) => closeTrade(id, tick?.close ?? 0)}
                     isCreatingStrategy={isCreatingStrategy}
                     onAnnotation={handleAnnotation}
+                    onScrollLeft={loadPreviousPage}
                     theme={activeTheme}
                   />
                 ) : (

@@ -17,8 +17,10 @@ export const CandleStickChart: React.FC<{
   isCreatingStrategy?: boolean;
   onClosePosition?: (id: string) => void;
   onAnnotation?: (annotation: any) => void;
+  onScrollLeft?: () => void;
   theme?: ChartTheme; 
-}> = ({ data, colors = {}, renderTradeUI, trades = [], positions = [], livePnLMap = {}, isCreatingStrategy = false, onClosePosition, onAnnotation, theme = defaultChartTheme }) => {
+  
+}> = ({ data, colors = {}, renderTradeUI, trades = [], positions = [], livePnLMap = {}, isCreatingStrategy = false, onClosePosition, onAnnotation, onScrollLeft, theme = defaultChartTheme }) => {
   const priceLinesRef = useRef<any[]>([]);
 
   const getPositionLabel = useCallback((position: any) => {
@@ -80,6 +82,40 @@ export const CandleStickChart: React.FC<{
     theme
   );
 
+  useEffect(() => {
+    if (!chartRef.current) return;
+    let timeout: ReturnType<typeof setTimeout>;
+    let fired = false; // prevent multiple triggers per scroll-to-edge
+
+    const handler = (range: any) => {
+      if (!range) return;
+      console.log("[scroll] range.from:", range.from);
+
+      if (range.from < 10) {
+        if (fired) return;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          console.log("[scroll] LEFT EDGE HIT — calling onScrollLeft");
+          fired = true;
+          onScrollLeft?.();
+          // reset after a delay so user can trigger again after new data loads
+          setTimeout(() => { fired = false; }, 2000);
+        }, 200);
+      } else {
+        // user scrolled away from edge, reset
+        clearTimeout(timeout);
+        fired = false;
+      }
+    };
+
+    chartRef.current.timeScale().subscribeVisibleLogicalRangeChange(handler);
+    return () => {
+      clearTimeout(timeout);
+      chartRef.current?.timeScale().unsubscribeVisibleLogicalRangeChange(handler);
+    };
+  }, [chartRef.current, onScrollLeft]);
+
+
   useIndicators(chartRef, seriesRef, data, {
     series: {
       //sma: { enabled: true, period: 14 },
@@ -108,6 +144,7 @@ export const CandleStickChart: React.FC<{
   useEffect(() => {
   if (!seriesRef.current || !chartRef.current || data.length < 2) return;
 
+  const sorted = [...data].sort((a, b) => a.time - b.time);
   const interval = data[1].time - data[0].time;
   const barSpacing = chartRef.current.timeScale().options().barSpacing;
   const containerWidth = containerRef.current?.clientWidth ?? 0;

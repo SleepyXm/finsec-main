@@ -34,6 +34,8 @@ export type AccountPnLEvent = {
 export type HistoricalData = {
   type: "historical";
   data: StockTick[];
+  page: number;
+  total_pages: number;
 }
 
 export type WSMessage = StockTick | HistoricalData | PositionClosedEvent | AccountPnLEvent;
@@ -42,10 +44,11 @@ export function createStockSocket(
   ticker: string,
   interval: string = "1m",
   onMessage: (msg: WSMessage) => void,
-  onClose?: () => void
+  onClose?: () => void,
+  page: number = 1,
 ): WebSocket {
   const ws = new WebSocket(
-    `${WS_BASE}/ws/stockdata?ticker_symbol=${encodeURIComponent(ticker)}&interval=${interval}`
+    `${WS_BASE}/ws/stockdata?ticker_symbol=${encodeURIComponent(ticker)}&interval=${interval}&page=${page}`
   );
 
   ws.onmessage = async (event) => {
