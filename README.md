@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## FinSec
 
-## Getting Started
+Build, validate, and deploy trading bots from your own strategy — no guesswork, just confidence.
 
-First, run the development server:
+## What is FinSec?
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+FinSec is a platform for discretionary traders who want to automate their edge without losing it. Chart your strategy the way you already think about it, let FinSec convert it into a bot, and validate it against real historical data before you risk a single dollar.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## The Problem
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Most algo trading tools are built for quants and developers. If you’re a discretionary trader — someone who reads charts, marks zones, and trades from a defined process — you’re stuck either coding your strategy yourself or trusting someone else’s interpretation of it. 
+Even if you backtest, you still don’t know how much to trust the results. A strategy that worked 70% of the time last year might have a variance wide enough to blow your account before it recovers.
+FinSec solves both problems.
 
-## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+## Core Features
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Strategy Builder
+Chart your strategy natively. Draw zones, mark entry and exit points, apply indicators, and reference historical setups — all inside the platform. No code required.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Bot Generation
+Turn your charted strategy directly into a deployable trading bot. Your discretionary edge becomes an executable system without losing the nuance of how you actually trade.
 
-## Deploy on Vercel
+- Backtesting
+Run your strategy against historical data before deployment. See exactly how it performs across different market conditions, timeframes, and asset classes.
+Confidence Index
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## The differentiator.
+
+FinSec analyses the historical variance of your specific strategy and generates a real time confidence score — telling you not just whether your strategy works, but how much you should trust it right now based on previous occurrences and their outcomes. Know when your edge is strong. Know when to sit on your hands.
+
+- Machine Learning Layer
+
+Over time FinSec learns the conditions under which your strategy performs best and worst, refining the confidence index and surfacing patterns you might not have noticed yourself.
+
+## Who Is FinSec For?
+
+FinSec is built for discretionary traders who have a defined edge and want to scale it systematically — without handing it off to a black box or spending months learning to code.
+If you can chart your strategy, FinSec can build your bot.
+
+
+## Status: 
+Currently in active development.
