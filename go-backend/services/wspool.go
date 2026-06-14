@@ -20,7 +20,7 @@ import (
 
 const (
 	workerHardLimit  = 250
-	workerSpawnLimit = 200
+	workerSpawnLimit = 125
 
 	flushEvery     = 150 * time.Millisecond
 	redisQueueKey  = "trades:pending"
@@ -123,7 +123,7 @@ func NewWorkerPool() *WorkerPool {
 		msgCh:    make(chan Message, 256),
 		registry: make(map[string]*RedisConn),
 	}
-	go p.fanOut()
+	go p.newfanOut()
 	return p
 }
 
@@ -217,24 +217,12 @@ func (p *WorkerPool) AddConn(c *WSConn) {
 	var target *Worker
 	for _, w := range p.workers {
 		w.mu.Lock()
-		if w.count < workerSpawnLimit {
+		if w.count < workerHardLimit {
 			target = w
 			w.mu.Unlock()
 			break
 		}
 		w.mu.Unlock()
-	}
-
-	if target == nil {
-		for _, w := range p.workers {
-			w.mu.Lock()
-			if w.count < workerHardLimit {
-				target = w
-				w.mu.Unlock()
-				break
-			}
-			w.mu.Unlock()
-		}
 	}
 
 	if target == nil {
@@ -247,6 +235,7 @@ func (p *WorkerPool) AddConn(c *WSConn) {
 	target.count++
 	log.Printf("[wspool] [%s] %d connections", target.name, target.count)
 
+	// proactive spawn: get a fresh worker ready before we need it
 	hasRoom := false
 	for _, w := range p.workers {
 		if w == target {
@@ -261,7 +250,13 @@ func (p *WorkerPool) AddConn(c *WSConn) {
 		w.mu.Unlock()
 	}
 	if !hasRoom && target.count >= workerSpawnLimit {
-		log.Printf("[wspool] [%s] hit %d connections — spawning new worker", target.name, target.count)
+		log.Printf("[wspool] [%s] hit spawn threshold — preparing new worker", target.name)
+		p.spawnWorker()
+	}
+
+	// hard limit: worker is now draining, ensure a replacement exists
+	if target.count >= workerHardLimit {
+		log.Printf("[wspool] [%s] at hard limit — draining", target.name)
 		p.spawnWorker()
 	}
 
