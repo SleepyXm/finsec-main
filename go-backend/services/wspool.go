@@ -254,10 +254,9 @@ func (p *WorkerPool) AddConn(c *WSConn) {
 		p.spawnWorker()
 	}
 
-	// hard limit: worker is now draining, ensure a replacement exists
+	// hard limit: worker is full, drains naturally as connections close
 	if target.count >= workerHardLimit {
-		log.Printf("[wspool] [%s] at hard limit — draining", target.name)
-		p.spawnWorker()
+		log.Printf("[wspool] [%s] at hard limit", target.name)
 	}
 
 	target.mu.Unlock()
