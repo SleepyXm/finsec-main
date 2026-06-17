@@ -7,11 +7,6 @@ from routers.storage.parquet import BASE_DIR, mark_worker_active
 from routers.search import search_router
 from routers.websocket import websocket_router, broadcast_stock_data, subscriptions, fetch_tasks
 from routers.annotations.annotations import annotations_router
-from routers.auth.auth import auth_router as auth
-from routers.positions.positions import positions_router
-from routers.auth.profile import profile_router
-from routers.portfolio.portfolio_router import portfolio_router
-from routers.positions.trade import trades_router
 from routers.backtest.backtest import backtest_router
 from routers.publish_price import price_router
 from database import get_db, AsyncSessionLocal
@@ -35,12 +30,6 @@ app.add_middleware(
 
 app.include_router(stock_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
-#app.include_router(websocket_router, prefix="/api")
-#app.include_router(auth, prefix="/api/auth")
-#app.include_router(positions_router, prefix="/api")
-#app.include_router(profile_router, prefix="/api/user")
-#app.include_router(portfolio_router, prefix="/api")
-#app.include_router(trades_router, prefix="/api")
 app.include_router(backtest_router, prefix="/api")
 app.include_router(price_router, prefix="/api")
 app.include_router(annotations_router, prefix="/api")
