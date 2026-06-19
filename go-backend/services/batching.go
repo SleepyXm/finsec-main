@@ -6,12 +6,60 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/gobwas/ws/wsutil"
 	"github.com/redis/go-redis/v9"
 )
+
+// Lua Script for atomicity:
+
+var claimBatchScript = redis.NewScript(`
+-- KEYS[1] = pending list
+-- KEYS[2] = batch list
+-- KEYS[3] = processing zset
+-- ARGV[1] = max batch size
+-- ARGV[2] = batch id
+-- ARGV[3] = now unix milliseconds
+
+local max = tonumber(ARGV[1])
+local batch_id = ARGV[2]
+local now_ms = ARGV[3]
+
+local moved = 0
+
+for i = 1, max do
+	local item = redis.call("RPOP", KEYS[1])
+
+	if not item then
+		break
+	end
+
+	redis.call("LPUSH", KEYS[2], item)
+	moved = moved + 1
+end
+
+if moved > 0 then
+	redis.call("ZADD", KEYS[3], now_ms, batch_id)
+end
+
+return moved
+`)
+
+// Delete script
+var finishBatchScript = redis.NewScript(`
+-- KEYS[1] = batch list
+-- KEYS[2] = processing zset
+-- ARGV[1] = batch id
+
+redis.call("DEL", KEYS[1])
+redis.call("ZREM", KEYS[2], ARGV[1])
+
+return 1
+`)
 
 // QueueEntry is what gets pushed to Redis on trade intake
 type QueueEntry struct {
@@ -184,12 +232,21 @@ func (p *WorkerPool) flushLoop(ctx context.Context, db *sql.DB) {
 }
 
 func (p *WorkerPool) flush(ctx context.Context, db *sql.DB) {
-	raw, err := p.redisClient.LPopCount(ctx, redisQueueKey, 100_000).Result()
-	if err == redis.Nil || len(raw) == 0 {
+	batchID := fmt.Sprintf("%d-%d", time.Now().UnixNano(), rand.Int63())
+
+	batchKey, moved, err := p.claimBatch(ctx, batchID)
+	if err != nil {
+		log.Printf("[flusher] claim batch failed: %v", err)
 		return
 	}
+
+	if moved == 0 {
+		return
+	}
+
+	raw, err := p.redisClient.LRange(ctx, batchKey, 0, -1).Result()
 	if err != nil {
-		log.Printf("[flusher] lpop error: %v", err)
+		log.Printf("[flusher] read batch failed batch=%s: %v", batchID, err)
 		return
 	}
 
@@ -197,17 +254,36 @@ func (p *WorkerPool) flush(ctx context.Context, db *sql.DB) {
 	for _, r := range raw {
 		var e QueueEntry
 		if err := json.Unmarshal([]byte(r), &e); err != nil {
-			log.Printf("[flusher] unmarshal error: %v", err)
+			log.Printf("[flusher] unmarshal error batch=%s: %v", batchID, err)
 			continue
 		}
 		entries = append(entries, e)
 	}
+
 	if len(entries) == 0 {
 		return
 	}
 
-	log.Printf("[flusher] flushing %d trades", len(entries))
-	p.bulkInsert(ctx, db, entries)
+	log.Printf("[flusher] flushing batch=%s trades=%d", batchID, len(entries))
+
+	success := p.bulkInsert(ctx, db, entries)
+	if !success {
+		log.Printf("[flusher] bulk insert failed batch=%s", batchID)
+		return
+	}
+
+	if err := finishBatchScript.Run(
+		ctx,
+		p.redisClient,
+		[]string{
+			batchKey,
+			redisProcessingKey,
+		},
+		batchID,
+	).Err(); err != nil {
+		log.Printf("[flusher] finish batch failed batch=%s: %v", batchID, err)
+		return
+	}
 
 	var oldest, newest time.Time
 
@@ -225,112 +301,237 @@ func (p *WorkerPool) flush(ctx context.Context, db *sql.DB) {
 	}
 
 	log.Printf(
-		"[flusher] flushed=%d queued_span=%s→%s",
+		"[flusher] flushed batch=%s trades=%d queued_span=%s→%s",
+		batchID,
 		len(entries),
 		oldest.Format(time.RFC3339Nano),
 		newest.Format(time.RFC3339Nano),
 	)
 }
 
-func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []QueueEntry) {
+func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []QueueEntry) bool {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		log.Printf("[flusher] begin tx: %v", err)
 		p.publishErrors(ctx, entries, "begin tx failed")
-		return
+		return false
 	}
 	defer tx.Rollback()
 
-	orderStmt, err := tx.PrepareContext(ctx,
-		`INSERT INTO orders (account_id, bot_id, symbol, side, order_type, quantity, price, status)
-		 VALUES ($1, $2, $3, $4, 'market', $5, $6, 'filled')
-		 RETURNING id`,
-	)
-	if err != nil {
-		log.Printf("[flusher] prepare orders: %v", err)
-		p.publishErrors(ctx, entries, "prepare orders failed")
-		return
+	if len(entries) == 0 {
+		return true
 	}
-	defer orderStmt.Close()
 
-	posStmt, err := tx.PrepareContext(ctx,
-		`INSERT INTO positions (account_id, bot_id, symbol, side, quantity, entry_order_id, entry_price, status)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, 'open')
-		 RETURNING id`,
-	)
-	if err != nil {
-		log.Printf("[flusher] prepare positions: %v", err)
-		p.publishErrors(ctx, entries, "prepare positions failed")
-		return
+	valueParts := make([]string, 0, len(entries))
+	args := make([]any, 0, len(entries)*8)
+
+	for i, e := range entries {
+		base := i*8 + 1
+
+		valueParts = append(valueParts, fmt.Sprintf(
+			"($%d::int, $%d::uuid, $%d::uuid, $%d::text, $%d::text, $%d::text, $%d::numeric, $%d::numeric)",
+			base,
+			base+1,
+			base+2,
+			base+3,
+			base+4,
+			base+5,
+			base+6,
+			base+7,
+		))
+
+		args = append(args,
+			i,
+			e.AccountID,
+			e.BotID,
+			e.Ticker,
+			e.Action,
+			e.Side,
+			e.Quantity,
+			e.Price,
+		)
 	}
-	defer posStmt.Close()
 
-	results := make([]result, 0, len(entries))
+	query := fmt.Sprintf(`
+		WITH input_rows (
+			idx,
+			account_id,
+			bot_id,
+			symbol,
+			action,
+			side,
+			quantity,
+			price
+		) AS (
+			VALUES %s
+		),
 
-	for _, e := range entries {
+		order_rows AS (
+			SELECT
+				gen_random_uuid() AS order_id,
+				idx,
+				account_id,
+				bot_id,
+				symbol,
+				action,
+				side,
+				quantity,
+				price
+			FROM input_rows
+		),
+
+		inserted_orders AS (
+			INSERT INTO orders (
+				id,
+				account_id,
+				bot_id,
+				symbol,
+				side,
+				order_type,
+				quantity,
+				price,
+				status
+			)
+			SELECT
+				order_id,
+				account_id,
+				bot_id,
+				symbol,
+				action,
+				'market',
+				quantity,
+				price,
+				'filled'
+			FROM order_rows
+			RETURNING id
+		),
+
+		inserted_positions AS (
+			INSERT INTO positions (
+				account_id,
+				bot_id,
+				symbol,
+				side,
+				quantity,
+				entry_order_id,
+				entry_price,
+				status
+			)
+			SELECT
+				o.account_id,
+				o.bot_id,
+				o.symbol,
+				o.side,
+				o.quantity,
+				o.order_id,
+				o.price,
+				'open'
+			FROM order_rows o
+			INNER JOIN inserted_orders io
+				ON io.id = o.order_id
+			RETURNING id, entry_order_id
+		)
+
+		SELECT
+			o.idx,
+			o.order_id::text,
+			p.id::text
+		FROM order_rows o
+		INNER JOIN inserted_positions p
+			ON p.entry_order_id = o.order_id
+		ORDER BY o.idx ASC
+	`, strings.Join(valueParts, ","))
+
+	rows, err := tx.QueryContext(ctx, query, args...)
+	if err != nil {
+		log.Printf("[flusher] bulk insert query: %v", err)
+		p.publishErrors(ctx, entries, fmt.Sprintf("bulk insert failed: %v", err))
+		return false
+	}
+	defer rows.Close()
+
+	results := make([]result, len(entries))
+
+	for rows.Next() {
+		var idx int
 		var orderID string
-		if err := orderStmt.QueryRowContext(ctx,
-			e.AccountID, e.BotID, e.Ticker, e.Action, e.Quantity, e.Price,
-		).Scan(&orderID); err != nil {
-			results = append(results, result{entry: e, err: fmt.Sprintf("insert order: %v", err)})
-			continue
-		}
-
 		var positionID string
-		if err := posStmt.QueryRowContext(ctx,
-			e.AccountID, e.BotID, e.Ticker, e.Side, e.Quantity, orderID, e.Price,
-		).Scan(&positionID); err != nil {
-			results = append(results, result{entry: e, err: fmt.Sprintf("insert position: %v", err)})
-			continue
+
+		if err := rows.Scan(&idx, &orderID, &positionID); err != nil {
+			log.Printf("[flusher] scan bulk insert result: %v", err)
+			p.publishErrors(ctx, entries, fmt.Sprintf("scan bulk insert result: %v", err))
+			return false
 		}
 
-		results = append(results, result{entry: e, orderID: orderID, positionID: positionID})
+		if idx < 0 || idx >= len(entries) {
+			log.Printf("[flusher] invalid bulk insert idx=%d", idx)
+			p.publishErrors(ctx, entries, "invalid bulk insert result index")
+			return false
+		}
+
+		results[idx] = result{
+			entry:      entries[idx],
+			orderID:    orderID,
+			positionID: positionID,
+		}
 	}
 
-	// Publish confirms to pub/sub — subscriber delivers to the right conn
+	if err := rows.Err(); err != nil {
+		log.Printf("[flusher] bulk insert rows: %v", err)
+		p.publishErrors(ctx, entries, fmt.Sprintf("bulk insert rows: %v", err))
+		return false
+	}
+
+	for i, r := range results {
+		if r.entry.TradeID == "" || r.orderID == "" || r.positionID == "" {
+			log.Printf("[flusher] missing bulk insert result idx=%d", i)
+			p.publishErrors(ctx, entries, "missing bulk insert result")
+			return false
+		}
+	}
+
 	flushedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	pipe := p.redisClient.Pipeline()
+
 	for _, r := range results {
-		var confirm QueueConfirm
-		if r.err != "" {
-			confirm = QueueConfirm{
-				TradeID:    r.entry.TradeID,
-				ConnID:     r.entry.ConnID,
-				Symbol:     r.entry.Ticker,
-				Side:       r.entry.Side,
-				Quantity:   r.entry.Quantity,
-				EntryPrice: r.entry.Price,
-				Status:     "error",
-				Error:      r.err,
-				QueuedAt:   r.entry.QueuedAt,
-				FlushedAt:  flushedAt,
-			}
-		} else {
-			confirm = QueueConfirm{
-				TradeID:    r.entry.TradeID,
-				ConnID:     r.entry.ConnID,
-				PositionID: r.positionID,
-				OrderID:    r.orderID,
-				Symbol:     r.entry.Ticker,
-				Side:       r.entry.Side,
-				Quantity:   r.entry.Quantity,
-				EntryPrice: r.entry.Price,
-				Status:     "open",
-				QueuedAt:   r.entry.QueuedAt,
-				FlushedAt:  flushedAt,
-			}
+		confirm := QueueConfirm{
+			TradeID:    r.entry.TradeID,
+			ConnID:     r.entry.ConnID,
+			PositionID: r.positionID,
+			OrderID:    r.orderID,
+			Symbol:     r.entry.Ticker,
+			Side:       r.entry.Side,
+			Quantity:   r.entry.Quantity,
+			EntryPrice: r.entry.Price,
+			Status:     "open",
+			QueuedAt:   r.entry.QueuedAt,
+			FlushedAt:  flushedAt,
 		}
-		data, _ := json.Marshal(confirm)
+
+		data, err := json.Marshal(confirm)
+		if err != nil {
+			log.Printf("[flusher] marshal confirm: %v", err)
+			p.publishErrors(ctx, entries, fmt.Sprintf("marshal confirm: %v", err))
+			return false
+		}
+
 		pipe.Publish(ctx, redisPubSubKey+r.entry.ConnID, data)
 	}
 
 	if err := tx.Commit(); err != nil {
 		log.Printf("[flusher] commit: %v", err)
 		p.publishErrors(ctx, entries, fmt.Sprintf("commit failed: %v", err))
-		return
+		return false
 	}
-	pipe.Exec(ctx)
+
+	if _, err := pipe.Exec(ctx); err != nil {
+		log.Printf("[flusher] publish confirms: %v", err)
+	}
+
+	return true
 }
+
+// For errors that occur after the transaction has been committed, we still want to publish an error to the client.
 
 func (p *WorkerPool) publishErrors(ctx context.Context, entries []QueueEntry, reason string) {
 	flushedAt := time.Now().UTC().Format(time.RFC3339Nano)
@@ -347,4 +548,31 @@ func (p *WorkerPool) publishErrors(ctx context.Context, entries []QueueEntry, re
 		pipe.Publish(ctx, redisPubSubKey+e.ConnID, data)
 	}
 	pipe.Exec(ctx)
+}
+
+func (p *WorkerPool) claimBatch(ctx context.Context, batchID string) (string, int, error) {
+	if p.redisClient == nil {
+		return "", 0, fmt.Errorf("redis client not set")
+	}
+
+	batchKey := redisBatchPrefix + batchID
+
+	moved, err := claimBatchScript.Run(
+		ctx,
+		p.redisClient,
+		[]string{
+			redisQueueKey,
+			batchKey,
+			redisProcessingKey,
+		},
+		maxBatchSize,
+		batchID,
+		time.Now().UnixMilli(),
+	).Int()
+
+	if err != nil {
+		return "", 0, fmt.Errorf("claim batch: %w", err)
+	}
+
+	return batchKey, moved, nil
 }

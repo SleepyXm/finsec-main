@@ -27,6 +27,12 @@ const (
 	redisQueueKey  = "trades:pending"
 	redisPubSubKey = "trades:confirm:"
 	queueEntryTTL  = 30 * time.Second
+
+	redisPendingKey    = "trades:pending"
+	redisBatchPrefix   = "trades:batch:"
+	redisProcessingKey = "trades:processing"
+
+	batchTTL = 30 * time.Second
 )
 
 var (
