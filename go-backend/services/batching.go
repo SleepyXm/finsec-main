@@ -141,7 +141,25 @@ func (p *WorkerPool) QueueTrade(ctx context.Context, entry QueueEntry) error {
 	if err != nil {
 		return fmt.Errorf("marshal entry: %w", err)
 	}
-	return p.redisClient.RPush(ctx, redisQueueKey, data).Err()
+
+	pipe := p.redisClient.Pipeline()
+	pipe.RPush(ctx, redisQueueKey, data)
+	lenCmd := pipe.LLen(ctx, redisQueueKey)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return fmt.Errorf("queue push: %w", err)
+	}
+
+	if lenCmd.Val() >= maxBatchSize {
+		p.triggerFlush()
+	}
+	return nil
+}
+
+func (p *WorkerPool) triggerFlush() {
+	select {
+	case p.flushSignal <- struct{}{}:
+	default:
+	}
 }
 
 // -----------------------------------------------------------------------
@@ -158,6 +176,9 @@ func (p *WorkerPool) flushLoop(ctx context.Context, db *sql.DB) {
 			return
 		case <-ticker.C:
 			p.flush(ctx, db)
+		case <-p.flushSignal:
+			p.flush(ctx, db)
+			ticker.Reset(flushEvery)
 		}
 	}
 }

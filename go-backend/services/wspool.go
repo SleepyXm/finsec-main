@@ -23,6 +23,7 @@ const (
 	workerSpawnLimit = 125
 
 	flushEvery     = 150 * time.Millisecond
+	maxBatchSize   = 500
 	redisQueueKey  = "trades:pending"
 	redisPubSubKey = "trades:confirm:"
 	queueEntryTTL  = 30 * time.Second
@@ -116,12 +117,15 @@ type WorkerPool struct {
 	// conn registry for targeted delivery — connID -> RedisConn
 	registry   map[string]*RedisConn
 	registryMu sync.RWMutex
+
+	flushSignal chan struct{} // size-triggered flush, coalescing
 }
 
 func NewWorkerPool() *WorkerPool {
 	p := &WorkerPool{
-		msgCh:    make(chan Message, 256),
-		registry: make(map[string]*RedisConn),
+		msgCh:       make(chan Message, 256),
+		registry:    make(map[string]*RedisConn),
+		flushSignal: make(chan struct{}, 1),
 	}
 	go p.newfanOut()
 	return p
