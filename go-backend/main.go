@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"finsec-backend/routes"
 	"finsec-backend/services"
@@ -46,6 +47,13 @@ func initDB() {
 		log.Fatal("DB not reachable:", err)
 	}
 	log.Println("DB connected")
+
+	// DB settings
+	db.SetMaxOpenConns(100)
+	db.SetMaxIdleConns(100)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetConnMaxIdleTime(5 * time.Minute)
+
 }
 
 func main() {
