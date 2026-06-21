@@ -55,11 +55,11 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 			cached, _, err = primeChart(ctx, rdb, pythonURL, ticker, interval)
 		}
 		if err == nil {
-			if err := services.SafeWrite(wsc, []byte(cached)); err != nil {
+			if err := wsc.Write([]byte(cached)); err != nil {
 				return
 			}
 		} else {
-			if err := services.SafeWrite(wsc, []byte(
+			if err := wsc.Write([]byte(
 				`{"type":"downloading","message":"data is being prepared"}`,
 			)); err != nil {
 				return
@@ -69,7 +69,7 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 
 		lastKey := fmt.Sprintf("last:price:%s:%s", ticker, interval)
 		if last, err := rdb.Get(ctx, lastKey).Result(); err == nil && last != "" {
-			_ = services.SafeWrite(wsc, []byte(last))
+			_ = wsc.Write([]byte(last))
 		}
 
 		// connection monitor — paginated requests come in over the socket
@@ -83,7 +83,7 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 				continue
 			}
 			if data, err := rdb.Get(ctx, pageKey).Result(); err == nil {
-				_ = services.SafeWrite(wsc, []byte(data))
+				_ = wsc.Write([]byte(data))
 			}
 		}
 	}
@@ -152,7 +152,7 @@ func MarketOverviewHandler(rdb *redis.Client) gin.HandlerFunc {
 
 		go func() {
 			for payload := range out {
-				if err := services.SafeWrite(wsc, payload); err != nil {
+				if err := wsc.Write(payload); err != nil {
 					return
 				}
 			}

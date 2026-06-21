@@ -76,7 +76,7 @@ func PlaceTrade(db *sql.DB, redisClient *redis.Client, pool *services.WorkerPool
 		connID := uuid.NewString()
 
 		// Wrap the net.Conn for safe concurrent writes with close detection
-		rc := services.NewRedisConn(connID, netConn)
+		rc := services.NewIdentifiedWSConn(connID, netConn)
 
 		// Register in the pool registry so the pub/sub subscriber can find
 		// this connection when a confirm arrives for this connID
