@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { signup, login } from "@/app/handlers/auth";
 import { useUser } from "@/app/provider/userprovider";
 import Popup from "../components/errorpopup";
+import { AuthChartAnimation } from "../components/UI/tradeanimation";
 
 export default function Auth() {
   const { setUser, setAccount } = useUser();
@@ -75,16 +76,22 @@ export default function Auth() {
 
       <section className="auth-layout anim-soft-enter">
         <aside className="auth-visual">
-          <div className="auth-visual-content anim-fade-up">
+          <AuthChartAnimation />
+
+          <div className="auth-visual-copy auth-visual-copy-top anim-fade-up">
             <p>Finsec</p>
             <h1>Track markets, assets, and operations in one place.</h1>
+          </div>
+
+          <div className="auth-visual-copy auth-visual-copy-bottom">
+            <h1>and turn your strategy to a trading bot.</h1>
           </div>
         </aside>
 
         <section className="auth-panel">
           <div className="auth-panel-inner anim-fade-up">
             <header className="auth-header">
-              <h2>{isSignUp ? "Create account" : "Sign in"}</h2>
+              <h2>{isSignUp ? "Get Started" : "Welcome Back"}</h2>
 
               <p>
                 {isSignUp
@@ -162,7 +169,9 @@ export default function Auth() {
 
             <footer className="auth-footer">
               <p>
-                {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                {isSignUp
+                  ? "Already have an account?"
+                  : "Don't have an account?"}{" "}
                 <button
                   type="button"
                   onClick={() => setIsSignUp((value) => !value)}
