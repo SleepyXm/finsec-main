@@ -34,8 +34,8 @@ export default function Home() {
             >
               <defs>
                 <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#0044d6ff" />
-                  <stop offset="100%" stopColor="#02afffff" />
+                  <stop offset="0%" stopColor="rgb(131, 165, 240)" />
+                  <stop offset="100%" stopColor="rgb(186, 203, 247)" />
                 </linearGradient>
               </defs>
               <text
