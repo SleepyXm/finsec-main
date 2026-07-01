@@ -27,6 +27,10 @@ interface ChartContextValue {
   annotations: any[];
   handleAnnotation: (a: any) => void;
 
+  // indicator Editor
+  isIndicatorPanelOpen: boolean
+  setIsIndicatorPanelOpen: (value: boolean) => void
+
   // live data
   tick: any;
   connected: boolean;
@@ -77,6 +81,8 @@ export function ChartProvider({ children, symbol }: { children: ReactNode; symbo
   const [isCandle, setIsCandle] = useState(true);
   const [isCreatingStrategy, setIsCreatingStrategy] = useState(false);
   const [annotations, setAnnotations] = useState<any[]>([]);
+  const [isIndicatorPanelOpen, setIsIndicatorPanelOpen] = useState(false);
+  
   const [accountUnrealisedPnL, setAccountUnrealisedPnL] = useState(0);
 
   const { positions, setPositions, handlePositionClosed } = usePositions(shortname);
@@ -137,6 +143,8 @@ export function ChartProvider({ children, symbol }: { children: ReactNode; symbo
         setIsCreatingStrategy,
         annotations,
         handleAnnotation,
+        isIndicatorPanelOpen,
+        setIsIndicatorPanelOpen,
         tick,
         connected,
         chartData: chartData ?? [],
