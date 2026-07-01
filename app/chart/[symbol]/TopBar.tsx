@@ -53,6 +53,8 @@ export function TopBar() {
     setIsCandle,
     isCreatingStrategy,
     setIsCreatingStrategy,
+    isIndicatorPanelOpen,
+    setIsIndicatorPanelOpen,
     connected,
   } = useChartContext();
 
@@ -143,6 +145,18 @@ export function TopBar() {
           label="Backtest"
           onClick={() => router.push(`/backtest?ticker=${shortname}&interval=${interval}`)}
         />
+
+        <ActionBtn
+
+  label="Indicators"
+
+  active={isIndicatorPanelOpen}
+
+  activeColor="#2563eb"
+
+  onClick={() => setIsIndicatorPanelOpen(!isIndicatorPanelOpen)}
+
+/>
       </div>
 
       {/* ── connection status ── */}

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Manrope } from "next/font/google";
+import { Geist, Geist_Mono, Manrope, Familjen_Grotesk } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "./provider/userprovider";
 import NavGate from "./components/NavGate";
@@ -11,6 +11,11 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+const familjenGrotesk = Familjen_Grotesk({
+  variable: "--font-familjen-grotesk",
   subsets: ["latin"],
 });
 
@@ -28,10 +33,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${manrope.className} antialiased`}>
+      <body className={`${familjenGrotesk.className} antialiased`}>
         <UserProvider>
           <NavGate />
           {children}
+          <Banner />
         </UserProvider>
       </body>
     </html>

@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signup, login } from "@/app/handlers/auth";

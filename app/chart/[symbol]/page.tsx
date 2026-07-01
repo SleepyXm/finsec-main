@@ -14,6 +14,8 @@ import { defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { getPreferences, savePreferences } from "@/app/handlers/profile";
 import { AssetSearchBar, AssetListItem } from "@/app/assetsearch/assetsearchcomponents";
 import { useAssetSearch } from "@/app/hooks/utility";
+import { IndicatorPanel } from "@/app/indicators/core/editor/IndicatorPanel";
+
 // --- extra chart pane (read-only, no trading UI) ----------------------------
 
 function ExtraChartInner({ onRemove }: { onRemove: () => void }) {
@@ -56,10 +58,22 @@ function ChartPageInner({ extraSymbols, onAddSymbol, onRemoveSymbol }: {
   onRemoveSymbol: (i: number) => void;
 }) {
   const {
-    shortname, tick, connected, error, chartData,
-    isCandle, isCreatingStrategy, handleAnnotation,
-    positions, livePnLMap, accountUnrealisedPnL,
-    placeTrade, closeTrade, loadingMore, loadPreviousPage
+    shortname,
+    tick,
+    connected,
+    error,
+    chartData,
+    isCandle,
+    isCreatingStrategy,
+    isIndicatorPanelOpen,
+    handleAnnotation,
+    positions,
+    livePnLMap,
+    accountUnrealisedPnL,
+    placeTrade,
+    closeTrade,
+    loadingMore,
+    loadPreviousPage,
   } = useChartContext();
 
   const [quantity, setQuantity] = useState(1);
@@ -137,51 +151,55 @@ function ChartPageInner({ extraSymbols, onAddSymbol, onRemoveSymbol }: {
     >
       {() => (
         <div className="flex w-full h-full">
-          {/* primary */}
-          <div style={{ width: `${100 / totalCharts}%` }} className="h-full">
-            <div
-              className="relative w-full h-full"
-              onContextMenu={e => { e.preventDefault(); setThemeModalOpen(true); }}
-            >
-              {chartData.length > 0 ? (
-                isCandle ? (
-                  <CandleStickChart
-                    data={chartData}
-                    trades={[]}
-                    renderTradeUI={tradeUI}
-                    positions={positions}
-                    livePnLMap={livePnLMap}
-                    onClosePosition={(id) => closeTrade(id, tick?.close ?? 0)}
-                    isCreatingStrategy={isCreatingStrategy}
-                    onAnnotation={handleAnnotation}
-                    onScrollLeft={loadPreviousPage}
-                    theme={activeTheme}
-                  />
+          <div className="flex h-full min-w-0" style={{ flex: 1 }}>
+            {/* primary */}
+            <div style={{ width: `${100 / totalCharts}%` }} className="h-full">
+              <div
+                className="relative w-full h-full"
+                onContextMenu={e => { e.preventDefault(); setThemeModalOpen(true); }}
+              >
+                {chartData.length > 0 ? (
+                  isCandle ? (
+                    <CandleStickChart
+                      data={chartData}
+                      trades={[]}
+                      renderTradeUI={tradeUI}
+                      positions={positions}
+                      livePnLMap={livePnLMap}
+                      onClosePosition={(id) => closeTrade(id, tick?.close ?? 0)}
+                      isCreatingStrategy={isCreatingStrategy}
+                      onAnnotation={handleAnnotation}
+                      onScrollLeft={loadPreviousPage}
+                      theme={activeTheme}
+                    />
+                  ) : (
+                    <Linechart data={chartData} renderTradeUI={tradeUI} trades={[]} theme={activeTheme} />
+                  )
                 ) : (
-                  <Linechart data={chartData} renderTradeUI={tradeUI} trades={[]} theme={activeTheme} />
-                )
-              ) : (
-                <p style={{ color: "#6b7280", padding: 16 }}>Loading chart...</p>
-              )}
-              {themeModalOpen && (
-                <ChartThemeModal
-                  isCandle={isCandle}
-                  theme={activeTheme}
-                  onSave={handleSave}
-                  onClose={() => setThemeModalOpen(false)}
-                />
-              )}
+                  <p style={{ color: "#6b7280", padding: 16 }}>Loading chart...</p>
+                )}
+                {themeModalOpen && (
+                  <ChartThemeModal
+                    isCandle={isCandle}
+                    theme={activeTheme}
+                    onSave={handleSave}
+                    onClose={() => setThemeModalOpen(false)}
+                  />
+                )}
+              </div>
             </div>
+
+            {/* extra charts — each gets its own ChartProvider + data pipeline */}
+            {extraSymbols.map((symbol, i) => (
+              <div key={symbol + i} style={{ width: `${100 / totalCharts}%` }} className="h-full">
+                <ChartProvider symbol={symbol}>
+                  <ExtraChartInner onRemove={() => onRemoveSymbol(i)} />
+                </ChartProvider>
+              </div>
+            ))}
           </div>
 
-          {/* extra charts — each gets its own ChartProvider + data pipeline */}
-          {extraSymbols.map((symbol, i) => (
-            <div key={symbol + i} style={{ width: `${100 / totalCharts}%` }} className="h-full">
-              <ChartProvider symbol={symbol}>
-                <ExtraChartInner onRemove={() => onRemoveSymbol(i)} />
-              </ChartProvider>
-            </div>
-          ))}
+          {isIndicatorPanelOpen && <IndicatorPanel />}
         </div>
       )}
     </TradeLayout>
