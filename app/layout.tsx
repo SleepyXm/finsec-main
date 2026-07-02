@@ -3,7 +3,6 @@ import { Geist, Geist_Mono, Manrope, Familjen_Grotesk } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "./provider/userprovider";
 import NavGate from "./components/NavGate";
-import { Banner } from "./banner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
