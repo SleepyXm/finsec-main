@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reveal-up {
+  opacity: 0;
+  animation: reveal-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-play-state: paused;
+}
+
+.reveal-up.in-view {
+  animation-play-state: running;
+}
+
+.reveal-up-delay-1 { animation-delay: 80ms; }
+.reveal-up-delay-2 { animation-delay: 180ms; }
+.reveal-up-delay-3 { animation-delay: 300ms; }
+.reveal-up-delay-4 { animation-delay: 420ms; }
+.reveal-up-delay-5 { animation-delay: 560ms; }

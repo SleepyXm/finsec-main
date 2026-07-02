@@ -3,6 +3,7 @@ export type RawData = {
   open: number;
   high: number;
   low: number;
+  volume: number;
   close: number;
   buy_price: number;
 }
