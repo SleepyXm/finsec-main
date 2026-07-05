@@ -355,5 +355,3 @@ export function DotWave() {
     </div>
   );
 }
-
-

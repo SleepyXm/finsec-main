@@ -1,0 +1,298 @@
+
+/* ----------------------------- */
+/* Chart snapshot overlay        */
+/* No line, no circle version    */
+/* ----------------------------- */
+
+/* ----------------------------- */
+/* Chart snapshot overlay        */
+/* Sharp 90-degree bracket only  */
+/* ----------------------------- */
+
+.chart-snapshot {
+  position: absolute;
+  left: 50%;
+  top: 54%;
+  width: 36%;
+  height: 50%;
+  z-index: 3;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.96);
+  transition:
+    opacity 260ms ease,
+    transform 260ms ease;
+  pointer-events: none;
+}
+
+.chart-snapshot.is-active {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* soft snapshot area only — no visible full border */
+.chart-snapshot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: none;
+  border-radius: 0;
+  background: rgba(147, 197, 253, 0.018);
+  box-shadow: 0 0 42px rgba(96, 165, 250, 0.09);
+}
+
+/* kill the SVG line completely */
+.snapshot-trade-path,
+.snapshot-trade-path line {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  stroke: transparent !important;
+}
+
+/* sharp 90-degree corner brackets */
+.snapshot-corner {
+  position: absolute;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border-color: rgba(219, 234, 254, 0.88);
+  border-radius: 0 !important;
+}
+
+/* top left */
+.snapshot-corner-tl {
+  top: 0;
+  left: 0;
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+
+/* top right */
+.snapshot-corner-tr {
+  top: 0;
+  right: 0;
+  border-top: 2px solid;
+  border-right: 2px solid;
+}
+
+/* bottom left */
+.snapshot-corner-bl {
+  bottom: 0;
+  left: 0;
+  border-bottom: 2px solid;
+  border-left: 2px solid;
+}
+
+/* bottom right */
+.snapshot-corner-br {
+  right: 0;
+  bottom: 0;
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+}
+
+/* remove all snapshot dots/circles */
+.snapshot-point,
+.snapshot-point::before,
+.snapshot-point::after,
+.snapshot-entry,
+.snapshot-exit {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* label only */
+.snapshot-label {
+  position: absolute;
+  z-index: 3;
+  left: 14px;
+  bottom: 12px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Hide snapshot dots/circles completely. */
+.snapshot-point,
+.snapshot-point::before,
+.snapshot-point::after,
+.snapshot-entry,
+.snapshot-exit {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+.snapshot-label {
+  position: absolute;
+  z-index: 3;
+  left: 14px;
+  bottom: 12px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-code);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   STRATEGY GENERATOR
+   ACCENT = #8FAADC = rgb(143, 170, 220)
+═══════════════════════════════════════════════════════════ */
+
+/* ── Phase 1: capture box ────────────────────────────────────
+   Full height minus the time axis (~26px at bottom).
+   Width expands left → right, stops before y-axis (~62%).
+   No overflow:hidden — parent chart div clips it.
+────────────────────────────────────────────────────────── */
+@keyframes capture-expand-width {
+  0%   { width: 0%;   opacity: 0; }
+  3%   { opacity: 1; }
+  100% { width: 32%;  opacity: 1; }
+}
+
+
+.strategy-capture-box::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: 100%;
+  height: calc(100% + 2px);
+  width: 100vw;
+  background: rgba(14, 17, 23, 0.7);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.strategy-capture-box::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 100%;
+  height: calc(100% + 2px);
+  width: 100vw;
+  background: rgba(14, 17, 23, 0.7);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.strategy-capture-box.is-dimmed::before,
+.strategy-capture-box.is-dimmed::after {
+  opacity: 1;
+}
+
+
+.strategy-capture-box {
+  position: absolute;
+  top: 0;
+  left: 46%;
+  height: calc(100% - 26px);
+  width: 0%;
+  opacity: 0;
+  z-index: 10;
+  pointer-events: none;
+  border: 1px solid rgba(143, 170, 220, 0.5);
+}
+
+.strategy-capture-box.is-active {
+  animation: capture-expand-width 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ── Phase 2: output text inside the captured region ──────── */
+.strategy-capture-output {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 4rem;
+  right: 1rem;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.strategy-capture-output.is-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Phase 3: PineScript panel ───────────────────────────── */
+/* panelStyle() handles background/border — class handles animation */
+.strategy-pine-panel {
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+  pointer-events: none;
+}
+
+.strategy-pine-panel.is-active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ── PineScript toggle ────────────────────────────────────── */
+.strategy-code-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.3rem 0;
+  background: transparent;
+  border: none;
+  color: rgba(238, 242, 247, 0.42);
+  font-size: 10px;
+  font-family: var(--font-code), monospace;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.strategy-code-toggle:hover {
+  color: rgba(238, 242, 247, 0.75);
+}
+
+.strategy-code-chevron {
+  transition: transform 0.2s ease;
+  line-height: 1;
+}
+
+.strategy-code-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* ── Code block ──────────────────────────────────────────── */
+.strategy-code-block {
+  margin-top: 0.4rem;
+  max-height: 210px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(238, 242, 247, 0.07);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(143, 170, 220, 0.2) transparent;
+}
+
+.strategy-code-block pre {
+  margin: 0;
+  padding: 0.7rem 0;
+  font-family: var(--font-code), monospace;
+  font-size: 10.5px;
+  line-height: 1.72;
+  color: rgba(238, 242, 247, 0.75);
+  white-space: pre;
+  overflow-x: auto;
+}

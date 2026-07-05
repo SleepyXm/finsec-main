@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "./charts.css";
+@import "./animations.css";
+@import "./trading.css";
 
 :root {
   --background: #0e1117;
@@ -46,83 +49,6 @@ select {
   background: rgba(143, 170, 220, 0.32);
   color: #eef2f7;
 }
-
-/* ----------------------------- */
-/* Generic animation utilities   */
-/* ----------------------------- */
-
-.anim-soft-enter {
-  animation: ui-soft-enter 240ms ease-out both;
-}
-
-.anim-fade-up {
-  animation: ui-fade-up 220ms ease-out both;
-}
-
-.anim-switch {
-  animation: ui-fade-up 160ms ease-out both;
-}
-
-@keyframes ui-soft-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.985);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes ui-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes auth-title-in {
-  from {
-    opacity: 0;
-    filter: blur(12px);
-    transform: translateY(28px);
-  }
-
-  to {
-    opacity: 1;
-    filter: blur(0);
-    transform: translateY(0);
-  }
-}
-
-@keyframes gradient-flow {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@keyframes gradient-flow {
-  0%   { background-position: 0% 0%; }
-  25%  { background-position: 100% 0%; }
-  50%  { background-position: 100% 100%; }
-  75%  { background-position: 0% 100%; }
-  100% { background-position: 0% 0%; }
-}
-
 
 /* ----------------------------- */
 /* Auth page                     */
@@ -255,155 +181,6 @@ select {
 .auth-chart table,
 .auth-chart canvas {
   pointer-events: none !important;
-}
-
-/* ----------------------------- */
-/* Chart snapshot overlay        */
-/* No line, no circle version    */
-/* ----------------------------- */
-
-/* ----------------------------- */
-/* Chart snapshot overlay        */
-/* Sharp 90-degree bracket only  */
-/* ----------------------------- */
-
-.chart-snapshot {
-  position: absolute;
-  left: 50%;
-  top: 54%;
-  width: 36%;
-  height: 50%;
-  z-index: 3;
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(0.96);
-  transition:
-    opacity 260ms ease,
-    transform 260ms ease;
-  pointer-events: none;
-}
-
-.chart-snapshot.is-active {
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
-}
-
-/* soft snapshot area only — no visible full border */
-.chart-snapshot::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: none;
-  border-radius: 0;
-  background: rgba(147, 197, 253, 0.018);
-  box-shadow: 0 0 42px rgba(96, 165, 250, 0.09);
-}
-
-/* kill the SVG line completely */
-.snapshot-trade-path,
-.snapshot-trade-path line {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  stroke: transparent !important;
-}
-
-/* sharp 90-degree corner brackets */
-.snapshot-corner {
-  position: absolute;
-  z-index: 2;
-  width: 32px;
-  height: 32px;
-  border-color: rgba(219, 234, 254, 0.88);
-  border-radius: 0 !important;
-}
-
-/* top left */
-.snapshot-corner-tl {
-  top: 0;
-  left: 0;
-  border-top: 2px solid;
-  border-left: 2px solid;
-}
-
-/* top right */
-.snapshot-corner-tr {
-  top: 0;
-  right: 0;
-  border-top: 2px solid;
-  border-right: 2px solid;
-}
-
-/* bottom left */
-.snapshot-corner-bl {
-  bottom: 0;
-  left: 0;
-  border-bottom: 2px solid;
-  border-left: 2px solid;
-}
-
-/* bottom right */
-.snapshot-corner-br {
-  right: 0;
-  bottom: 0;
-  border-right: 2px solid;
-  border-bottom: 2px solid;
-}
-
-/* remove all snapshot dots/circles */
-.snapshot-point,
-.snapshot-point::before,
-.snapshot-point::after,
-.snapshot-entry,
-.snapshot-exit {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-}
-
-/* label only */
-.snapshot-label {
-  position: absolute;
-  z-index: 3;
-  left: 14px;
-  bottom: 12px;
-  padding: 5px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0;
-  background: rgba(15, 23, 42, 0.48);
-  backdrop-filter: blur(10px);
-  color: rgba(255, 255, 255, 0.78);
-  font-family: var(--font-code);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-/* Hide snapshot dots/circles completely. */
-.snapshot-point,
-.snapshot-point::before,
-.snapshot-point::after,
-.snapshot-entry,
-.snapshot-exit {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-}
-
-.snapshot-label {
-  position: absolute;
-  z-index: 3;
-  left: 14px;
-  bottom: 12px;
-  padding: 5px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  background: rgba(15, 23, 42, 0.48);
-  backdrop-filter: blur(10px);
-  color: rgba(255, 255, 255, 0.78);
-  font-family: var(--font-code);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 /* ----------------------------- */
@@ -735,11 +512,11 @@ Grid content
   .auth-panel {
     position: relative;
     z-index: 3;
-    min-height: 100svh;
+    min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 72px 24px 48px;
+    padding: 48px 24px 48px;
     background: rgba(14, 17, 23, 0.5);
   }
 
@@ -771,5 +548,39 @@ Grid content
   }
   .included-grid {
     grid-template-columns: 1fr !important;
+  }
+}
+
+
+@media (max-width: 768px) {
+  .strategy-capture-box {
+    left: 12%;
+  }
+
+  @keyframes capture-expand-width {
+    0%   { width: 0%;  opacity: 0; }
+    3%   { opacity: 1; }
+    100% { width: 65%; opacity: 1; }
+  }
+
+  .strategy-capture-output {
+    left: 3rem;
+    right: 0.25rem;
+    bottom: 2rem;
+  }
+}
+
+
+.hero-heading--mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .hero-heading--desktop {
+    display: none;
+  }
+
+  .hero-heading--mobile {
+    display: block;
   }
 }

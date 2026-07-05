@@ -1,0 +1,95 @@
+:root {
+  --border-soft: rgba(238, 242, 247, 0.12);
+  --hint: rgba(238, 242, 247, 0.55);
+  --button: #8da7d8;
+  --error-text: #f87171;
+}
+
+.trading-panel {
+  position: relative;
+  margin-top: 1rem;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.trading-panel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.trading-panel-tab {
+  position: relative;
+  padding: 10px 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--hint);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.trading-panel-tab:hover {
+  color: var(--foreground);
+}
+
+.trading-panel-tab-active {
+  color: var(--foreground);
+  border-bottom-color: var(--button);
+}
+
+.trading-panel-tab-count {
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.18);
+  color: var(--button);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.trading-panel-content {
+  min-height: 120px;
+  padding: 16px;
+}
+
+.trading-panel-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trading-panel-metric-label {
+  color: var(--hint);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.trading-panel-metric-value {
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.trading-panel-metric-value-positive {
+  color: #34d399;
+}
+
+.trading-panel-metric-value-negative {
+  color: var(--error-text);
+}
+
+.trading-panel-empty {
+  margin: 0;
+  color: var(--hint);
+  font-size: 12px;
+}

@@ -26,3 +26,79 @@
 .reveal-up-delay-3 { animation-delay: 300ms; }
 .reveal-up-delay-4 { animation-delay: 420ms; }
 .reveal-up-delay-5 { animation-delay: 560ms; }
+
+/* ----------------------------- */
+/* Generic animation utilities   */
+/* ----------------------------- */
+
+.anim-soft-enter {
+  animation: ui-soft-enter 240ms ease-out both;
+}
+
+.anim-fade-up {
+  animation: ui-fade-up 220ms ease-out both;
+}
+
+.anim-switch {
+  animation: ui-fade-up 160ms ease-out both;
+}
+
+@keyframes ui-soft-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ui-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auth-title-in {
+  from {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(28px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes gradient-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes gradient-flow {
+  0%   { background-position: 0% 0%; }
+  25%  { background-position: 100% 0%; }
+  50%  { background-position: 100% 100%; }
+  75%  { background-position: 0% 100%; }
+  100% { background-position: 0% 0%; }
+}

@@ -58,7 +58,7 @@ export default function TradeButtons({ data, onTrade, quantity, onQuantityChange
         onChange={(e) =>
           onQuantityChange(Math.max(1, parseInt(e.target.value) || 1))
         }
-        className="w-20 h-14 text-center text-white border border-gray-300 rounded px-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        className="w-12 h-7 text-center text-white border border-gray-300 rounded px-1 focus:outline-none focus:ring-2 focus:ring-blue-300"
       />
 
       <button

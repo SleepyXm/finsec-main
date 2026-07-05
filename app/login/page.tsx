@@ -7,6 +7,7 @@ import { signup, login } from "@/app/handlers/auth";
 import { useUser } from "@/app/provider/userprovider";
 import Popup from "../components/errorpopup";
 import { AuthChartAnimation } from "../components/UI/tradeanimation";
+import { theme, panelStyle, cornerStyle } from "@/app/components/UI/UI";
 
 export default function Auth() {
   const { setUser, setAccount } = useUser();
@@ -19,6 +20,7 @@ export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const t = theme.dark;
 
   const router = useRouter();
 
@@ -90,7 +92,9 @@ export default function Auth() {
         </aside>
 
         <section className="auth-panel">
-          <div className="auth-panel-inner anim-fade-up">
+          <div className="auth-panel-inner anim-fade-up"
+          style={{ ...panelStyle(t), padding:"1.5rem 2rem", position: "relative" }}>
+            <div style={cornerStyle()} />
             <header className="auth-header">
               <h2>{isSignUp ? "Get Started" : "Welcome Back"}</h2>
 
