@@ -23,6 +23,8 @@ _chart_locks: dict[str, asyncio.Lock] = {}
 
 subscriptions = {}
 
+_background_tasks: set[asyncio.Task] = set()
+
 # Store last candle bounds per ticker in Redis or just in-memory dict
 _last_bounds: dict[str, dict] = {}
 
@@ -54,12 +56,53 @@ def build_chart(ticker: str, interval: str, live_period: str):
     return chart_data  # return the list, not json string
 
 
-async def build_and_cache_chart(ticker: str, interval: str) -> str:
-    # flat key — what Go reads on initial connect (preserves stitching)
+async def write_all_pages_bg(
+    ticker: str,
+    interval: str,
+    df,
+    total_pages: int,
+    flat_payload: str,
+):
+    import traceback
+    print(f"[write_all_pages_bg] starting {ticker} {interval} pages={total_pages}")
+    try:
+        rows = await asyncio.to_thread(df_to_chart, df)
+        total_rows = len(rows)
+        print(f"[write_all_pages_bg] df_to_chart done, {total_rows} rows")
+
+        async with r.pipeline(transaction=False) as pipe:
+            pipe.set(f"chart:{ticker}:{interval}",         flat_payload, ex=600)
+            pipe.set(f"chart:{ticker}:{interval}:meta:tp", str(total_pages), ex=600)
+            pipe.set(f"chart:{ticker}:{interval}:page:1",  flat_payload, ex=600)
+
+            for page_num in range(2, total_pages + 1):
+                end   = total_rows - (page_num - 1) * PAGE_SIZE
+                start = max(0, end - PAGE_SIZE)
+                pipe.set(
+                    f"chart:{ticker}:{interval}:page:{page_num}",
+                    json.dumps({
+                        "type":        "historical",
+                        "page":        page_num,
+                        "total_pages": total_pages,
+                        "total_rows":  total_rows,
+                        "data":        rows[start:end],
+                    }),
+                    ex=600,
+                )
+
+            await pipe.execute()
+        print(f"[write_all_pages_bg] pipeline done")
+
+    except Exception as e:
+        print(f"[write_all_pages_bg] ERROR:\n{traceback.format_exc()}")
+
+async def build_and_cache_chart(ticker: str, interval: str) -> tuple[str, int]:
     cache_key = f"chart:{ticker}:{interval}"
+
     cached = await r.get(cache_key)
     if cached:
-        return cached
+        tp = await r.get(f"{cache_key}:meta:tp")
+        return cached, int(tp) if tp else 1
 
     if cache_key not in _chart_locks:
         _chart_locks[cache_key] = asyncio.Lock()
@@ -67,36 +110,31 @@ async def build_and_cache_chart(ticker: str, interval: str) -> str:
     async with _chart_locks[cache_key]:
         cached = await r.get(cache_key)
         if cached:
-            return cached
+            tp = await r.get(f"{cache_key}:meta:tp")
+            return cached, int(tp) if tp else 1
 
-        live_period = INTERVAL_CONFIG.get(interval, {}).get("period", "1d")
-        rows = await asyncio.to_thread(build_chart, ticker, interval, live_period)
-        total_rows = len(rows)
+        df = await asyncio.to_thread(load_parquet, ticker, interval)
+
+        # page 1 only — tail of parquet, no yfinance, no full processing
+        page1_rows = df_to_chart(df.iloc[-PAGE_SIZE:])
+        total_rows  = len(df)
         total_pages = max(1, math.ceil(total_rows / PAGE_SIZE))
 
-        # write flat key — most recent PAGE_SIZE rows, same as before
-        # this is what Go serves on initial connect and what the live tick stitches onto
-        last_page_rows = rows[-PAGE_SIZE:]
-        flat_payload = json.dumps({"type": "historical", "page": 1, "total_pages": total_pages, "data": last_page_rows})
+        flat_payload = json.dumps({
+            "type":        "historical",
+            "page":        1,
+            "total_pages": total_pages,
+            "total_rows":  total_rows,
+            "data":        page1_rows,
+        })
+
         await r.set(cache_key, flat_payload, ex=600)
+        await r.set(f"{cache_key}:meta:tp", str(total_pages), ex=600)
 
-        # write paginated keys — page 1 = most recent, page N = oldest
-        # so loadPreviousPage(2) fetches the next older chunk
-        for page_num in range(1, total_pages + 1):
-            # page 1 → last PAGE_SIZE rows, page 2 → second-to-last, etc.
-            end = total_rows - (page_num - 1) * PAGE_SIZE
-            start = max(0, end - PAGE_SIZE)
-            slice_data = rows[start:end]
-            page_payload = json.dumps({
-                "type": "historical",
-                "page": page_num,
-                "total_pages": total_pages,
-                "total_rows": total_rows,
-                "data": slice_data,
-            })
-            await r.set(f"chart:{ticker}:{interval}:page:{page_num}", page_payload, ex=600)
+    # everything else — background
+    asyncio.create_task(write_all_pages_bg(ticker, interval, df, total_pages, flat_payload))
 
-        return flat_payload
+    return flat_payload, total_pages
 
 
 _fetch_state: dict[str, dict] = {}

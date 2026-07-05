@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 import asyncio
 from routers.websocket import broadcast_stock_data, fetch_tasks, build_and_cache_chart
 #from routers.websocket_compression import broadcast_stock_data, fetch_tasks, build_and_cache_chart
@@ -37,7 +37,16 @@ async def prime_chart_cache(ticker: str, interval: str = "1m"):
         if not await is_worker_active(ticker):
             await mark_worker_active(ticker)
             asyncio.create_task(download_asset_worker(ticker))
-        return {"status": "downloading"}
+        return Response(
+            content='{"status":"downloading"}',
+            media_type="application/json",
+            status_code=202,
+        )
 
-    await build_and_cache_chart(ticker, interval)
-    return {"status": "cached", "key": f"chart:{ticker}:{interval}"}
+    flat_payload, total_pages = await build_and_cache_chart(ticker, interval)
+
+    return Response(
+        content=flat_payload,
+        media_type="application/json",
+        headers={"X-Total-Pages": str(total_pages)},
+    )

@@ -3,10 +3,11 @@ package stocks
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -25,6 +26,11 @@ var chartGroup singleflight.Group
 
 var pools sync.Map // key: "ticker:interval" -> *WorkerPool
 
+type primeResult struct {
+	data       string
+	totalPages int
+}
+
 func extractPageKey(ticker, interval string, msg []byte) string {
 	idx := bytes.Index(msg, []byte(`"page":`))
 	if idx == -1 {
@@ -41,37 +47,59 @@ func extractPageKey(ticker, interval string, msg []byte) string {
 	return fmt.Sprintf("chart:%s:%s:page:%s", ticker, interval, msg[numStart:numEnd])
 }
 
-func primeChart(ctx context.Context, rdb *redis.Client, pythonURL, ticker, interval string) (string, int, error) {
+func primeChart(
+	ctx context.Context,
+	rdb *redis.Client,
+	pythonURL, ticker, interval string,
+) (string, int, error) {
 	chartKey := fmt.Sprintf("chart:%s:%s", ticker, interval)
-	_, err, _ := chartGroup.Do(chartKey, func() (interface{}, error) {
+
+	v, err, _ := chartGroup.Do(chartKey, func() (any, error) {
+
+		// warm path
 		if cached, err := rdb.Get(ctx, chartKey).Result(); err == nil && cached != "" {
-			return nil, nil
+			tp := 1
+			if raw, err := rdb.Get(ctx, chartKey+":meta:tp").Result(); err == nil {
+				if n, err := strconv.Atoi(raw); err == nil {
+					tp = n
+				}
+			}
+			return &primeResult{cached, tp}, nil
 		}
-		resp, pyErr := http.Post(
+
+		// cold path — data comes back in the response body
+		resp, err := http.Post(
 			pythonURL+"/api/internal/chart/cache?ticker="+ticker+"&interval="+interval,
 			"", nil,
 		)
-		if pyErr == nil {
-			resp.Body.Close()
+		if err != nil {
+			return nil, err
 		}
-		return nil, pyErr
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusAccepted { // 202 = still downloading
+			return nil, fmt.Errorf("asset downloading")
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+
+		tp := 1
+		if s := resp.Header.Get("X-Total-Pages"); s != "" {
+			if n, err := strconv.Atoi(s); err == nil {
+				tp = n
+			}
+		}
+
+		return &primeResult{string(body), tp}, nil
 	})
+
 	if err != nil {
 		return "", 0, err
 	}
-	data, err := rdb.Get(ctx, chartKey).Result()
-	if err != nil {
-		return "", 0, err
-	}
-	// parse total_pages out of the flat payload if present
-	var parsed map[string]interface{}
-	totalPages := 1
-	if json.Unmarshal([]byte(data), &parsed) == nil {
-		if tp, ok := parsed["total_pages"].(float64); ok {
-			totalPages = int(tp)
-		}
-	}
-	return data, totalPages, nil
+	return v.(*primeResult).data, v.(*primeResult).totalPages, nil
 }
 
 func getOrCreatePool(key string, rdb *redis.Client, channel string) *services.WorkerPool {
