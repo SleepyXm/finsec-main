@@ -19,12 +19,12 @@ type QueueEntry struct {
 type QueueConfirm struct {
 	TradeID    string  `json:"trade_id"`
 	ConnID     string  `json:"conn_id"`
-	PositionID string  `json:"position_id,omitempty"`
-	OrderID    string  `json:"order_id,omitempty"`
 	Symbol     string  `json:"symbol"`
 	Side       string  `json:"side"`
 	Quantity   float64 `json:"quantity"`
+	Price      float64 `json:"price"`
 	EntryPrice float64 `json:"entry_price"`
+	OrderType  string  `json:"order_type"`
 	Status     string  `json:"status"` // "open" | "error"
 	Error      string  `json:"error,omitempty"`
 	QueuedAt   string  `json:"queued_at"`
@@ -32,7 +32,6 @@ type QueueConfirm struct {
 }
 
 type bulkInsertResult struct {
-	entry      QueueEntry
-	orderID    string
-	positionID string
+	entry   QueueEntry
+	tradeID string
 }

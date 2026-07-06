@@ -10,10 +10,11 @@ export interface AccountStats {
 }
 
 export interface JournalTrade {
-  id:     string;
-  symbol: string;
-  side:   string;
-  pnl:    number;
+  id:       string;
+  trade_id: string;
+  symbol:   string;
+  side:     string;
+  pnl:      number;
 }
 
 export interface JournalDay {

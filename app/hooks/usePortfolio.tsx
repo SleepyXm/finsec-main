@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { PositionCursor, TradeHistoryRow, TradeHistory } from "../types/portfolio";
+import { TradeCursor, TradeHistoryRow, TradeHistory } from "../types/portfolio";
 import { AccountStats, JournalResponse, PnLCurveResponse, PnLPeriod } from "../types/accounts";
 import { fetchPortfolioPage } from "../handlers/portfolio";
 import { fetchAccountStats, fetchJournal, fetchPnLCurve } from "../handlers/accounts";
 
 function toRow(t: TradeHistory): TradeHistoryRow {
   return {
-    id:           t.id,
+    id:           t.trade_id,
+    trade_id:     t.trade_id,
     symbol:       t.symbol,
     side:         t.side.charAt(0).toUpperCase() + t.side.slice(1),
     entry_price:  `$${t.entry_price.toFixed(2)}`,
@@ -25,7 +26,7 @@ function toRow(t: TradeHistory): TradeHistoryRow {
 // Paginated trade history only — no stats.
 export function usePortfolio() {
   const [rows, setRows]     = useState<TradeHistoryRow[]>([]);
-  const [cursor, setCursor] = useState<PositionCursor | null | undefined>(undefined);
+  const [cursor, setCursor] = useState<TradeCursor | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const hasMore = cursor !== null && cursor !== undefined;

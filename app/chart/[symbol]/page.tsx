@@ -26,6 +26,7 @@ function ExtraChartInner({ onRemove }: { onRemove: () => void }) {
     isCandle,
     positions,
     livePnLMap,
+    updatePosition,
   } = useChartContext();
 
   return (
@@ -54,6 +55,7 @@ function ExtraChartInner({ onRemove }: { onRemove: () => void }) {
           trades={[]}
           positions={positions}
           livePnLMap={livePnLMap}
+          updatePosition={updatePosition}
           theme={defaultChartTheme}
         />
       ) : (
@@ -89,6 +91,7 @@ function ChartPageInner({
     accountUnrealisedPnL,
     placeTrade,
     closeTrade,
+    updatePosition,
     loadPreviousPage,
   } = useChartContext();
 
@@ -209,6 +212,7 @@ function ChartPageInner({
                     renderTradeUI={tradeUI}
                     positions={positions}
                     livePnLMap={livePnLMap}
+                    updatePosition={updatePosition}
                     onClosePosition={(id) => closeTrade(id, tick?.close ?? 0)}
                     isCreatingStrategy={isCreatingStrategy}
                     onAnnotation={handleAnnotation}

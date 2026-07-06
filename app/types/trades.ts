@@ -1,29 +1,53 @@
-import axios from "axios";
-
 const WS_BACKEND_URL = process.env.NEXT_PUBLIC_WS_API_BASE2;
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE2;
 
+export type OrderType = "market" | "limit";
+
 export type Trade = {
   id?: string;
-  position_id?: string;
+  trade_id: string;
   symbol: string;
   side: "long" | "short";
   quantity: number;
+  price?: number | null;
   entry_price: number;
+  order_type?: OrderType;
+  stop_loss?: number | null;
+  take_profit?: number | null;
   status: string;
   opened_at: string;
 };
 
+export type TradePatch = Partial<
+  Pick<Trade, "order_type" | "price" | "stop_loss" | "take_profit">
+>;
+
 export interface OpenPositionsProps {
   positions: Trade[];
   livePnLMap: Record<string, number>;
-  onClose: (positionId: string) => void;
-  accountUnrealisedPnL: number;
+  onClose: (tradeId: string) => void;
+  accountUnrealisedPnL?: number;
 }
+
+export type TradeConfirm = {
+  trade_id: string;
+  symbol: string;
+  side: "long" | "short";
+  quantity: number;
+  price?: number | null;
+  entry_price: number;
+  order_type?: OrderType;
+  stop_loss?: number | null;
+  take_profit?: number | null;
+  status: "open" | "error";
+  error?: string;
+  queued_at?: string;
+  flushed_at: string;
+};
 
 let socket: WebSocket | null = null;
 
-export function openTradeSocket(onConfirm: (confirm: any) => void): WebSocket {
+export function openTradeSocket(onConfirm: (confirm: TradeConfirm) => void): WebSocket {
     socket = new WebSocket(`${WS_BACKEND_URL}/trade`);
 
     socket.onmessage = (event) => {
@@ -59,8 +83,8 @@ export function postTrade(payload: {
   };
 }
 
-export async function deleteTrade(positionId: string, exitPrice: number, realisedPnl: number, sessionId?: string): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/api/trade/${positionId}`, {
+export async function deleteTrade(tradeId: string, exitPrice: number, realisedPnl: number, sessionId?: string): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/api/trade/${tradeId}`, {
     method: "DELETE",
     credentials: "include",
     headers: { "Content-Type": "application/json" },

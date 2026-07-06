@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Trade } from "@/app/types/trades";
-import { fetchOpenPositions } from "@/app/handlers/positions";
+import { Trade, TradePatch } from "@/app/types/trades";
+import { fetchOpenPositions, updateTrade } from "@/app/handlers/positions";
 
 export function usePositions(ticker: string, isBacktest = false) {
   const [positions, setPositions] = useState<Trade[]>([]);
@@ -13,52 +13,79 @@ export function usePositions(ticker: string, isBacktest = false) {
       .catch((e) => setError(e.message));
   }, [ticker, isBacktest]);
 
-  function handlePositionClosed(positionId: string) {
-    setPositions((prev) => prev.filter((p) => p.position_id !== positionId));
+  function handlePositionClosed(tradeId: string) {
+    setPositions((prev) => prev.filter((p) => p.trade_id !== tradeId));
   }
 
-  return { positions, setPositions, handlePositionClosed, error };
+  async function updatePosition(tradeId: string, patch: TradePatch) {
+    try {
+      const updated = await updateTrade(tradeId, patch);
+
+      setPositions((prev) =>
+        prev.map((position) =>
+          position.trade_id === tradeId
+            ? {
+                ...position,
+                ...updated,
+              }
+            : position
+        )
+      );
+
+      setError(null);
+      return updated;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update trade");
+      throw e;
+    }
+  }
+
+  return { positions, setPositions, handlePositionClosed, updatePosition, error };
 }
 
 
-type PositionPatch = Partial<Omit<Trade, "position_id">>;
+type PositionPatch = TradePatch;
 
 export function useEditPositions(
   setPositions: React.Dispatch<React.SetStateAction<Trade[]>>
 ) {
-  const [editingPositionId, setEditingPositionId] = useState<string | null>(
+  const [editingTradeId, setEditingTradeId] = useState<string | null>(
     null
   );
 
-  function startEditingPosition(positionId: string) {
-    setEditingPositionId(positionId);
+  function startEditingPosition(tradeId: string) {
+    setEditingTradeId(tradeId);
   }
 
   function stopEditingPosition() {
-    setEditingPositionId(null);
+    setEditingTradeId(null);
   }
 
-  function updatePosition(positionId: string, patch: PositionPatch) {
+  async function updatePosition(tradeId: string, patch: PositionPatch) {
+    const updated = await updateTrade(tradeId, patch);
+
     setPositions((prev) =>
       prev.map((position) =>
-        position.position_id === positionId
+        position.trade_id === tradeId
           ? {
               ...position,
-              ...patch,
+              ...updated,
             }
           : position
       )
     );
+
+    return updated;
   }
 
-  function updateEditingPosition(patch: PositionPatch) {
-    if (!editingPositionId) return;
+  async function updateEditingPosition(patch: PositionPatch) {
+    if (!editingTradeId) return null;
 
-    updatePosition(editingPositionId, patch);
+    return updatePosition(editingTradeId, patch);
   }
 
   return {
-    editingPositionId,
+    editingPositionId: editingTradeId,
     startEditingPosition,
     stopEditingPosition,
     updatePosition,

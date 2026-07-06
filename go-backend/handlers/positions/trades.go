@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"finsec-backend/services"
 	"finsec-backend/structs"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,6 +22,24 @@ import (
 )
 
 var BacktestSessionTTL = 1 * time.Hour
+
+func nullableFloat(raw json.RawMessage) (any, error) {
+	var value *float64
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, err
+	}
+	if value == nil {
+		return nil, nil
+	}
+	return *value, nil
+}
+
+func nullableFloatValue(value sql.NullFloat64) any {
+	if !value.Valid {
+		return nil
+	}
+	return value.Float64
+}
 
 func updateAccountStats(ctx context.Context, tx *sql.Tx, accountID string, pnl float64) error {
 	isWin := 0
@@ -120,32 +140,49 @@ func PlaceTrade(db *sql.DB, redisClient *redis.Client, pool *services.WorkerPool
 				if req.Action == "buy" {
 					side = "long"
 				}
-				position := map[string]any{
-					"id":          uuid.NewString(),
+				tradeID := uuid.NewString()
+				openedAt := time.Now().UTC()
+				trade := map[string]any{
+					"id":          tradeID,
+					"trade_id":    tradeID,
 					"symbol":      req.Ticker,
 					"side":        side,
 					"quantity":    req.Quantity,
+					"price":       req.Price,
 					"entry_price": req.Price,
+					"order_type":  "market",
 					"status":      "open",
-					"opened_at":   time.Now().UTC().Format(time.RFC3339),
+					"opened_at":   openedAt.Format(time.RFC3339),
 				}
-				positionsKey := "backtest:positions:" + *req.SessionID
-				cached, _ := redisClient.Get(c, positionsKey).Bytes()
-				var positions []map[string]any
+				tradesKey := "backtest:trades:" + *req.SessionID
+				cached, _ := redisClient.Get(c, tradesKey).Bytes()
+				var trades []map[string]any
 				if cached != nil {
-					json.Unmarshal(cached, &positions)
+					json.Unmarshal(cached, &trades)
 				}
-				positions = append(positions, position)
-				data, _ := json.Marshal(positions)
-				redisClient.SetEx(c, positionsKey, data, BacktestSessionTTL)
+				trades = append(trades, trade)
+				data, _ := json.Marshal(trades)
+				redisClient.SetEx(c, tradesKey, data, BacktestSessionTTL)
 
 				// Write confirm directly back on the WebSocket — no queue needed for backtest
-				resp, _ := json.Marshal(gin.H{"message": "Trade recorded", "data": position})
+				resp, _ := json.Marshal(services.QueueConfirm{
+					TradeID:    tradeID,
+					ConnID:     connID,
+					Symbol:     req.Ticker,
+					Side:       side,
+					Quantity:   req.Quantity,
+					Price:      req.Price,
+					EntryPrice: req.Price,
+					OrderType:  "market",
+					Status:     "open",
+					QueuedAt:   openedAt.Format(time.RFC3339Nano),
+					FlushedAt:  openedAt.Format(time.RFC3339Nano),
+				})
 				rc.Write(resp)
 				continue
 			}
 
-			// Live trade — determine side from action
+			// Live trade — determine position direction from action.
 			side := "short"
 			if req.Action == "buy" {
 				side = "long"
@@ -178,6 +215,135 @@ func PlaceTrade(db *sql.DB, redisClient *redis.Client, pool *services.WorkerPool
 	}
 }
 
+func UpdateTrade(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.MustGet("userID").(string)
+		tradeID := c.Param("trade_id")
+
+		var accountID string
+		err := db.QueryRowContext(c,
+			`SELECT id FROM user_accounts WHERE user_id = $1`, userID,
+		).Scan(&accountID)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Account not found"})
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch account"})
+			return
+		}
+
+		var req map[string]json.RawMessage
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		updates := []string{}
+		args := []any{}
+
+		addUpdate := func(column string, value any) {
+			args = append(args, value)
+			updates = append(updates, fmt.Sprintf("%s = $%d", column, len(args)))
+		}
+
+		for _, field := range []string{"stop_loss", "take_profit", "price"} {
+			raw, ok := req[field]
+			if !ok {
+				continue
+			}
+
+			value, err := nullableFloat(raw)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": field + " must be a number or null"})
+				return
+			}
+			addUpdate(field, value)
+		}
+
+		if raw, ok := req["order_type"]; ok {
+			var orderType string
+			if err := json.Unmarshal(raw, &orderType); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "order_type must be market or limit"})
+				return
+			}
+
+			orderType = strings.ToLower(strings.TrimSpace(orderType))
+			if orderType != "market" && orderType != "limit" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "order_type must be market or limit"})
+				return
+			}
+
+			addUpdate("order_type", orderType)
+		}
+
+		if len(updates) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No editable trade fields supplied"})
+			return
+		}
+
+		args = append(args, tradeID, accountID)
+		tradeIDParam := len(args) - 1
+		accountIDParam := len(args)
+
+		query := fmt.Sprintf(`
+			UPDATE trades
+			   SET %s,
+			       updated_at = NOW()
+			 WHERE id = $%d
+			   AND account_id = $%d
+			   AND status = 'open'
+			RETURNING id,
+			          symbol,
+			          CASE side WHEN 'buy' THEN 'long' ELSE 'short' END AS side,
+			          quantity,
+			          price,
+			          entry_price,
+			          order_type,
+			          stop_loss,
+			          take_profit,
+			          status,
+			          opened_at
+		`, strings.Join(updates, ", "), tradeIDParam, accountIDParam)
+
+		var id, symbol, side, orderType, status string
+		var quantity, entryPrice float64
+		var price, stopLoss, takeProfit sql.NullFloat64
+		var openedAt time.Time
+
+		err = db.QueryRowContext(c, query, args...).Scan(
+			&id, &symbol, &side, &quantity, &price, &entryPrice,
+			&orderType, &stopLoss, &takeProfit, &status, &openedAt,
+		)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Trade not found"})
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not update trade"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Trade updated",
+			"data": gin.H{
+				"id":          id,
+				"trade_id":    id,
+				"symbol":      symbol,
+				"side":        side,
+				"quantity":    quantity,
+				"price":       nullableFloatValue(price),
+				"entry_price": entryPrice,
+				"order_type":  orderType,
+				"stop_loss":   nullableFloatValue(stopLoss),
+				"take_profit": nullableFloatValue(takeProfit),
+				"status":      status,
+				"opened_at":   openedAt,
+			},
+		})
+	}
+}
+
 func CloseTrade(db *sql.DB, redisClient *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.MustGet("userID").(string)
@@ -204,42 +370,30 @@ func CloseTrade(db *sql.DB, redisClient *redis.Client) gin.HandlerFunc {
 
 		// Backtest path
 		if req.SessionID != nil {
-			positionsKey := "backtest:positions:" + *req.SessionID
-			cached, _ := redisClient.Get(c, positionsKey).Bytes()
-			var positions []map[string]any
+			tradesKey := "backtest:trades:" + *req.SessionID
+			cached, _ := redisClient.Get(c, tradesKey).Bytes()
+			var trades []map[string]any
 			if cached != nil {
-				json.Unmarshal(cached, &positions)
+				json.Unmarshal(cached, &trades)
 			}
 
-			var position map[string]any
-			remaining := []map[string]any{}
-			for _, p := range positions {
-				if p["id"] == tradeID {
-					position = p
-				} else {
-					remaining = append(remaining, p)
+			var trade map[string]any
+			for _, t := range trades {
+				if t["id"] == tradeID || t["trade_id"] == tradeID {
+					trade = t
+					break
 				}
 			}
-			if position == nil {
-				c.JSON(http.StatusNotFound, gin.H{"error": "Position not found"})
+			if trade == nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Trade not found"})
 				return
 			}
 
-			position["status"] = "closed"
-			position["exit_price"] = req.ExitPrice
-			position["realised_pnl"] = req.RealisedPnl
-			position["closed_at"] = time.Now().UTC().Format(time.RFC3339)
+			trade["status"] = "closed"
+			trade["exit_price"] = req.ExitPrice
+			trade["realised_pnl"] = req.RealisedPnl
+			trade["closed_at"] = time.Now().UTC().Format(time.RFC3339)
 
-			remainingData, _ := json.Marshal(remaining)
-			redisClient.SetEx(c, positionsKey, remainingData, BacktestSessionTTL)
-
-			tradesKey := "backtest:trades:" + *req.SessionID
-			cachedTrades, _ := redisClient.Get(c, tradesKey).Bytes()
-			var trades []map[string]any
-			if cachedTrades != nil {
-				json.Unmarshal(cachedTrades, &trades)
-			}
-			trades = append(trades, position)
 			tradesData, _ := json.Marshal(trades)
 			redisClient.SetEx(c, tradesKey, tradesData, BacktestSessionTTL)
 
@@ -254,7 +408,7 @@ func CloseTrade(db *sql.DB, redisClient *redis.Client) gin.HandlerFunc {
 			newBalance := strconv.FormatFloat(currentBalance+req.RealisedPnl, 'f', -1, 64)
 			redisClient.SetEx(c, balanceKey, newBalance, BacktestSessionTTL)
 
-			c.JSON(http.StatusOK, gin.H{"message": "Position closed", "data": position})
+			c.JSON(http.StatusOK, gin.H{"message": "Trade closed", "data": trade})
 			return
 		}
 
@@ -267,48 +421,41 @@ func CloseTrade(db *sql.DB, redisClient *redis.Client) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		var symbol, side string
-		var quantity float64
 		err = tx.QueryRowContext(c,
-			`SELECT symbol, side, quantity FROM positions
-			 WHERE id = $1 AND account_id = $2 AND status = 'open'`,
+			`SELECT symbol,
+			        CASE side WHEN 'buy' THEN 'long' ELSE 'short' END AS side
+			   FROM trades
+			 WHERE id = $1 AND account_id = $2 AND status = 'open'
+			 FOR UPDATE`,
 			tradeID, accountID,
-		).Scan(&symbol, &side, &quantity)
+		).Scan(&symbol, &side)
 		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Position not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Trade not found"})
 			return
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch position"})
-			return
-		}
-
-		exitSide := "buy"
-		if side == "long" {
-			exitSide = "sell"
-		}
-
-		var exitOrderID string
-		err = tx.QueryRowContext(c,
-			`INSERT INTO orders (account_id, bot_id, symbol, side, order_type, quantity, price, status)
-			 VALUES ($1, NULL, $2, $3, 'market', $4, $5, 'filled')
-			 RETURNING id`,
-			accountID, symbol, exitSide, quantity, req.ExitPrice,
-		).Scan(&exitOrderID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create exit order"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch trade"})
 			return
 		}
 
 		closedAt := time.Now().UTC()
-		_, err = tx.ExecContext(c,
-			`UPDATE positions
-			 SET status = 'closed', exit_order_id = $1, exit_price = $2,
-			     realised_pnl = $3, closed_at = $4
-			 WHERE id = $5`,
-			exitOrderID, req.ExitPrice, req.RealisedPnl, closedAt, tradeID,
+		result, err := tx.ExecContext(c,
+			`UPDATE trades
+			 SET status = 'closed',
+			     exit_price = $1,
+			     realised_pnl = $2,
+			     closed_at = $3,
+			     updated_at = $3
+			 WHERE id = $4 AND account_id = $5 AND status = 'open'`,
+			req.ExitPrice, req.RealisedPnl, closedAt, tradeID, accountID,
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not close position"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not close trade"})
+			return
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil || rowsAffected != 1 {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not close trade"})
 			return
 		}
 
@@ -333,9 +480,9 @@ func CloseTrade(db *sql.DB, redisClient *redis.Client) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"message": "Position closed",
+			"message": "Trade closed",
 			"data": gin.H{
-				"position_id":  tradeID,
+				"trade_id":     tradeID,
 				"symbol":       symbol,
 				"side":         side,
 				"exit_price":   req.ExitPrice,

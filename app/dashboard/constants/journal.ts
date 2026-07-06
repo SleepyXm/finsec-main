@@ -1,10 +1,11 @@
 import { JournalResponse } from "@/app/types/accounts";
 
 export interface CalendarTrade {
-  id:     string;
-  symbol: string;
-  pnl:    string;  // formatted: "+$12.50"
-  up:     boolean;
+  id:       string;
+  trade_id: string;
+  symbol:   string;
+  pnl:      string;  // formatted: "+$12.50"
+  up:       boolean;
 }
 
 export interface CalendarCell {
@@ -61,10 +62,11 @@ export function buildCalendarFromJournal(
         hasData: true,
         pnl:     data.pnl,
         trades:  data.trades.map((t) => ({
-          id:     t.id,
-          symbol: t.symbol,
-          pnl:    `${t.pnl >= 0 ? "+" : "-"}$${Math.abs(t.pnl).toFixed(2)}`,
-          up:     t.pnl >= 0,
+          id:       t.trade_id,
+          trade_id: t.trade_id,
+          symbol:   t.symbol,
+          pnl:      `${t.pnl >= 0 ? "+" : "-"}$${Math.abs(t.pnl).toFixed(2)}`,
+          up:       t.pnl >= 0,
         })),
       });
     } else {

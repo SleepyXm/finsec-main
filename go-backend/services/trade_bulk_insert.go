@@ -29,6 +29,10 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 
 	for i, entry := range entries {
 		base := i*8 + 1
+		executedBy := "user"
+		if entry.BotID != nil {
+			executedBy = "bot"
+		}
 
 		valueParts = append(valueParts, fmt.Sprintf(
 			"($%d::int, $%d::uuid, $%d::uuid, $%d::text, $%d::text, $%d::text, $%d::numeric, $%d::numeric)",
@@ -44,11 +48,11 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 
 		args = append(args,
 			i,
+			entry.TradeID,
 			entry.AccountID,
-			entry.BotID,
+			executedBy,
 			entry.Ticker,
 			entry.Action,
-			entry.Side,
 			entry.Quantity,
 			entry.Price,
 		)
@@ -57,10 +61,10 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 	query := fmt.Sprintf(`
 		WITH input_rows (
 			idx,
+			id,
 			account_id,
-			bot_id,
+			executed_by,
 			symbol,
-			action,
 			side,
 			quantity,
 			price
@@ -68,80 +72,43 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 			VALUES %s
 		),
 
-		order_rows AS (
-			SELECT
-				gen_random_uuid() AS order_id,
-				idx,
-				account_id,
-				bot_id,
-				symbol,
-				action,
-				side,
-				quantity,
-				price
-			FROM input_rows
-		),
-
-		inserted_orders AS (
-			INSERT INTO orders (
+		inserted_trades AS (
+			INSERT INTO trades (
 				id,
 				account_id,
-				bot_id,
+				executed_by,
 				symbol,
 				side,
 				order_type,
 				quantity,
 				price,
-				status
+				entry_price,
+				status,
+				opened_at
 			)
 			SELECT
-				order_id,
+				id,
 				account_id,
-				bot_id,
+				executed_by,
 				symbol,
-				action,
+				side,
 				'market',
 				quantity,
 				price,
-				'filled'
-			FROM order_rows
+				price,
+				'open',
+				NOW()
+			FROM input_rows
 			RETURNING id
-		),
-
-		inserted_positions AS (
-			INSERT INTO positions (
-				account_id,
-				bot_id,
-				symbol,
-				side,
-				quantity,
-				entry_order_id,
-				entry_price,
-				status
-			)
-			SELECT
-				o.account_id,
-				o.bot_id,
-				o.symbol,
-				o.side,
-				o.quantity,
-				o.order_id,
-				o.price,
-				'open'
-			FROM order_rows o
-			INNER JOIN inserted_orders io
-				ON io.id = o.order_id
-			RETURNING id, entry_order_id
 		)
 
 		SELECT
-			o.idx,
-			o.order_id::text,
-			p.id::text
-		FROM order_rows o
-		INNER JOIN inserted_positions p
-			ON p.entry_order_id = o.order_id
-		ORDER BY o.idx ASC
+			i.idx,
+			t.id::text
+		FROM input_rows i
+		INNER JOIN inserted_trades t
+			ON t.id = i.id
+		ORDER BY i.idx ASC
 	`, strings.Join(valueParts, ","))
 
 	rows, err := tx.QueryContext(ctx, query, args...)
@@ -157,10 +124,9 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 
 	for rows.Next() {
 		var idx int
-		var orderID string
-		var positionID string
+		var tradeID string
 
-		if err := rows.Scan(&idx, &orderID, &positionID); err != nil {
+		if err := rows.Scan(&idx, &tradeID); err != nil {
 			log.Printf("[flusher] scan bulk insert result: %v", err)
 			p.publishErrors(ctx, entries, fmt.Sprintf("scan bulk insert result: %v", err))
 			return false
@@ -173,9 +139,8 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 		}
 
 		results[idx] = bulkInsertResult{
-			entry:      entries[idx],
-			orderID:    orderID,
-			positionID: positionID,
+			entry:   entries[idx],
+			tradeID: tradeID,
 		}
 	}
 
@@ -186,7 +151,7 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 	}
 
 	for i, result := range results {
-		if result.entry.TradeID == "" || result.orderID == "" || result.positionID == "" {
+		if result.entry.TradeID == "" || result.tradeID == "" {
 			log.Printf("[flusher] missing bulk insert result idx=%d", i)
 			p.publishErrors(ctx, entries, "missing bulk insert result")
 			return false
@@ -220,12 +185,12 @@ func buildQueueConfirms(results []bulkInsertResult) ([]QueueConfirm, error) {
 		confirm := QueueConfirm{
 			TradeID:    result.entry.TradeID,
 			ConnID:     result.entry.ConnID,
-			PositionID: result.positionID,
-			OrderID:    result.orderID,
 			Symbol:     result.entry.Ticker,
 			Side:       result.entry.Side,
 			Quantity:   result.entry.Quantity,
+			Price:      result.entry.Price,
 			EntryPrice: result.entry.Price,
+			OrderType:  "market",
 			Status:     "open",
 			QueuedAt:   result.entry.QueuedAt,
 			FlushedAt:  flushedAt,

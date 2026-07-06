@@ -1,4 +1,4 @@
-import { Trade, OpenPositionsProps } from "@/app/types/trades";
+import { OpenPositionsProps } from "@/app/types/trades";
 
 export default function OpenPositions({ positions, livePnLMap, onClose }: OpenPositionsProps) {
   if (!positions.length) return null;
@@ -6,7 +6,7 @@ export default function OpenPositions({ positions, livePnLMap, onClose }: OpenPo
   return (
     <ul className="space-y-px">
       {positions.map((position) => {
-        const id = position.position_id ?? (position as any).id;
+        const id = position.trade_id;
         const livePnL = livePnLMap[id] ?? 0;
         const pos = livePnL >= 0;
 

@@ -1,5 +1,6 @@
 export interface TradeHistory {
   id: string;
+  trade_id: string;
   symbol: string;
   side: string;
   quantity: number;
@@ -12,6 +13,7 @@ export interface TradeHistory {
 
 export interface TradeHistoryRow {
   id: string;
+  trade_id: string;
   symbol: string;
   side: string;
   quantity: number;
@@ -42,11 +44,11 @@ export interface Portfolio {
 
 export interface PortfolioPage {
   history: TradeHistory[];
-  next_cursor: PositionCursor | null;
+  next_cursor: TradeCursor | null;
   stats: PortfolioStats;
 }
 
-export interface PositionCursor {
+export interface TradeCursor {
   cursor_time: string; // RFC3339
   cursor_id: string;
 }

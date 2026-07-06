@@ -10,6 +10,7 @@ import { StrategyOverlay } from "../overlays/Strategy";
 import { useCandleHighlight } from "@/app/chart/chartrender/overlays/CandleHighlight";
 import { useIndicators } from "@/app/indicators/hooks/useIndicator";
 import { PositionTags } from "@/app/chart/chartrender/overlays/PositionOverlay";
+import { ACCENT, DANGER, SUCCESS } from "@/app/components/UI/UI";
 
 type ChartPlugins = {
   data?: any[];
@@ -28,7 +29,7 @@ type ChartPlugins = {
 
   getPositionLabel?: (position: any) => string;
   onClosePosition?: (id: string) => void;
-  updatePosition?: (id: string, patch: any) => void;
+  updatePosition?: (id: string, patch: any) => void | Promise<void>;
 };
 
 export function resolveBackground(bg: ChartBackground) {
@@ -69,6 +70,7 @@ export function useChart(
   const positionLinesRef = useRef<Map<string, any>>(new Map());
 
   const [chartKey, setChartKey] = useState(0);
+  const [overlayVersion, setOverlayVersion] = useState(0);
 
   const data = plugins.data ?? [];
   const trades = plugins.trades ?? [];
@@ -219,114 +221,136 @@ export function useChart(
     PriceLines(seriesRef, priceLinesRef, trades);
   }, [trades, chartKey]);
 
- useEffect(() => {
-  if (!seriesRef.current) return;
+  useEffect(() => {
+    if (!positions.length) return;
 
-  const active = new Set<string>();
+    const frame = requestAnimationFrame(() => {
+      setOverlayVersion((version) => version + 1);
+    });
 
-  positions.forEach((position) => {
-    const rawId = position.position_id ?? position.id;
-    if (rawId == null) return;
+    return () => cancelAnimationFrame(frame);
+  }, [positions, data, chartKey]);
 
-    const id = String(rawId);
+  useEffect(() => {
+    if (!chartRef.current || !containerRef.current || !positions.length) return;
 
-    const entryPrice = Number(
-      position.entry_price ?? position.entryPrice ?? position.price
-    );
+    const chart = chartRef.current;
+    let frame: number | null = null;
 
-    if (!Number.isFinite(entryPrice)) return;
+    const invalidateOverlay = () => {
+      if (frame != null) return;
 
-    const isLong = position.side === "long";
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        setOverlayVersion((version) => version + 1);
+      });
+    };
 
-    const defaultOffset = Math.max(Math.abs(entryPrice) * 0.01, 0.01);
+    const observer = new ResizeObserver(invalidateOverlay);
+    observer.observe(containerRef.current);
 
-    const stopLoss =
-      position.stop_loss == null
-        ? isLong
-          ? entryPrice - defaultOffset
-          : entryPrice + defaultOffset
-        : Number(position.stop_loss);
+    chart.timeScale().subscribeVisibleLogicalRangeChange(invalidateOverlay);
+    invalidateOverlay();
 
-    const takeProfit =
-      position.take_profit == null
-        ? isLong
-          ? entryPrice + defaultOffset
-          : entryPrice - defaultOffset
-        : Number(position.take_profit);
+    return () => {
+      if (frame != null) cancelAnimationFrame(frame);
+      observer.disconnect();
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(invalidateOverlay);
+    };
+  }, [positions.length, chartKey]);
 
-    const sideColor = isLong ? "#089981" : "#f23645";
+  useEffect(() => {
+    if (!seriesRef.current) return;
 
-    const lines = [
-      {
-        key: `${id}:entry`,
-        price: entryPrice,
-        color: sideColor,
-        title:
-          plugins.getPositionLabel?.(position) ??
-          `${position.side?.toUpperCase?.() ?? ""} ${position.symbol ?? ""}`,
-        lineStyle: 2,
-      },
-      {
-        key: `${id}:stop_loss`,
-        price: stopLoss,
-        color: "#f23645",
-        title:
-          position.stop_loss == null
-            ? `SL ${stopLoss.toFixed(2)} PREVIEW`
-            : `SL ${stopLoss.toFixed(2)}`,
-        lineStyle: 1,
-      },
-      {
-        key: `${id}:take_profit`,
-        price: takeProfit,
-        color: "#089981",
-        title:
-          position.take_profit == null
-            ? `TP ${takeProfit.toFixed(2)} PREVIEW`
-            : `TP ${takeProfit.toFixed(2)}`,
-        lineStyle: 1,
-      },
-    ];
+    const active = new Set<string>();
 
-    lines.forEach((lineConfig) => {
-      if (!Number.isFinite(lineConfig.price)) return;
+    positions.forEach((position) => {
+      const rawId = position.trade_id;
+      if (rawId == null) return;
 
-      active.add(lineConfig.key);
+      const id = String(rawId);
 
-      const existing = positionLinesRef.current.get(lineConfig.key);
+      const entryPrice = Number(
+        position.entry_price ?? position.entryPrice ?? position.price
+      );
 
-      if (existing) {
-        existing.applyOptions({
-  price: lineConfig.price,
-  title: "",
-  color: lineConfig.color,
-  lineStyle: lineConfig.lineStyle,
-  axisLabelVisible: true,
-});
+      if (!Number.isFinite(entryPrice)) return;
 
-        return;
+      const lines = [
+        {
+          key: `${id}:entry`,
+          price: entryPrice,
+          color: position.side === "short" ? DANGER : ACCENT,
+          title:
+            plugins.getPositionLabel?.(position) ??
+            `${position.side?.toUpperCase?.() ?? ""} ${position.symbol ?? ""}`,
+          lineStyle: 0,
+        },
+      ];
+
+      if (position.stop_loss != null) {
+        const stopLoss = Number(position.stop_loss);
+
+        lines.push({
+          key: `${id}:stop_loss`,
+          price: stopLoss,
+          color: DANGER,
+          title: `SL ${stopLoss.toFixed(2)}`,
+          lineStyle: 0,
+        });
       }
 
-      const line = seriesRef.current.createPriceLine({
-  price: lineConfig.price,
-  color: lineConfig.color,
-  lineWidth: 1,
-  lineStyle: lineConfig.lineStyle,
-  axisLabelVisible: false,
-  title: "",
-});
+      if (position.take_profit != null) {
+        const takeProfit = Number(position.take_profit);
 
-      positionLinesRef.current.set(lineConfig.key, line);
+        lines.push({
+          key: `${id}:take_profit`,
+          price: takeProfit,
+          color: SUCCESS,
+          title: `TP ${takeProfit.toFixed(2)}`,
+          lineStyle: 0,
+        });
+      }
+
+      lines.forEach((lineConfig) => {
+        if (!Number.isFinite(lineConfig.price)) return;
+
+        active.add(lineConfig.key);
+
+        const existing = positionLinesRef.current.get(lineConfig.key);
+
+        if (existing) {
+          existing.applyOptions({
+            price: lineConfig.price,
+            title: "",
+            color: lineConfig.color,
+            lineStyle: lineConfig.lineStyle,
+            axisLabelVisible: true,
+          });
+
+          return;
+        }
+
+        const line = seriesRef.current.createPriceLine({
+          price: lineConfig.price,
+          color: lineConfig.color,
+          lineWidth: 1,
+          lineStyle: lineConfig.lineStyle,
+          axisLabelVisible: true,
+          title: "",
+        });
+
+        positionLinesRef.current.set(lineConfig.key, line);
+      });
     });
-  });
 
-  positionLinesRef.current.forEach((line, key) => {
-    if (!active.has(key)) {
-      seriesRef.current.removePriceLine(line);
-      positionLinesRef.current.delete(key);
-    }
-  });
-}, [positions, plugins.getPositionLabel, chartKey]);
+    positionLinesRef.current.forEach((line, key) => {
+      if (!active.has(key)) {
+        seriesRef.current.removePriceLine(line);
+        positionLinesRef.current.delete(key);
+      }
+    });
+  }, [positions, plugins.getPositionLabel, chartKey]);
 
   useEffect(() => {
     if (!chartRef.current || !plugins.onScrollLeft) return;
@@ -426,6 +450,7 @@ export function useChart(
           positions={positions}
           livePnLMap={plugins.livePnLMap ?? {}}
           seriesRef={seriesRef}
+          renderVersion={overlayVersion}
           onClosePosition={plugins.onClosePosition}
           updatePosition={plugins.updatePosition}
         />

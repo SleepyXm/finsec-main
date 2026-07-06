@@ -1,11 +1,11 @@
-# 005_add_strategies.py
+# 007_add_strategies.py
 
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
-revision = '005_add_strategies'
-down_revision = '004_update_user_accounts'
+revision = '007_add_strategies'
+down_revision = '005_unified_trades'
 branch_labels = None
 depends_on = None
 

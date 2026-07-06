@@ -1,4 +1,3 @@
-import { Portfolio } from "@/app/types/portfolio";
 import { TradeHistoryRow } from "@/app/types/portfolio";
 import { AccountStats } from "@/app/types/accounts";
 

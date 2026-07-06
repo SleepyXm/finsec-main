@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { createStockSocket, StockTick, PositionClosedEvent, AccountPnLEvent, WSMessage } from "@/app/types/websocket";
+import { createStockSocket, StockTick, WSMessage } from "@/app/types/websocket";
 import { Trade } from "@/app/types/trades";
 
 export function useStockSocket(
   ticker: string,
   interval: string = "1m",
   positions: Trade[],
-  onPositionClosed: (positionId: string) => void,
+  onPositionClosed: (tradeId: string) => void,
   onAccountPnL: (unrealised: number) => void,
 ) {
   const [tick, setTick] = useState<StockTick | null>(null);
@@ -48,8 +48,8 @@ export function useStockSocket(
       (msg: WSMessage) => {
         if (connectionId !== connectionIdRef.current) return;
 
-        if ("type" in msg && msg.type === "position_closed") {
-          onPositionClosed(msg.data.position_id);
+        if ("type" in msg && msg.type === "trade_closed") {
+          onPositionClosed(msg.data.trade_id);
           return;
         }
 
@@ -156,7 +156,7 @@ function computeLivePnL(
     positions.map((p) => {
       const direction = p.side === "long" ? 1 : -1;
       const pnl = (currentPrice - p.entry_price) * direction * p.quantity;
-      return [p.position_id, pnl];
+      return [p.trade_id, pnl];
     })
   );
 }

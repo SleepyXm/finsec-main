@@ -24,7 +24,7 @@ export const CandleStickChart: React.FC<{
   const priceLinesRef = useRef<any[]>([]);
 
   const getPositionLabel = useCallback((position: any) => {
-    const id = position.position_id ?? position.id;
+    const id = position.trade_id;
     const pnl = livePnLMap[id] ?? 0;
 
     return (
@@ -66,8 +66,7 @@ export const CandleStickChart: React.FC<{
       positions,
 
       getPositionLabel: (position) => {
-        const id =
-          position.position_id ?? position.id;
+        const id = position.trade_id;
 
         const pnl = livePnLMap[id] ?? 0;
 

@@ -1,5 +1,5 @@
 import { Column, Pill, PillVariant, tokens } from "@/app/dashboard/components/dashboard";
-import { TradeHistory, TradeHistoryRow } from "@/app/types/portfolio";
+import { TradeHistoryRow } from "@/app/types/portfolio";
 
 
 export const TRADE_COLUMNS: Column<TradeHistoryRow>[] = [

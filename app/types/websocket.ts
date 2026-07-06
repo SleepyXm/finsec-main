@@ -13,10 +13,10 @@ export type StockTick = {
   error?: string;
 };
 
-export type PositionClosedEvent = {
-  type: "position_closed";
+export type TradeClosedEvent = {
+  type: "trade_closed";
   data: {
-    position_id: string;
+    trade_id: string;
     symbol: string;
     pnl: number;
     reason: string;
@@ -38,7 +38,7 @@ export type HistoricalData = {
   total_pages: number;
 }
 
-export type WSMessage = StockTick | HistoricalData | PositionClosedEvent | AccountPnLEvent;
+export type WSMessage = StockTick | HistoricalData | TradeClosedEvent | AccountPnLEvent;
 
 export function createStockSocket(
   ticker: string,

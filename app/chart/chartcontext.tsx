@@ -42,6 +42,7 @@ interface ChartContextValue {
   accountUnrealisedPnL: number;
   placeTrade: (action: "buy" | "sell", tick: any, symbol: string, quantity: number) => void;
   closeTrade: (id: string, price: number) => void;
+  updatePosition: (id: string, patch: any) => Promise<any>;
   handlePositionClosed: (id: string) => void;
   error: string | null;
 
@@ -85,7 +86,7 @@ export function ChartProvider({ children, symbol }: { children: ReactNode; symbo
   
   const [accountUnrealisedPnL, setAccountUnrealisedPnL] = useState(0);
 
-  const { positions, setPositions, handlePositionClosed } = usePositions(shortname);
+  const { positions, setPositions, handlePositionClosed, updatePosition } = usePositions(shortname);
   const { placeTrade, closeTrade, error } = useTrades(positions, setPositions);
   const { tick, historicalData, connected, livePnLMap, loadingMore, loadPreviousPage } = useStockSocket(
     shortname, interval, positions, handlePositionClosed, setAccountUnrealisedPnL
@@ -155,6 +156,7 @@ export function ChartProvider({ children, symbol }: { children: ReactNode; symbo
         accountUnrealisedPnL,
         placeTrade,
         closeTrade,
+        updatePosition,
         handlePositionClosed,
         error,
         router,

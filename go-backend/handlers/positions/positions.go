@@ -28,35 +28,64 @@ func GetOpenPositions(db *sql.DB) gin.HandlerFunc {
 		}
 
 		rows, err := db.QueryContext(c,
-			`SELECT id, symbol, side, quantity, entry_price, status, opened_at
-			 FROM positions
+			`SELECT id,
+			        symbol,
+			        CASE side WHEN 'buy' THEN 'long' ELSE 'short' END AS side,
+			        quantity,
+			        price,
+			        entry_price,
+			        order_type,
+			        stop_loss,
+			        take_profit,
+			        status,
+			        opened_at
+			 FROM trades
 			 WHERE account_id = $1 AND status = 'open'`, accountID,
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch positions"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch open trades"})
 			return
 		}
 		defer rows.Close()
 
 		positions := []gin.H{}
 		for rows.Next() {
-			var id, symbol, side, status string
+			var id, symbol, side, orderType, status string
 			var quantity, entryPrice float64
+			var price, stopLoss, takeProfit sql.NullFloat64
 			var openedAt time.Time
 
-			if err := rows.Scan(&id, &symbol, &side, &quantity, &entryPrice, &status, &openedAt); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not scan position"})
+			if err := rows.Scan(
+				&id, &symbol, &side, &quantity, &price, &entryPrice,
+				&orderType, &stopLoss, &takeProfit, &status, &openedAt,
+			); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not scan open trade"})
 				return
 			}
-			positions = append(positions, gin.H{
-				"position_id": id,
+			position := gin.H{
+				"id":          id,
+				"trade_id":    id,
 				"symbol":      symbol,
 				"side":        side,
 				"quantity":    quantity,
+				"price":       nil,
 				"entry_price": entryPrice,
+				"order_type":  orderType,
+				"stop_loss":   nil,
+				"take_profit": nil,
 				"status":      status,
 				"opened_at":   openedAt,
-			})
+			}
+			if price.Valid {
+				position["price"] = price.Float64
+			}
+			if stopLoss.Valid {
+				position["stop_loss"] = stopLoss.Float64
+			}
+			if takeProfit.Valid {
+				position["take_profit"] = takeProfit.Float64
+			}
+			positions = append(positions, position)
 		}
 
 		c.JSON(http.StatusOK, positions)
@@ -72,7 +101,20 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 			`SELECT id FROM user_accounts WHERE user_id = $1`, userID,
 		).Scan(&accountID)
 		if err == sql.ErrNoRows {
-			c.JSON(http.StatusOK, gin.H{"history": []any{}, "stats": gin.H{}})
+			c.JSON(http.StatusOK, gin.H{
+				"history":     []any{},
+				"next_cursor": nil,
+				"stats": gin.H{
+					"total_realised_pnl": 0.0,
+					"trade_count":        0,
+					"wins":               0,
+					"losses":             0,
+					"win_rate":           0.0,
+					"avg_pnl_per_trade":  0.0,
+					"best_trade":         0.0,
+					"worst_trade":        0.0,
+				},
+			})
 			return
 		}
 		if err != nil {
@@ -103,8 +145,16 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 		var rows *sql.Rows
 		if cursorID == "" {
 			rows, err = db.QueryContext(c,
-				`SELECT id, symbol, side, quantity, entry_price, exit_price, realised_pnl, opened_at, closed_at
-				 FROM positions
+				`SELECT id,
+				        symbol,
+				        CASE side WHEN 'buy' THEN 'long' ELSE 'short' END AS side,
+				        quantity,
+				        entry_price,
+				        exit_price,
+				        realised_pnl,
+				        opened_at,
+				        closed_at
+				 FROM trades
 				 WHERE account_id = $1 AND status = 'closed'
 				 ORDER BY closed_at DESC, id DESC
 				 LIMIT $2`,
@@ -112,8 +162,16 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 			)
 		} else {
 			rows, err = db.QueryContext(c,
-				`SELECT id, symbol, side, quantity, entry_price, exit_price, realised_pnl, opened_at, closed_at
-				 FROM positions
+				`SELECT id,
+				        symbol,
+				        CASE side WHEN 'buy' THEN 'long' ELSE 'short' END AS side,
+				        quantity,
+				        entry_price,
+				        exit_price,
+				        realised_pnl,
+				        opened_at,
+				        closed_at
+				 FROM trades
 				 WHERE account_id = $1 AND status = 'closed'
 				   AND (closed_at, id) < ($2, $3)
 				 ORDER BY closed_at DESC, id DESC
@@ -122,12 +180,12 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 			)
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch position history"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch trade history"})
 			return
 		}
 		defer rows.Close()
 
-		type positionRow struct {
+		type tradeRow struct {
 			id          string
 			symbol      string
 			side        string
@@ -139,22 +197,22 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 			closedAt    sql.NullTime
 		}
 
-		var rawPositions []positionRow
+		var rawTrades []tradeRow
 
 		for rows.Next() {
-			var p positionRow
+			var trade tradeRow
 			if err := rows.Scan(
-				&p.id, &p.symbol, &p.side, &p.quantity,
-				&p.entryPrice, &p.exitPrice, &p.realisedPnl,
-				&p.openedAt, &p.closedAt,
+				&trade.id, &trade.symbol, &trade.side, &trade.quantity,
+				&trade.entryPrice, &trade.exitPrice, &trade.realisedPnl,
+				&trade.openedAt, &trade.closedAt,
 			); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not scan position"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not scan trade"})
 				return
 			}
-			rawPositions = append(rawPositions, p)
+			rawTrades = append(rawTrades, trade)
 		}
 
-		if len(rawPositions) == 0 {
+		if len(rawTrades) == 0 {
 			c.JSON(http.StatusOK, gin.H{
 				"history":     []any{},
 				"next_cursor": nil,
@@ -173,10 +231,11 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// --- Build history ---
-		history := make([]gin.H, 0, len(rawPositions))
-		for _, p := range rawPositions {
+		history := make([]gin.H, 0, len(rawTrades))
+		for _, p := range rawTrades {
 			entry := gin.H{
 				"id":           p.id,
+				"trade_id":     p.id,
 				"symbol":       p.symbol,
 				"side":         p.side,
 				"quantity":     p.quantity,
@@ -200,8 +259,8 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 
 		// --- Next cursor (only set when a full page was returned) ---
 		var nextCursor gin.H
-		if len(rawPositions) == limit {
-			last := rawPositions[len(rawPositions)-1]
+		if len(rawTrades) == limit {
+			last := rawTrades[len(rawTrades)-1]
 			if last.closedAt.Valid {
 				nextCursor = gin.H{
 					"cursor_time": last.closedAt.Time.Format(time.RFC3339),
@@ -212,7 +271,7 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 
 		// --- Stats (unchanged) ---
 		var pnlValues []float64
-		for _, p := range rawPositions {
+		for _, p := range rawTrades {
 			if p.realisedPnl.Valid {
 				pnlValues = append(pnlValues, p.realisedPnl.Float64)
 			}
@@ -220,7 +279,7 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 
 		stats := gin.H{
 			"total_realised_pnl": 0.0,
-			"trade_count":        len(rawPositions),
+			"trade_count":        len(rawTrades),
 			"wins":               0,
 			"losses":             0,
 			"win_rate":           0.0,

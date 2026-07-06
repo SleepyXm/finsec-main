@@ -1,15 +1,12 @@
-import { PositionCursor, PortfolioPage, Portfolio } from "../types/portfolio";
-
-const BACKEND_URL = "http://localhost:9000/api";
+import { request } from "./auth";
+import { TradeCursor, PortfolioPage, Portfolio } from "../types/portfolio";
 
 export async function fetchPortfolio(): Promise<Portfolio> {
-  const res = await fetch(`${BACKEND_URL}/portfolio`, { credentials: "include" });
-  if (!res.ok) throw new Error(`Failed to fetch portfolio: ${res.status}`);
-  return res.json();
+  return request("/api/portfolio", { method: "GET" });
 }
 
 export async function fetchPortfolioPage(
-  cursor?: PositionCursor,
+  cursor?: TradeCursor,
   limit = 20,
 ): Promise<PortfolioPage> {
   const params = new URLSearchParams({ limit: String(limit) });
@@ -17,7 +14,5 @@ export async function fetchPortfolioPage(
     params.set("cursor_time", cursor.cursor_time);
     params.set("cursor_id", cursor.cursor_id);
   }
-  const res = await fetch(`${BACKEND_URL}/portfolio?${params}`, { credentials: "include" });
-  if (!res.ok) throw new Error(`Failed to fetch portfolio page: ${res.status}`);
-  return res.json();
+  return request(`/api/portfolio?${params}`, { method: "GET" });
 }

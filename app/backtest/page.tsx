@@ -17,6 +17,7 @@ export default function BacktestPage() {
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [isCandle, setIsCandle] = useState(true);
+  const [quantity, setQuantity] = useState(1);
 
   const visibleCandles = candles.slice(0, cursor);
   const currentCandle = visibleCandles[visibleCandles.length - 1] ?? null;
@@ -26,7 +27,7 @@ export default function BacktestPage() {
 
   const livePnLMap = positions.reduce((acc, p) => {
   if (!currentCandle) return acc;
-  const id = p.position_id ?? (p as any).id;
+  const id = p.trade_id;
   const direction = p.side === "long" ? 1 : -1;
   acc[id] = Math.round((currentCandle.close - p.entry_price) * direction * p.quantity * 100) / 100;
   return acc;
@@ -41,12 +42,14 @@ export default function BacktestPage() {
         {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
         <TradeButtons
         data={currentCandle}
-        onTrade={(action) => placeTrade(action, currentCandle, session.ticker, session.session_id)}
+        onTrade={(action, nextQuantity) => placeTrade(action, currentCandle, session.ticker, nextQuantity, session.session_id)}
+        quantity={quantity}
+        onQuantityChange={setQuantity}
         />
         <OpenPositions
         positions={positions}
         livePnLMap={livePnLMap}
-        onClose={(positionId) => closeTrade(positionId, currentCandle?.close ?? 0, session.session_id)}
+        onClose={(tradeId) => closeTrade(tradeId, currentCandle?.close ?? 0, session.session_id)}
         />
     </>
     ) : null;
@@ -98,7 +101,7 @@ export default function BacktestPage() {
           <TradingPanel
             positions={positions}
             livePnLMap={livePnLMap}
-            onClose={(positionId) => closeTrade(positionId, currentCandle?.close ?? 0, session.session_id)}
+            onClose={(tradeId) => closeTrade(tradeId, currentCandle?.close ?? 0, session.session_id)}
           />
         </>
       )}

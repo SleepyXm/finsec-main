@@ -44,7 +44,7 @@ export default function TradeButtonRow({
       <OpenPositions
         positions={positions}
         livePnLMap={livePnLMap}
-        onClose={(positionId) => closeTrade(positionId, tick?.close ?? 0)}
+        onClose={(tradeId) => closeTrade(tradeId, tick?.close ?? 0)}
         accountUnrealisedPnL={accountUnrealisedPnL}
       />
     </>

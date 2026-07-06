@@ -1,0 +1,310 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+
+  --po-bg: #131821;
+  --po-bg-2: #181f2a;
+  --po-text: #eef2f7;
+  --po-muted: rgba(238, 242, 247, 0.66);
+  --po-muted-2: rgba(238, 242, 247, 0.42);
+  --po-border: rgba(238, 242, 247, 0.12);
+  --po-border-soft: rgba(238, 242, 247, 0.07);
+  --po-accent: #8faadc;
+  --po-accent-soft: rgba(143, 170, 220, 0.12);
+  --po-accent-border: rgba(143, 170, 220, 0.34);
+  --po-success: #b8dcc5;
+  --po-success-base: #8dbfa3;
+  --po-danger: #e2a1a1;
+  --po-danger-base: #c77d7d;
+  --po-order-tone: var(--po-accent);
+  --po-order-soft: rgba(143, 170, 220, 0.16);
+}
+
+.longOrder {
+  --po-order-tone: var(--po-accent);
+  --po-order-soft: rgba(143, 170, 220, 0.18);
+}
+
+.shortOrder {
+  --po-order-tone: var(--po-danger-base);
+  --po-order-soft: rgba(199, 125, 125, 0.18);
+}
+
+.corner {
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, rgba(238, 242, 247, 0.36) 1px, transparent 1px) 0 0 / 14px 14px no-repeat,
+    linear-gradient(to bottom, rgba(238, 242, 247, 0.36) 1px, transparent 1px) 0 0 / 14px 14px no-repeat,
+    linear-gradient(to left, rgba(238, 242, 247, 0.36) 1px, transparent 1px) 100% 0 / 14px 14px no-repeat,
+    linear-gradient(to bottom, rgba(238, 242, 247, 0.36) 1px, transparent 1px) 100% 0 / 14px 14px no-repeat,
+    linear-gradient(to right, rgba(238, 242, 247, 0.36) 1px, transparent 1px) 0 100% / 14px 14px no-repeat,
+    linear-gradient(to top, rgba(238, 242, 247, 0.36) 1px, transparent 1px) 0 100% / 14px 14px no-repeat,
+    linear-gradient(to left, rgba(238, 242, 247, 0.36) 1px, transparent 1px) 100% 100% / 14px 14px no-repeat,
+    linear-gradient(to top, rgba(238, 242, 247, 0.36) 1px, transparent 1px) 100% 100% / 14px 14px no-repeat;
+}
+
+.entryLine {
+  position: absolute;
+  left: 0;
+  right: 90px;
+  top: var(--po-y);
+  z-index: 8;
+  border-top: 1px solid var(--po-order-tone);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.priceLine {
+  position: absolute;
+  left: 0;
+  right: 90px;
+  top: calc(var(--po-y) - 9px);
+  height: 18px;
+  z-index: 25;
+  cursor: ns-resize;
+  pointer-events: auto;
+}
+
+.priceLine.preview {
+  opacity: 0.72;
+}
+
+.priceLine.dragging {
+  z-index: 40;
+}
+
+.priceLine.stop {
+  --po-line-tone: var(--po-danger-base);
+  --po-line-value: var(--po-danger);
+}
+
+.priceLine.take {
+  --po-line-tone: var(--po-success-base);
+  --po-line-value: var(--po-success);
+}
+
+.priceLineRule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 9px;
+  border-top: 1px solid var(--po-line-tone);
+}
+
+.priceLineBadge {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--po-line-tone);
+  color: var(--po-text);
+  font-family: var(--font-display), monospace;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.badgeLabel {
+  color: var(--po-muted-2);
+}
+
+.priceLineValue {
+  color: var(--po-line-value);
+}
+
+.clearLineButton,
+.closeButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.clearLineButton {
+  padding: 0;
+  color: var(--po-muted-2);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.tag {
+  position: absolute;
+  right: 90px;
+  top: calc(var(--po-y) - 16px);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  min-width: 154px;
+  gap: 8px;
+  padding: 3px 6px;
+  background: linear-gradient(180deg, rgba(4, 6, 10, 0.98), rgba(0, 0, 0, 0.96));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--po-order-tone);
+  box-shadow: 0 0 0 1px rgba(14, 17, 23, 0.36);
+  pointer-events: auto;
+}
+
+.tagEditing {
+  border-color: var(--po-order-tone);
+}
+
+.tagMeta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.tagTitle {
+  color: var(--po-text);
+  font-family: var(--font-display), monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.side {
+  color: var(--po-order-tone);
+}
+
+.pnl {
+  font-family: var(--font-display), monospace;
+  font-size: 11px;
+}
+
+.positive,
+.take {
+  color: var(--po-success);
+}
+
+.negative,
+.stop {
+  color: var(--po-danger);
+}
+
+.closeButton {
+  padding: 0 2px;
+  color: var(--po-muted-2);
+  font-size: 11px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.closeButton:hover {
+  color: var(--po-danger-base);
+}
+
+.riskControls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.riskButton {
+  height: 20px;
+  min-width: 28px;
+  padding: 0 6px;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid var(--po-border-soft);
+  color: var(--po-muted-2);
+  cursor: ns-resize;
+  font-family: var(--font-display), monospace;
+  font-size: 9px;
+  letter-spacing: 0.6px;
+  line-height: 18px;
+  text-transform: uppercase;
+}
+
+.riskButton.take {
+  border-color: rgba(141, 191, 163, 0.44);
+  color: var(--po-success);
+}
+
+.riskButton.stop {
+  border-color: rgba(199, 125, 125, 0.48);
+  color: var(--po-danger);
+}
+
+.riskButtonActive {
+  background: rgba(238, 242, 247, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(238, 242, 247, 0.08);
+}
+
+.submitBar {
+  position: absolute;
+  right: 90px;
+  top: calc(var(--po-y) + 14px);
+  z-index: 32;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--po-order-tone);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(14, 17, 23, 0.36);
+  pointer-events: auto;
+}
+
+.submitValue,
+.cancelButton,
+.acceptButton {
+  height: 24px;
+  font-family: var(--font-display), monospace;
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  line-height: 22px;
+}
+
+.error {
+  color: var(--po-danger);
+  font-family: var(--font-display), monospace;
+  font-size: 10px;
+}
+
+.submitValue {
+  color: var(--po-muted);
+  min-width: 78px;
+}
+
+.cancelButton,
+.acceptButton {
+  padding: 0 8px;
+  border: 1px solid var(--po-border-soft);
+  cursor: pointer;
+  font-family: var(--font-display), monospace;
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.cancelButton {
+  background: transparent;
+  color: var(--po-muted);
+}
+
+.acceptButton {
+  background: var(--po-accent);
+  border-color: var(--po-accent-border);
+  color: #0e1117;
+}
+
+.cancelButton:disabled,
+.acceptButton:disabled,
+.saving {
+  cursor: wait;
+  opacity: 0.68;
+}

@@ -23,6 +23,7 @@ type ChartRendererProps = {
 
   isCreatingStrategy?: boolean;
   onClosePosition?: (id: string) => void;
+  updatePosition?: (id: string, patch: any) => void | Promise<void>;
   onAnnotation?: (annotation: any) => void;
   onScrollLeft?: () => void;
 
@@ -41,11 +42,12 @@ export function ChartRenderer({
   onAnnotation,
   onScrollLeft,
   onClosePosition,
+  updatePosition,
   theme = defaultChartTheme,
 }: ChartRendererProps) {
   const getPositionLabel = useCallback(
     (position: any) => {
-      const id = position.position_id ?? position.id;
+      const id = position.trade_id;
       const pnl = livePnLMap[id] ?? 0;
 
       return (
@@ -105,6 +107,7 @@ export function ChartRenderer({
     onAnnotation,
     onScrollLeft,
     onClosePosition,
+    updatePosition,
     enableStrategyOverlay: type === "candlestick",
     enableIndicators: type === "candlestick",
   },
