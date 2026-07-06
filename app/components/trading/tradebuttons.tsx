@@ -42,13 +42,13 @@ export default function TradeButtons({ data, onTrade, quantity, onQuantityChange
       : "-";
 
   return (
-    <div className="flex gap-4 mb-2 items-center">
+    <div className="flex gap-2 mb-2 items-center">
       <button
         onClick={() => onTrade("sell", quantity)}
-        className="w-28 h-14 bg-red-400 text-white rounded flex flex-col items-center justify-center hover:bg-red-500 transition"
+        className="w-20 h-12 bg-red-500/65 text-white rounded flex flex-col items-center justify-center hover:bg-red-600 transition"
       >
-        <span>Sell</span>
-        <small className="tabular-nums leading-none">${sellPrice}</small>
+        <span className="text-xs">SELL</span>
+        <small className="tabular-nums leading-none font-bold">${sellPrice}</small>
       </button>
 
       <input
@@ -63,10 +63,10 @@ export default function TradeButtons({ data, onTrade, quantity, onQuantityChange
 
       <button
         onClick={() => onTrade("buy", quantity)}
-        className="w-28 h-14 bg-blue-400 text-white rounded flex flex-col items-center justify-center hover:bg-blue-500 transition"
+        className="w-20 h-12 bg-blue-500/65 text-white rounded flex flex-col items-center justify-center hover:bg-blue-600 transition"
       >
-        <span>Buy</span>
-        <small className="tabular-nums leading-none">${buyPrice}</small>
+        <span className="text-xs">BUY</span>
+        <small className="tabular-nums leading-none font-bold">${buyPrice}</small>
       </button>
     </div>
   );

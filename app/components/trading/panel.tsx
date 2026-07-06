@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { CSSProperties, useState } from "react";
 import OpenPositions from "./positions";
 import RealisedPnL from "../portfolio/portfolio";
 import { OpenPositionsProps } from "@/app/types/trades";
@@ -37,11 +37,23 @@ export default function TradingPanel({
   return (
     <div
       className="trading-panel"
-      style={{
-        ...panelStyle(t),
-        borderRadius: 12,
-        padding: "1rem",
-      }}
+      style={
+        {
+          ...panelStyle(t),
+          "--tp-text": t.text,
+          "--tp-muted": t.muted,
+          "--tp-muted-2": t.muted2,
+          "--tp-border": t.borderSoft,
+          "--tp-border-strong": t.border,
+          "--tp-accent": t.accent,
+          "--tp-accent-soft": t.accentSoft,
+          "--tp-accent-border": t.accentBorder,
+          "--tp-success": t.successText,
+          "--tp-error": t.errorText,
+          "--tp-surface": t.surface,
+          "--tp-surface-2": t.surface2,
+        } as CSSProperties
+      }
     >
       <div style={cornerStyle()} />
 
