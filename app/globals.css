@@ -419,8 +419,8 @@ Grid content
   pointer-events: none;
 
   background-image:
-    linear-gradient(rgba(159, 190, 246, 0.72) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(159, 190, 246, 0.72) 1px, transparent 1px);
+    linear-gradient(rgba(238, 242, 247, 0.58) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(238, 242, 247, 0.58) 1px, transparent 1px);
 
   background-size: 72px 72px;
 

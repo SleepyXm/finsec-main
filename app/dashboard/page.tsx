@@ -4,7 +4,7 @@ import {
   Badge, BarRow, Btn, Card, CardFooter, DataTable,
   Grid2, PageHeader, Row, StatCard, StatRow, tokens,
 } from "@/app/dashboard/components/dashboard";
-import { gridBgStyle, pageStyle, theme } from "@/app/components/UI/UI";
+import { gridBgStyle, handleGridGlowMove, pageStyle, theme } from "@/app/components/UI/UI";
 import { useState } from "react";
 import { useUser } from "../provider/userprovider";
 import { usePortfolio, useAccountStats, usePnLCurve } from "../hooks/usePortfolio";
@@ -29,8 +29,13 @@ export default function DashboardPage() {
   const { curve }   = usePnLCurve(selectedPeriod);
 
   return (
-    <div style={{ ...pageStyle, position: "relative", padding: "24px 28px 48px" }}>
+    <div
+      className="grid-glow-section"
+      onMouseMove={handleGridGlowMove}
+      style={{ ...pageStyle, position: "relative", padding: "24px 28px 48px" }}
+    >
       <div aria-hidden="true" style={{ ...gridBgStyle, opacity: 0.18 }} />
+      <div aria-hidden="true" className="grid-bg-glow" />
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
 
       <PageHeader

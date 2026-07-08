@@ -34,6 +34,9 @@ export const tokens = {
   blue:     theme.dark.accent,
   blueDim:  theme.dark.accentSoft,
   accent:   theme.dark.accent,
+  hover:    "rgba(238,242,247,0.055)",
+  hoverStrong: "rgba(238,242,247,0.12)",
+  hoverBorder: "rgba(238,242,247,0.28)",
 } as const;
  
 // ── Types ────────────────────────────────────────────────────
@@ -204,7 +207,7 @@ export function StatCard({
         style={{
           fontSize: 22,
           fontWeight: 500,
-          letterSpacing: "-0.6px",
+          letterSpacing: 0,
           color: valueColor ?? tokens.text0,
           fontVariantNumeric: "tabular-nums",
         }}
@@ -240,6 +243,7 @@ export function Row({
     <div
       onClick={onClick}
       style={{
+        position: "relative",
         display: "flex",
         alignItems: "center",
         gap: 12,
@@ -248,9 +252,10 @@ export function Row({
         cursor: onClick ? "pointer" : "default",
         transition: "background 0.12s",
       }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = tokens.blueDim)}
+      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = tokens.hover)}
       onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "transparent")}
     >
+      <div aria-hidden="true" style={{ ...cornerStyle(), opacity: 0.28 }} />
       {children}
     </div>
   );
@@ -273,6 +278,7 @@ export function Badge({
   return (
     <div
       style={{
+        position: "relative",
         width: 30,
         height: 30,
         border: `1px solid ${tokens.border}`,
@@ -288,6 +294,7 @@ export function Badge({
         fontVariantNumeric: "tabular-nums",
       }}
     >
+      <div aria-hidden="true" style={{ ...cornerStyle(), opacity: 0.42 }} />
       {children}
     </div>
   );
@@ -311,6 +318,7 @@ export function Pill({
   return (
     <span
       style={{
+        position: "relative",
         display: "inline-flex",
         alignItems: "center",
         fontSize: 10,
@@ -318,10 +326,11 @@ export function Pill({
         padding: "3px 9px",
         border: `1px solid ${tokens.border}`,
         borderRadius: 0,
-        letterSpacing: "0.2px",
+        letterSpacing: 0,
         ...PILL_STYLES[variant],
       }}
     >
+      <span aria-hidden="true" style={{ ...cornerStyle(), opacity: 0.32 }} />
       {children}
     </span>
   );
@@ -340,8 +349,19 @@ export function Btn({
   return (
     <button
       onClick={onClick}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = primary ? theme.dark.text : tokens.hoverStrong;
+        e.currentTarget.style.borderColor = tokens.hoverBorder;
+        e.currentTarget.style.color = primary ? theme.dark.bg : theme.dark.text;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = primary ? theme.dark.accent : "transparent";
+        e.currentTarget.style.borderColor = primary ? theme.dark.accent : theme.dark.border;
+        e.currentTarget.style.color = primary ? theme.dark.btnText : theme.dark.text;
+      }}
       style={{
         ...(primary ? buttonStyle(theme.dark) : ghostButtonStyle(theme.dark)),
+        position: "relative",
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
@@ -351,8 +371,11 @@ export function Btn({
         textTransform: "none",
         whiteSpace: "nowrap",
         fontFamily: "inherit",
+        overflow: "hidden",
+        border: `1px solid ${primary ? theme.dark.accent : theme.dark.border}`,
       }}
     >
+      <span aria-hidden="true" style={{ ...cornerStyle(), opacity: 0.36 }} />
       {children}
     </button>
   );
@@ -428,7 +451,7 @@ export function DataTable<T extends object>({
                 fontSize: 10,
                 fontWeight: 500,
                 color: tokens.text3,
-                letterSpacing: "0.4px",
+                letterSpacing: 0,
                 textTransform: "uppercase",
                 borderBottom: `1px solid ${tokens.border}`,
               }}
@@ -444,7 +467,7 @@ export function DataTable<T extends object>({
             key={i}
             onMouseEnter={(e) =>
               e.currentTarget.querySelectorAll("td").forEach(
-                (td) => ((td as HTMLElement).style.background = tokens.blueDim)
+                (td) => ((td as HTMLElement).style.background = tokens.hover)
               )
             }
             onMouseLeave={(e) =>

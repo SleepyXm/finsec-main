@@ -63,20 +63,30 @@ export function JournalCell({ cell }: { cell: CalendarCell }) {
   const loss    = cell.hasData && cell.pnl < 0;
   const visible = cell.trades.slice(0, VISIBLE);
   const overflow = cell.trades.length - VISIBLE;
+  const cellBg = profit ? `${tokens.green}18` : loss ? `${tokens.red}18` : "transparent";
 
   return (
     <>
       <div
         ref={ref}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = tokens.hover;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = cellBg;
+        }}
         style={{
           borderRight:     `1px solid ${tokens.border}`,
           borderBottom:    `1px solid ${tokens.border}`,
           minHeight:       72,
           padding:         "5px 6px",
-          backgroundColor: profit ? `${tokens.green}18` : loss ? `${tokens.red}18` : "transparent",
+          backgroundColor: cellBg,
           position:        "relative",
+          overflow:        "hidden",
+          transition:      "background 0.12s ease",
         }}
       >
+        <div aria-hidden="true" style={{ ...cornerStyle(), opacity: cell.hasData ? 0.4 : 0.2 }} />
         {/* Day number */}
         <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 3, color: cell.hasData ? (profit ? tokens.green : tokens.red) : tokens.text3 }}>
           {cell.day}
@@ -168,7 +178,7 @@ export function Journal() {
     >
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderLeft: `1px solid ${tokens.border}`, borderTop: `1px solid ${tokens.border}` }}>
         {DOW.map((d) => (
-          <div key={d} style={{ padding: "4px 6px", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: tokens.text3, textTransform: "uppercase", borderRight: `1px solid ${tokens.border}`, borderBottom: `1px solid ${tokens.border}` }}>
+          <div key={d} style={{ padding: "4px 6px", fontSize: 10, fontWeight: 700, letterSpacing: 0, color: tokens.text3, textTransform: "uppercase", borderRight: `1px solid ${tokens.border}`, borderBottom: `1px solid ${tokens.border}` }}>
             {d}
           </div>
         ))}
