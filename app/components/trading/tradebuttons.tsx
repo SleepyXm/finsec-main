@@ -1,4 +1,4 @@
-interface TradeButtonsProps {
+﻿interface TradeButtonsProps {
   data: any;
   onTrade: (action: "buy" | "sell", quantity: number) => void;
   quantity: number;

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { ChartProvider, useChartContext } from "../chartcontext";
@@ -45,7 +45,7 @@ function ExtraChartInner({ onRemove }: { onRemove: () => void }) {
         onClick={onRemove}
         className="absolute top-2 right-2 z-10 text-xs px-2 py-1 bg-black/30 rounded text-white/40 hover:text-white"
       >
-        ✕
+        âœ•
       </button>
 
       {chartData.length > 0 ? (

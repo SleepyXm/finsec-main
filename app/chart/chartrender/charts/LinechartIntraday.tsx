@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { AreaSeries } from 'lightweight-charts';
 import { useChart } from '../hooks/useChart';
 import { intradayChartTheme, type ChartTheme } from '../themes/themes';
@@ -9,39 +9,62 @@ export const LinechartIntraday: React.FC<{
   minimal?: boolean;
   theme?: ChartTheme;
 }> = ({ data, colors = {}, minimal = false, theme = intradayChartTheme }) => {
-  const { containerRef, seriesRef, chartRef } = useChart(AreaSeries, {
-    lineColor: theme.lineUp,
-    topColor: theme.areaTopUp,
-    bottomColor: theme.areaBottomUp,
-    text: theme.text,
+  
+  // ✅ Normalize to { time, value } — AreaSeries requires `value`, not `close`
+  const lineData = useMemo(() => {
+    return data
+      .filter((item) => item?.time != null)
+      .map((item) => ({
+        time: item.time,
+        value: Number(item.value ?? item.close),
+      }))
+      .filter((item) => Number.isFinite(item.value));
+  }, [data]);
+
+  const first = lineData[0]?.value ?? 0;
+  const last = lineData[lineData.length - 1]?.value ?? 0;
+  const isUp = last >= first;
+
+  const seriesOptions = useMemo(() => ({
+    lineColor: isUp ? theme.lineUp : theme.lineDown,
+    topColor: isUp ? theme.areaTopUp : theme.areaTopDown,
+    bottomColor: isUp ? theme.areaBottomUp : theme.areaBottomDown,
     lineWidth: 1,
     lastValueVisible: true,
     priceLineVisible: false,
-  }, {
+  }), [isUp, theme]);
+
+  const chartOptions = useMemo(() => ({
+    // ✅ crosshair is top-level, not inside `extra`
+    crosshair: {
+      vertLine: { visible: true },
+      horzLine: { visible: !minimal },
+    },
     timeScale: { fixLeftEdge: true, timeVisible: true, secondsVisible: false },
     extra: {
       rightPriceScale: { visible: true },
-      crosshair: { vertLine: { visible: true }, horzLine: { visible: !minimal } },
       handleScroll: !minimal,
       handleScale: !minimal,
-    }
-  }, {}, theme);
+    },
+  }), [minimal]);
+
+  // ✅ Pass lineData through plugins.data so useChart's effect owns it
+  const { chartElement, chartRef } = useChart(
+    AreaSeries,
+    seriesOptions,
+    chartOptions,
+    { data: lineData },
+    theme
+  );
 
   useEffect(() => {
-    if (!seriesRef.current || data.length === 0) return;
-    const first = data[0]?.value ?? data[0]?.close ?? 0;
-    const last = data[data.length - 1]?.value ?? data[data.length - 1]?.close ?? 0;
-    const isUp = last >= first;
+    if (!chartRef.current || lineData.length === 0) return;
+    chartRef.current.timeScale().fitContent();
+  }, [chartRef, lineData.length]);
 
-    seriesRef.current.applyOptions({
-      lineColor: isUp ? theme.lineUp : theme.lineDown,
-      topColor: isUp ? theme.areaTopUp : theme.areaTopDown,
-      bottomColor: isUp ? theme.areaBottomUp : theme.areaBottomDown,
-    });
-
-    seriesRef.current.setData(data);
-    chartRef.current?.timeScale().fitContent();
-  }, [data]);
-
-  return <div ref={containerRef} style={{ width: '100%', height: '300px' }} />;
+  return (
+    <div style={{ width: '100%', height: '300px' }}>
+      {chartElement}
+    </div>
+  );
 };

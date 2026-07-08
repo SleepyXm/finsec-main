@@ -6,82 +6,57 @@ import DrawingCanvas from "@/app/chart/chartrender/overlays/DrawingCanvas";
 import { Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
 import { ColorPicker } from "@/app/chart/chartrender/overlays/ColorPicker";
 import { Row } from "@/app/chart/chartrender/overlays/ThemeSettings";
+import {
+  DANGER,
+  cornerStyle,
+  pageStyle,
+  panelStyle,
+  theme,
+} from "@/app/components/UI/UI";
 
 const TOP_BAR_H = 40;
 const LEFT_BAR_W = 48;
 const RIGHT_PANEL_W = 560;
-const BOTTOM_MIN_H = 64; // collapsed — just the tab bar
+const BOTTOM_MIN_H = 64;
 const BOTTOM_MAX_H = 500;
 const BOTTOM_DEFAULT_H = 360;
 
-// ── UI customisation config ──────────────────────────────────────────────────
-const ACCENT = "#8FAADC";
-const ACCENT_SOFT = "rgba(143,170,220,0.12)";
-const DANGER = "#C77D7D";
-const WHITE = "#EEF2F7";
-
-const ui = {
-  bg: "#0E1117",
-  bg2: "#131821",
-  bg3: "#1A202B",
-
-  surface: "#131821",
-  surface2: "#181F2A",
-  surface3: "#202838",
-
-  border: "rgba(238,242,247,0.12)",
-  borderSoft: "rgba(238,242,247,0.07)",
-  borderStrong: "rgba(238,242,247,0.22)",
-
-  text: WHITE,
-  muted: "rgba(238,242,247,0.66)",
-  muted2: "rgba(238,242,247,0.42)",
-  hint: "rgba(238,242,247,0.22)",
-
-  accent: ACCENT,
-  accentSoft: ACCENT_SOFT,
-  accentBorder: "rgba(143,170,220,0.34)",
-
-  danger: DANGER,
-  dangerSoft: "rgba(199,125,125,0.12)",
-};
+const selectedBlurBg = "rgba(238,242,247,0.085)";
+const selectedBlurBorder = "rgba(238,242,247,0.26)";
+const hoverBg = "rgba(238,242,247,0.055)";
+const idleBg = "rgba(238,242,247,0.025)";
 
 const tradeShellStyle: React.CSSProperties = {
+  ...pageStyle,
   display: "flex",
   flexDirection: "column",
   width: "100vw",
   height: "100vh",
   overflow: "hidden",
-  background:
-    "radial-gradient(circle at 15% 10%, rgba(143,170,220,0.10), transparent 28%), linear-gradient(180deg, #0E1117 0%, #131821 45%, #0E1117 100%)",
-  color: ui.text,
-  fontFamily: "var(--font-display), system-ui, sans-serif",
 };
 
 const surfacePanelStyle: React.CSSProperties = {
-  position: "relative",
-  background:
-    "linear-gradient(180deg, rgba(238,242,247,0.035), rgba(238,242,247,0.015))",
-  borderColor: ui.borderSoft,
-  backdropFilter: "blur(3px)",
-  WebkitBackdropFilter: "blur(3px)", // Safari needs the prefixed version
+  ...panelStyle(theme.dark),
 };
 
 const dividerStyle: React.CSSProperties = {
   width: 28,
   height: 1,
-  background: ui.borderSoft,
+  background: theme.dark.borderSoft,
   margin: "4px 0",
   flexShrink: 0,
 };
 
-const cornerStyle = (): React.CSSProperties => ({
-  position: "absolute",
-  inset: -1,
-  pointerEvents: "none",
-  background:
-    "linear-gradient(to right, rgba(238,242,247,0.30) 1px, transparent 1px) 0 0 / 12px 12px no-repeat, linear-gradient(to bottom, rgba(238,242,247,0.30) 1px, transparent 1px) 0 0 / 12px 12px no-repeat, linear-gradient(to left, rgba(238,242,247,0.30) 1px, transparent 1px) 100% 0 / 12px 12px no-repeat, linear-gradient(to bottom, rgba(238,242,247,0.30) 1px, transparent 1px) 100% 0 / 12px 12px no-repeat, linear-gradient(to right, rgba(238,242,247,0.30) 1px, transparent 1px) 0 100% / 12px 12px no-repeat, linear-gradient(to top, rgba(238,242,247,0.30) 1px, transparent 1px) 0 100% / 12px 12px no-repeat, linear-gradient(to left, rgba(238,242,247,0.30) 1px, transparent 1px) 100% 100% / 12px 12px no-repeat, linear-gradient(to top, rgba(238,242,247,0.30) 1px, transparent 1px) 100% 100% / 12px 12px no-repeat",
-});
+const selectedGlassStyle = (active: boolean): React.CSSProperties =>
+  active
+    ? {
+        background: selectedBlurBg,
+        borderColor: selectedBlurBorder,
+        color: theme.dark.text,
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+      }
+    : {};
 
 const toolButtonStyle = ({
   active,
@@ -93,20 +68,20 @@ const toolButtonStyle = ({
   width: 28,
   height: 28,
   borderRadius: 0,
-  border: active ? `1px solid ${ui.accentBorder}` : "1px solid transparent",
-  background: active ? ui.accentSoft : "transparent",
-  color: active ? ui.accent : danger ? ui.danger : ui.muted2,
+  border: active ? `1px solid ${selectedBlurBorder}` : "1px solid transparent",
+  background: active ? selectedBlurBg : "transparent",
+  color: active ? theme.dark.text : danger ? DANGER : theme.dark.muted2,
   fontSize: 14,
   cursor: "pointer",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   flexShrink: 0,
-  transition:
-    "background 0.16s ease, color 0.16s ease, border-color 0.16s ease",
+  backdropFilter: active ? "blur(12px)" : undefined,
+  WebkitBackdropFilter: active ? "blur(12px)" : undefined,
+  transition: "background 0.16s ease, color 0.16s ease, border-color 0.16s ease",
 });
 
-// ── Drawing tool config ──────────────────────────────────────────────────────
 type DrawTool =
   | "select"
   | "trendline"
@@ -152,6 +127,7 @@ interface TradeLayoutProps {
   bottomPanel?: React.ReactNode;
   children: (dims: { width: number; height: number }) => React.ReactNode;
 }
+
 export default function TradeLayout({
   topBar,
   leftBar,
@@ -161,20 +137,19 @@ export default function TradeLayout({
 }: TradeLayoutProps) {
   const [drawingMode, setDrawingMode] = useState(false);
   const [shapes, setShapes] = useState<Shape[]>([]);
+
   const handleUndo = () => setShapes((s) => s.slice(0, -1));
   const handleClear = () => setShapes([]);
+
   const [rightOpen, setRightOpen] = useState(true);
   const [activeRightTab, setActiveRightTab] = useState<RightTab>("watchlist");
   const [bottomH, setBottomH] = useState(BOTTOM_DEFAULT_H);
   const bottomOpen = bottomH > BOTTOM_MIN_H;
 
-  // ── Drawing state (lifted here so left bar & canvas share it) ────────────
   const [drawTool, setDrawTool] = useState<DrawTool>("trendline");
-  const [drawColor, setDrawColor] = useState(ui.accent);
+  const [drawColor, setDrawColor] = useState(theme.dark.accent);
   const [drawLW, setDrawLW] = useState(2);
   const [drawVisible, setDrawVisible] = useState(true);
-
-  // ── bottom drag ──────────────────────────────────────────────
 
   const draggingBottom = useRef(false);
   const dragStartY = useRef(0);
@@ -187,24 +162,29 @@ export default function TradeLayout({
       dragStartY.current = e.clientY;
       dragStartH.current = bottomH;
     },
-    [bottomH],
+    [bottomH]
   );
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!draggingBottom.current) return;
-      const delta = dragStartY.current - e.clientY; // drag up = positive
+
+      const delta = dragStartY.current - e.clientY;
       const next = Math.min(
         BOTTOM_MAX_H,
-        Math.max(BOTTOM_MIN_H, dragStartH.current + delta),
+        Math.max(BOTTOM_MIN_H, dragStartH.current + delta)
       );
+
       setBottomH(next);
     };
+
     const onUp = () => {
       draggingBottom.current = false;
     };
+
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
+
     return () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
@@ -219,9 +199,7 @@ export default function TradeLayout({
         setRightOpen={setRightOpen}
       />
 
-      {/* ── MIDDLE ROW (left workspace + right panel) ───────── */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* ── LEFT WORKSPACE ─────────────────────────────────── */}
         <div
           style={{
             flex: 1,
@@ -231,7 +209,6 @@ export default function TradeLayout({
             overflow: "hidden",
           }}
         >
-          {/* ── CHART ROW (left bar + chart) ─────────────────── */}
           <div
             style={{
               display: "flex",
@@ -299,68 +276,68 @@ function TopBarSection({
   setRightOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   return (
-    <>
-      {/* ── TOP BAR ──────────────────────────────────────────── */}
-      <div
+    <div
+      style={{
+        height: TOP_BAR_H,
+        minHeight: TOP_BAR_H,
+        display: "flex",
+        alignItems: "center",
+        borderBottom: `1px solid ${theme.dark.borderSoft}`,
+        background: "rgba(14,17,23,0.86)",
+        zIndex: 50,
+        paddingLeft: LEFT_BAR_W,
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+      }}
+    >
+      {topBar}
+
+      <button
+        onClick={() => setRightOpen((v) => !v)}
+        title="Toggle order panel"
         style={{
-          height: TOP_BAR_H,
-          minHeight: TOP_BAR_H,
+          marginLeft: "auto",
+          marginRight: 8,
+          width: 28,
+          height: 28,
           display: "flex",
           alignItems: "center",
-          borderBottom: `1px solid ${ui.borderSoft}`,
-          background: "rgba(14,17,23,0.86)",
-          zIndex: 50,
-          paddingLeft: LEFT_BAR_W,
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
+          justifyContent: "center",
+          background: rightOpen ? selectedBlurBg : "transparent",
+          border: `1px solid ${
+            rightOpen ? selectedBlurBorder : theme.dark.borderSoft
+          }`,
+          borderRadius: 0,
+          cursor: "pointer",
+          color: rightOpen ? theme.dark.text : theme.dark.muted2,
+          flexShrink: 0,
+          backdropFilter: rightOpen ? "blur(12px)" : undefined,
+          WebkitBackdropFilter: rightOpen ? "blur(12px)" : undefined,
+          transition:
+            "background 0.16s ease, color 0.16s ease, border-color 0.16s ease",
         }}
       >
-        {topBar}
-
-        {/* right panel toggle — lives in top bar far right */}
-        <button
-          onClick={() => setRightOpen((v) => !v)}
-          title="Toggle order panel"
-          style={{
-            marginLeft: "auto",
-            marginRight: 8,
-            width: 28,
-            height: 28,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: rightOpen ? ui.accentSoft : "transparent",
-            border: `1px solid ${rightOpen ? ui.accentBorder : ui.borderSoft}`,
-            borderRadius: 0,
-            cursor: "pointer",
-            color: rightOpen ? ui.accent : ui.muted2,
-            flexShrink: 0,
-            transition:
-              "background 0.16s ease, color 0.16s ease, border-color 0.16s ease",
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <rect
-              x="1"
-              y="1"
-              width="12"
-              height="12"
-              rx="1"
-              stroke="currentColor"
-              strokeWidth="1.2"
-            />
-            <line
-              x1="9"
-              y1="1"
-              x2="9"
-              y2="13"
-              stroke="currentColor"
-              strokeWidth="1.2"
-            />
-          </svg>
-        </button>
-      </div>
-    </>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <rect
+            x="1"
+            y="1"
+            width="12"
+            height="12"
+            rx="1"
+            stroke="currentColor"
+            strokeWidth="1.2"
+          />
+          <line
+            x1="9"
+            y1="1"
+            x2="9"
+            y2="13"
+            stroke="currentColor"
+            strokeWidth="1.2"
+          />
+        </svg>
+      </button>
+    </div>
   );
 }
 
@@ -394,170 +371,168 @@ function LeftBarSection({
   handleClear: () => void;
 }) {
   return (
-    <>
-      {/* ── LEFT BAR ───────────────────────────────────────────────── */}
+    <div
+      style={{
+        ...surfacePanelStyle,
+        width: LEFT_BAR_W,
+        minWidth: LEFT_BAR_W,
+        borderRight: `1px solid ${theme.dark.borderSoft}`,
+        borderTop: "none",
+        borderBottom: "none",
+        borderLeft: "none",
+        background: "rgba(14,17,23,0.86)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        paddingTop: 8,
+        paddingBottom: 8,
+        gap: 2,
+        zIndex: 40,
+        overflowY: "auto",
+      }}
+    >
+      {leftBar}
+
+      {DRAW_TOOLS.map((t) => (
+        <button
+          key={t.id}
+          title={t.label}
+          onClick={() => {
+            setDrawTool(t.id);
+            setDrawingMode(t.id !== "select");
+          }}
+          style={toolButtonStyle({ active: drawTool === t.id })}
+        >
+          {t.icon}
+        </button>
+      ))}
+
       <div
         style={{
-          ...surfacePanelStyle,
-          width: LEFT_BAR_W,
-          minWidth: LEFT_BAR_W,
-          borderRight: `1px solid ${ui.borderSoft}`,
-          borderTop: "none",
-          borderBottom: "none",
-          borderLeft: "none",
-          background: "rgba(14,17,23,0.86)",
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          paddingTop: 8,
-          paddingBottom: 8,
-          gap: 2,
-          zIndex: 40,
-          overflowY: "auto",
+          width: 32,
+          borderRadius: 0,
+          border: `1px solid ${theme.dark.borderSoft}`,
+          overflow: "hidden",
+          flexShrink: 0,
+          marginBottom: 4,
+          marginTop: 4,
+          background: idleBg,
         }}
       >
-        {leftBar}
-
-        {/* Drawing tools */}
-        {DRAW_TOOLS.map((t) => (
-          <button
-            key={t.id}
-            title={t.label}
-            onClick={() => {
-              setDrawTool(t.id);
-              setDrawingMode(t.id !== "select");
-            }}
-            style={toolButtonStyle({ active: drawTool === t.id })}
-          >
-            {t.icon}
-          </button>
-        ))}
-
-        {/* Mode toggle — top of left bar */}
-        <div
+        <button
+          title="Chart mode — pan & zoom"
+          onClick={() => setDrawingMode(false)}
           style={{
+            height: 26,
+            border: "none",
+            background: !drawingMode ? selectedBlurBg : "transparent",
+            color: !drawingMode ? theme.dark.text : theme.dark.muted2,
+            cursor: "pointer",
+            fontSize: 13,
             display: "flex",
-            flexDirection: "column",
-            width: 32,
-            borderRadius: 0,
-            border: `1px solid ${ui.borderSoft}`,
-            overflow: "hidden",
-            flexShrink: 0,
-            marginBottom: 4,
-            marginTop: 4,
-            background: "rgba(238,242,247,0.025)",
+            alignItems: "center",
+            justifyContent: "center",
+            backdropFilter: !drawingMode ? "blur(12px)" : undefined,
+            WebkitBackdropFilter: !drawingMode ? "blur(12px)" : undefined,
           }}
         >
-          {/* Chart mode */}
-          <button
-            title="Chart mode — pan & zoom"
-            onClick={() => setDrawingMode(false)}
-            style={{
-              height: 26,
-              border: "none",
-              background: !drawingMode ? ui.accentSoft : "transparent",
-              color: !drawingMode ? ui.accent : ui.muted2,
-              cursor: "pointer",
-              fontSize: 13,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            ↕
-          </button>
+          ↕
+        </button>
 
-          {/* Draw mode */}
-          <button
-            title="Draw mode — annotate chart"
-            onClick={() => setDrawingMode(true)}
-            style={{
-              height: 26,
-              border: "none",
-              borderTop: `1px solid ${ui.borderSoft}`,
-              background: drawingMode ? ui.accentSoft : "transparent",
-              color: drawingMode ? ui.accent : ui.muted2,
-              cursor: "pointer",
-              fontSize: 13,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            ✏
-          </button>
-        </div>
-
-        {/* Divider */}
-        <div style={dividerStyle} />
-
-        {/* Color picker */}
-        <Row label="">
-          <div className="flex gap-2">
-            <div className="relative w-9 h-5 overflow-hidden border border-white/15">
-              <div
-                className="absolute inset-0"
-                style={{ background: drawColor }}
-              />
-              <ColorPicker
-                value={drawColor}
-                onChange={(v) => setDrawColor(v)}
-              />
-            </div>
-          </div>
-        </Row>
-
-        {/* Line width */}
-        <select
-          value={drawLW}
-          onChange={(e) => setDrawLW(Number(e.target.value))}
-          title="Line width"
+        <button
+          title="Draw mode — annotate chart"
+          onClick={() => setDrawingMode(true)}
           style={{
-            width: 34,
-            background: ui.bg,
-            color: ui.muted2,
-            border: `1px solid ${ui.borderSoft}`,
-            borderRadius: 0,
-            fontSize: 10,
-            padding: "1px 0",
-            flexShrink: 0,
-            outline: "none",
+            height: 26,
+            border: "none",
+            borderTop: `1px solid ${theme.dark.borderSoft}`,
+            background: drawingMode ? selectedBlurBg : "transparent",
+            color: drawingMode ? theme.dark.text : theme.dark.muted2,
+            cursor: "pointer",
+            fontSize: 13,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backdropFilter: drawingMode ? "blur(12px)" : undefined,
+            WebkitBackdropFilter: drawingMode ? "blur(12px)" : undefined,
           }}
         >
-          {[1, 2, 3, 4].map((n) => (
-            <option key={n} value={n}>
-              {n}px
-            </option>
-          ))}
-        </select>
-
-        {/* Divider */}
-        <div style={dividerStyle} />
-
-        {/* Undo */}
-        <button title="Undo" onClick={handleUndo} style={toolButtonStyle({})}>
-          ↩
-        </button>
-
-        {/* Clear */}
-        <button
-          title="Clear all"
-          onClick={handleClear}
-          style={toolButtonStyle({ danger: true })}
-        >
-          🗑
-        </button>
-
-        {/* Visibility toggle */}
-        <button
-          title={drawVisible ? "Hide drawings" : "Show drawings"}
-          onClick={() => setDrawVisible((v) => !v)}
-          style={toolButtonStyle({ active: drawVisible })}
-        >
-          {drawVisible ? "👁" : "🚫"}
+          ✏
         </button>
       </div>
-    </>
+
+      <div style={dividerStyle} />
+
+      <Row label="">
+        <div style={{ display: "flex", gap: 8 }}>
+          <div
+            style={{
+              position: "relative",
+              width: 36,
+              height: 20,
+              overflow: "hidden",
+              border: `1px solid ${theme.dark.borderSoft}`,
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: drawColor,
+              }}
+            />
+            <ColorPicker value={drawColor} onChange={(v) => setDrawColor(v)} />
+          </div>
+        </div>
+      </Row>
+
+      <select
+        value={drawLW}
+        onChange={(e) => setDrawLW(Number(e.target.value))}
+        title="Line width"
+        style={{
+          width: 34,
+          background: theme.dark.bg,
+          color: theme.dark.muted2,
+          border: `1px solid ${theme.dark.borderSoft}`,
+          borderRadius: 0,
+          fontSize: 10,
+          padding: "1px 0",
+          flexShrink: 0,
+          outline: "none",
+        }}
+      >
+        {[1, 2, 3, 4].map((n) => (
+          <option key={n} value={n}>
+            {n}px
+          </option>
+        ))}
+      </select>
+
+      <div style={dividerStyle} />
+
+      <button title="Undo" onClick={handleUndo} style={toolButtonStyle({})}>
+        ↩
+      </button>
+
+      <button
+        title="Clear all"
+        onClick={handleClear}
+        style={toolButtonStyle({ danger: true })}
+      >
+        🗑
+      </button>
+
+      <button
+        title={drawVisible ? "Hide drawings" : "Show drawings"}
+        onClick={() => setDrawVisible((v) => !v)}
+        style={toolButtonStyle({ active: drawVisible })}
+      >
+        {drawVisible ? "👁" : "🚫"}
+      </button>
+    </div>
   );
 }
 
@@ -581,31 +556,28 @@ function ChartAreaSection({
   setShapes: React.Dispatch<React.SetStateAction<Shape[]>>;
 }) {
   return (
-    <>
-      {/* ── CHART AREA ─────────────────────────────────────────────── */}
-      <div
-        style={{
-          flex: 1,
-          minWidth: 0,
-          overflow: "hidden",
-          position: "relative",
-          background:
-            "linear-gradient(180deg, rgba(14,17,23,0.96), rgba(19,24,33,0.96))",
-        }}
-      >
-        {children({ width: 0, height: 0 })}
+    <div
+      style={{
+        flex: 1,
+        minWidth: 0,
+        overflow: "hidden",
+        position: "relative",
+        background:
+          "linear-gradient(180deg, rgba(14,17,23,0.96), rgba(19,24,33,0.96))",
+      }}
+    >
+      {children({ width: 0, height: 0 })}
 
-        <DrawingCanvas
-          tool={drawTool}
-          color={drawColor}
-          lineWidth={drawLW}
-          visible={drawVisible}
-          drawingMode={drawingMode}
-          shapes={shapes}
-          onShapesChange={setShapes}
-        />
-      </div>
-    </>
+      <DrawingCanvas
+        tool={drawTool}
+        color={drawColor}
+        lineWidth={drawLW}
+        visible={drawVisible}
+        drawingMode={drawingMode}
+        shapes={shapes}
+        onShapesChange={setShapes}
+      />
+    </div>
   );
 }
 
@@ -623,56 +595,55 @@ function BottomPanelSection({
   bottomPanel?: React.ReactNode;
 }) {
   return (
-    <>
-      {/* ── BOTTOM PANEL ─────────────────────────────────────── */}
+    <div
+      style={{
+        ...surfacePanelStyle,
+        height: bottomH,
+        minHeight: bottomH,
+        borderTop: `1px solid ${theme.dark.borderSoft}`,
+        borderRight: "none",
+        borderBottom: "none",
+        borderLeft: "none",
+        background: "rgba(14,17,23,0.92)",
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 40,
+        transition: draggingBottom.current ? "none" : "height 120ms ease",
+      }}
+    >
       <div
+        onMouseDown={onBottomDragStart}
         style={{
-          ...surfacePanelStyle,
-          height: bottomH,
-          minHeight: bottomH,
-          borderTop: `1px solid ${ui.borderSoft}`,
-          borderRight: "none",
-          borderBottom: "none",
-          borderLeft: "none",
-          background: "rgba(14,17,23,0.92)",
-          display: "flex",
-          flexDirection: "column",
-          zIndex: 40,
-          transition: draggingBottom.current ? "none" : "height 120ms ease",
+          height: 4,
+          cursor: "ns-resize",
+          background: "transparent",
+          flexShrink: 0,
+          position: "relative",
         }}
       >
         <div
-          onMouseDown={onBottomDragStart}
           style={{
-            height: 4,
-            cursor: "ns-resize",
-            background: "transparent",
-            flexShrink: 0,
-            position: "relative",
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 32,
+            height: 3,
+            borderRadius: 0,
+            background: selectedBlurBg,
+            border: `1px solid ${selectedBlurBorder}`,
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
           }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: 32,
-              height: 3,
-              borderRadius: 0,
-              background: ui.accentSoft,
-              border: `1px solid ${ui.accentBorder}`,
-            }}
-          />
-        </div>
-
-        {bottomOpen && (
-          <div style={{ flex: 1, overflowY: "auto", padding: "8px 12px" }}>
-            {bottomPanel ?? <BottomPanelPlaceholder />}
-          </div>
-        )}
+        />
       </div>
-    </>
+
+      {bottomOpen && (
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 12px" }}>
+          {bottomPanel ?? <BottomPanelPlaceholder />}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -689,112 +660,88 @@ function RightPanelSection({
   setActiveRightTab: React.Dispatch<React.SetStateAction<RightTab>>;
   setRightOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
+  const [hoveredTab, setHoveredTab] = useState<RightTab | null>(null);
+
   return (
-    <>
-      {/* ── RIGHT PANEL ──────────────────────────────────── */}
-      <div
-        style={{
-          ...surfacePanelStyle,
-          width: rightOpen ? RIGHT_PANEL_W : 0,
-          minWidth: rightOpen ? RIGHT_PANEL_W : 0,
-          overflow: "hidden",
-          borderLeft: `1px solid ${ui.borderSoft}`,
-          borderTop: "none",
-          borderRight: "none",
-          borderBottom: "none",
-          background: "rgba(14,17,23,0.92)",
-          transition: "width 180ms ease, min-width 180ms ease",
-          display: "flex",
-          flexDirection: "column",
-          zIndex: 40,
-        }}
-      >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 8,
-            padding: 12,
-            borderBottom: `1px solid ${ui.borderSoft}`,
-            flexShrink: 0,
-          }}
-        >
-          {RIGHT_TABS.map((tab) => {
-            const active = activeRightTab === tab.id;
-
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveRightTab(tab.id);
-                  setRightOpen(true);
-                }}
-                style={{
-                  position: "relative",
-                  height: 56,
-                  borderRadius: 0,
-                  border: `1px solid ${
-                    active ? ui.accentBorder : ui.borderSoft
-                  }`,
-                  background: active ? ui.accentSoft : "rgba(238,242,247,0.025)",
-                  color: active ? ui.text : ui.muted2,
-                  cursor: "pointer",
-                  fontSize: 12,
-                  fontFamily: "inherit",
-                  letterSpacing: "0.02em",
-                  textTransform: "uppercase",
-                  overflow: "hidden",
-                  transition:
-                    "background 0.16s ease, color 0.16s ease, border-color 0.16s ease",
-                }}
-              >
-                {active && <div style={cornerStyle()} />}
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={{ flex: 1, overflowY: "auto" }}>
-          {rightPanel ?? <RightPanelPlaceholder activeTab={activeRightTab} />}
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ── small sub-components ──────────────────────────────────────────
-
-function BottomTab({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
+    <div
       style={{
-        padding: "0 14px",
-        height: "100%",
-        background: "none",
-        border: "none",
-        borderBottom: active
-          ? `2px solid ${ui.accent}`
-          : "2px solid transparent",
-        color: active ? ui.text : ui.muted2,
-        fontSize: 11,
-        cursor: "pointer",
-        fontFamily: "inherit",
-        letterSpacing: "0.04em",
-        textTransform: "uppercase",
+        ...surfacePanelStyle,
+        width: rightOpen ? RIGHT_PANEL_W : 0,
+        minWidth: rightOpen ? RIGHT_PANEL_W : 0,
+        overflow: "hidden",
+        borderLeft: `1px solid ${theme.dark.borderSoft}`,
+        borderTop: "none",
+        borderRight: "none",
+        borderBottom: "none",
+        background: "rgba(14,17,23,0.92)",
+        transition: "width 180ms ease, min-width 180ms ease",
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 40,
       }}
     >
-      {label}
-    </button>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 8,
+          padding: 12,
+          borderBottom: `1px solid ${theme.dark.borderSoft}`,
+          flexShrink: 0,
+        }}
+      >
+        {RIGHT_TABS.map((tab) => {
+          const active = activeRightTab === tab.id;
+          const hovered = hoveredTab === tab.id && !active;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveRightTab(tab.id);
+                setRightOpen(true);
+              }}
+              onMouseEnter={() => setHoveredTab(tab.id)}
+              onMouseLeave={() => setHoveredTab(null)}
+              style={{
+                position: "relative",
+                height: 56,
+                borderRadius: 0,
+                border: `1px solid ${
+                  active
+                    ? selectedBlurBorder
+                    : hovered
+                    ? theme.dark.border
+                    : theme.dark.borderSoft
+                }`,
+                background: active ? selectedBlurBg : hovered ? hoverBg : idleBg,
+                color: active
+                  ? theme.dark.text
+                  : hovered
+                  ? theme.dark.muted
+                  : theme.dark.muted2,
+                cursor: "pointer",
+                fontSize: 12,
+                fontFamily: "inherit",
+                letterSpacing: "0.02em",
+                textTransform: "uppercase",
+                backdropFilter: active ? "blur(12px)" : undefined,
+                WebkitBackdropFilter: active ? "blur(12px)" : undefined,
+                transition:
+                  "background 0.16s ease, color 0.16s ease, border-color 0.16s ease",
+              }}
+            >
+              {active && <div style={cornerStyle()} />}
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {rightPanel ?? <RightPanelPlaceholder activeTab={activeRightTab} />}
+      </div>
+    </div>
   );
 }
 
@@ -805,10 +752,10 @@ function RightPanelPlaceholder({ activeTab }: { activeTab: RightTab }) {
         position: "relative",
         margin: 12,
         padding: 16,
-        color: ui.muted2,
+        color: theme.dark.muted2,
         fontSize: 12,
-        border: `1px solid ${ui.borderSoft}`,
-        background: "rgba(238,242,247,0.025)",
+        border: `1px solid ${theme.dark.borderSoft}`,
+        background: idleBg,
       }}
     >
       <div style={cornerStyle()} />
@@ -823,16 +770,17 @@ function RightPanelPlaceholder({ activeTab }: { activeTab: RightTab }) {
     </div>
   );
 }
+
 function BottomPanelPlaceholder() {
   return (
     <div
       style={{
         position: "relative",
-        color: ui.muted2,
+        color: theme.dark.muted2,
         fontSize: 12,
         fontFamily: "inherit",
-        border: `1px solid ${ui.borderSoft}`,
-        background: "rgba(238,242,247,0.025)",
+        border: `1px solid ${theme.dark.borderSoft}`,
+        background: idleBg,
         padding: 14,
       }}
     >

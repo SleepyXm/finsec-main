@@ -1,5 +1,6 @@
 import "../../animations.css";
 import type React from "react";
+import Image from "next/image";
 
 export const REFERRALS = [
   { value: "search", label: "Search engine" },
@@ -95,6 +96,13 @@ export const theme = {
     errorText: "#E2A1A1",
   },
 };
+
+export type ClassValue =
+  | string
+  | false
+  | null
+  | undefined
+  | Record<string, boolean>;
 
 export const pageStyle: React.CSSProperties = {
   background:
@@ -223,7 +231,7 @@ export function MonoLabel({
   t = theme.dark,
 }: {
   children: React.ReactNode;
-  t?: any;
+  t?: typeof theme.dark | typeof theme.light;
 }) {
   return (
     <div
@@ -240,7 +248,7 @@ export function MonoLabel({
   );
 }
 
-export function Label({ children, t }: { children: React.ReactNode; t: any }) {
+export function Label({ children, t }: { children: React.ReactNode; t: typeof theme.dark | typeof theme.light }) {
   return (
     <label
       style={{
@@ -258,7 +266,7 @@ export function Label({ children, t }: { children: React.ReactNode; t: any }) {
   );
 }
 
-export function Pill({ children, t }: { children: React.ReactNode; t: any }) {
+export function Pill({ children, t }: { children: React.ReactNode; t: typeof theme.dark | typeof theme.light }) {
   return (
     <span
       style={{
@@ -274,7 +282,7 @@ export function Pill({ children, t }: { children: React.ReactNode; t: any }) {
         letterSpacing: 0.2,
       }}
     >
-      <span style={{ color: t.accent }}>▸</span>
+      <span style={{ color: t.accent }}>â–¸</span>
       {children}
     </span>
   );
@@ -291,7 +299,7 @@ export function ImgContainer({ src, alt = "" }: { src: string; alt?: string }) {
     >
       <div style={cornerStyle()} />
 
-      <img
+      <Image
         src={src}
         alt={alt}
         style={{
