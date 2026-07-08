@@ -77,7 +77,7 @@ export function TopBar() {
         overflow: "hidden",
       }}
     >
-      {/* â”€â”€ ticker + OHLC â”€â”€ */}
+      {/*   ticker + OHLC   */}
       <div
         style={{
           display: "flex",
@@ -105,7 +105,7 @@ export function TopBar() {
         )}
       </div>
 
-      {/* â”€â”€ interval selector â”€â”€ */}
+      {/*   interval selector   */}
       <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
         <Select
             value={interval}
@@ -118,9 +118,9 @@ export function TopBar() {
         </Select>
       </div>
 
-      {/* â”€â”€ chart type â”€â”€ */}
+      {/*   chart type   */}
     <div style={{ display: "flex", alignItems: "center", gap: 2, paddingRight: 12, flexShrink: 0 }}>
-        {/* â”€â”€ chart type â”€â”€ */}
+        {/*   chart type   */}
         <Select
             value={isCandle ? "candles" : "line"}
             onChange={(e) => setIsCandle(e.target.value === "candles")}
@@ -131,7 +131,7 @@ export function TopBar() {
         </Select>
     </div>
 
-      {/* â”€â”€ actions â”€â”€ */}
+      {/*   actions   */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
         <div style={{marginRight: 0, borderRight: "1px solid #1e2130", paddingRight: 12}}>
         <ActionBtn
@@ -159,7 +159,7 @@ export function TopBar() {
 />
       </div>
 
-      {/* â”€â”€ connection status â”€â”€ */}
+      {/*   connection status   */}
       <div
         style={{
           marginLeft: "auto",
@@ -187,7 +187,7 @@ export function TopBar() {
   );
 }
 
-// â”€â”€ sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//   sub-components                         
 
 function OHLCItem({ label, value, color = "#8a90a0" }: { label: string; value: number; color?: string }) {
   return (

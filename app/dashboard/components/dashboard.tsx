@@ -6,27 +6,34 @@
 
 "use client";
 
+import {
+  buttonStyle,
+  cornerStyle,
+  ghostButtonStyle,
+  panelStyle,
+  theme,
+} from "@/app/components/UI/UI";
 import { ReactNode } from "react";
  
 // ── Tokens ───────────────────────────────────────────────────
 export const tokens = {
-  bg0:      "#0e101800",
-  bg1:      "#1a1a1a5b",
-  bg2:      "#161616",
-  bg3:      "#20233a",
-  border:   "#252838",
-  borderHi: "#2e3248",
-  text0:    "#ffffff",
-  text1:    "#e2e4ef",
-  text2:    "#8b8fa8",
-  text3:    "#5a5e78",
-  green:    "#4ade80",
-  greenDim: "rgba(74,222,128,0.10)",
-  red:      "#f87171",
-  redDim:   "rgba(248,113,113,0.10)",
-  blue:     "#748ffc",
-  blueDim:  "rgba(116,143,252,0.12)",
-  accent:   "#3b5bdb",
+  bg0:      theme.dark.bg,
+  bg1:      theme.dark.surface,
+  bg2:      theme.dark.surface2,
+  bg3:      theme.dark.surface3,
+  border:   theme.dark.borderSoft,
+  borderHi: theme.dark.border,
+  text0:    theme.dark.text,
+  text1:    theme.dark.muted,
+  text2:    theme.dark.muted,
+  text3:    theme.dark.muted2,
+  green:    theme.dark.successText,
+  greenDim: theme.dark.success,
+  red:      theme.dark.errorText,
+  redDim:   theme.dark.errorBg,
+  blue:     theme.dark.accent,
+  blueDim:  theme.dark.accentSoft,
+  accent:   theme.dark.accent,
 } as const;
  
 // ── Types ────────────────────────────────────────────────────
@@ -84,11 +91,11 @@ export function PageHeader({
   children?: ReactNode;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
       <div>
-        <div style={{ fontSize: 18, fontWeight: 500, color: tokens.text0 }}>{title}</div>
+        <div style={{ fontSize: 24, lineHeight: 1.1, fontWeight: 650, color: tokens.text0 }}>{title}</div>
         {subtitle && (
-          <div style={{ fontSize: 12, color: tokens.text3, marginTop: 3 }}>{subtitle}</div>
+          <div style={{ fontFamily: "var(--font-code), monospace", fontSize: 11, color: tokens.text3, marginTop: 6 }}>{subtitle}</div>
         )}
       </div>
       {children && <div style={{ display: "flex", gap: 8 }}>{children}</div>}
@@ -118,10 +125,11 @@ export function Card({
   children: ReactNode;
 }) {
   return (
-    <div style={{ background: tokens.bg1, border: `0.5px solid ${tokens.border}`, borderRadius: 14, overflow: "hidden" }}>
+    <div style={{ ...panelStyle(theme.dark), overflow: "hidden" }}>
+      <div aria-hidden="true" style={cornerStyle()} />
       {title && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 16px 12px", borderBottom: `0.5px solid ${tokens.border}` }}>
-          <span style={{ fontSize: 11, fontWeight: 500, color: tokens.text2, letterSpacing: "0.5px", textTransform: "uppercase" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 16px 12px", borderBottom: `1px solid ${tokens.border}` }}>
+          <span style={{ fontFamily: "var(--font-code), monospace", fontSize: 10, fontWeight: 600, color: tokens.text2, letterSpacing: 0, textTransform: "uppercase" }}>
             {title}
           </span>
           {action && (
@@ -139,7 +147,7 @@ export function Card({
 /** Separator — horizontal rule between row groups inside a divided Card */
 export function Sep() {
   return (
-    <hr style={{ border: "none", borderTop: `0.5px solid ${tokens.border}`, margin: 0 }} />
+    <hr style={{ border: "none", borderTop: `1px solid ${tokens.border}`, margin: 0 }} />
   );
 }
  
@@ -149,7 +157,7 @@ export function CardFooter({ children }: { children: ReactNode }) {
     <div
       style={{
         padding: "9px 16px",
-        borderTop: `0.5px solid ${tokens.border}`,
+        borderTop: `1px solid ${tokens.border}`,
         fontSize: 11,
         color: tokens.text3,
         display: "flex",
@@ -178,12 +186,14 @@ export function StatCard({
   valueColor?: string;
 }) {
   return (
-    <div style={{ background: tokens.bg2, borderRadius: 12, padding: "14px 16px" }}>
+    <div style={{ ...panelStyle(theme.dark), padding: "14px 16px", overflow: "hidden" }}>
+      <div aria-hidden="true" style={cornerStyle()} />
       <div
         style={{
+          fontFamily: "var(--font-code), monospace",
           fontSize: 10,
           color: tokens.text3,
-          letterSpacing: "0.5px",
+          letterSpacing: 0,
           textTransform: "uppercase",
           marginBottom: 6,
         }}
@@ -234,11 +244,11 @@ export function Row({
         alignItems: "center",
         gap: 12,
         padding: "11px 16px",
-        borderBottom: plain ? "none" : `0.5px solid ${tokens.border}`,
+        borderBottom: plain ? "none" : `1px solid ${tokens.border}`,
         cursor: onClick ? "pointer" : "default",
         transition: "background 0.12s",
       }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = tokens.bg3)}
+      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = tokens.blueDim)}
       onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "transparent")}
     >
       {children}
@@ -265,7 +275,8 @@ export function Badge({
       style={{
         width: 30,
         height: 30,
-        borderRadius: 8,
+        border: `1px solid ${tokens.border}`,
+        borderRadius: 0,
         background: bg,
         color,
         display: "flex",
@@ -283,10 +294,10 @@ export function Badge({
 }
  
 const PILL_STYLES: Record<PillVariant, { background: string; color: string }> = {
-  green: { background: "rgba(74,222,128,0.10)",  color: "#4ade80" },
-  red:   { background: "rgba(248,113,113,0.10)", color: "#f87171" },
-  blue:  { background: "rgba(116,143,252,0.12)", color: "#748ffc" },
-  muted: { background: "#1c1f2e",                color: "#5a5e78" },
+  green: { background: tokens.greenDim, color: tokens.green },
+  red:   { background: tokens.redDim,   color: tokens.red },
+  blue:  { background: tokens.blueDim,  color: tokens.blue },
+  muted: { background: theme.dark.pill, color: tokens.text3 },
 };
  
 /** Inline status pill */
@@ -305,7 +316,8 @@ export function Pill({
         fontSize: 10,
         fontWeight: 500,
         padding: "3px 9px",
-        borderRadius: 20,
+        border: `1px solid ${tokens.border}`,
+        borderRadius: 0,
         letterSpacing: "0.2px",
         ...PILL_STYLES[variant],
       }}
@@ -329,16 +341,14 @@ export function Btn({
     <button
       onClick={onClick}
       style={{
+        ...(primary ? buttonStyle(theme.dark) : ghostButtonStyle(theme.dark)),
         display: "inline-flex",
         alignItems: "center",
         gap: 6,
         fontSize: 12,
-        padding: "7px 14px",
-        borderRadius: 9,
-        border: `0.5px solid ${primary ? tokens.accent : tokens.border}`,
-        background: primary ? tokens.accent : tokens.bg2,
-        color: primary ? "#fff" : tokens.text2,
-        cursor: "pointer",
+        padding: "7px 12px",
+        letterSpacing: 0,
+        textTransform: "none",
         whiteSpace: "nowrap",
         fontFamily: "inherit",
       }}
@@ -376,13 +386,13 @@ export function BarRow({
         style={{
           flex: 1,
           height: 4,
-          background: tokens.border,
-          borderRadius: 2,
+          background: "rgba(238,242,247,0.08)",
+          borderRadius: 0,
           overflow: "hidden",
         }}
       >
         <div
-          style={{ width: `${pct}%`, height: "100%", borderRadius: 2, background: color }}
+          style={{ width: `${pct}%`, height: "100%", borderRadius: 0, background: color }}
         />
       </div>
       {count !== undefined && (
@@ -420,7 +430,7 @@ export function DataTable<T extends object>({
                 color: tokens.text3,
                 letterSpacing: "0.4px",
                 textTransform: "uppercase",
-                borderBottom: `0.5px solid ${tokens.border}`,
+                borderBottom: `1px solid ${tokens.border}`,
               }}
             >
               {c.label}
@@ -434,7 +444,7 @@ export function DataTable<T extends object>({
             key={i}
             onMouseEnter={(e) =>
               e.currentTarget.querySelectorAll("td").forEach(
-                (td) => ((td as HTMLElement).style.background = tokens.bg3)
+                (td) => ((td as HTMLElement).style.background = tokens.blueDim)
               )
             }
             onMouseLeave={(e) =>
@@ -451,7 +461,7 @@ export function DataTable<T extends object>({
                   padding: "10px 16px",
                   fontSize: 12,
                   color: tokens.text2,
-                  borderBottom: i < rows.length - 1 ? `0.5px solid ${tokens.border}` : "none",
+                  borderBottom: i < rows.length - 1 ? `1px solid ${tokens.border}` : "none",
                   transition: "background 0.1s",
                 }}
               >

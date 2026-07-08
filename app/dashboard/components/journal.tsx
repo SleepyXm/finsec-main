@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Card, tokens } from "@/app/dashboard/components/dashboard";
+import { cornerStyle, panelStyle, theme } from "@/app/components/UI/UI";
+import { Btn, Card, tokens } from "@/app/dashboard/components/dashboard";
 import { useJournal } from "@/app/hooks/usePortfolio";
 import { buildCalendarFromJournal } from "../constants/journal";
 import { CalendarCell, CalendarTrade } from "../constants/journal";
@@ -22,30 +23,32 @@ function TradeRow({ t }: { t: CalendarTrade }) {
   );
 }
 
-function Popover({ trades, anchorRef }: { trades: CalendarTrade[]; anchorRef: React.RefObject<HTMLDivElement> }) {
-  // Position below the cell
-  const rect = anchorRef.current?.getBoundingClientRect();
+type PopoverPosition = {
+  top: number;
+  left: number;
+};
+
+function Popover({ trades, position }: { trades: CalendarTrade[]; position: PopoverPosition }) {
   return (
     <div
       onClick={(e) => e.stopPropagation()}
       style={{
+        ...panelStyle(theme.dark),
         position: "fixed",
-        top:  (rect?.bottom ?? 0) + 4,
-        left: (rect?.left   ?? 0),
+        top: position.top,
+        left: position.left,
         zIndex: 999,
-        background: tokens.bg1,
-        border: `1px solid ${tokens.border}`,
-        borderRadius: 8,
         padding: "8px 10px",
         minWidth: 140,
         maxHeight: 220,
         overflowY: "auto",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+        boxShadow: "0 18px 48px rgba(0,0,0,0.38)",
         display: "flex",
         flexDirection: "column",
         gap: 4,
       }}
     >
+      <div aria-hidden="true" style={cornerStyle()} />
       {trades.map((t) => <TradeRow key={t.id} t={t} />)}
     </div>
   );
@@ -53,6 +56,7 @@ function Popover({ trades, anchorRef }: { trades: CalendarTrade[]; anchorRef: Re
 
 export function JournalCell({ cell }: { cell: CalendarCell }) {
   const [open, setOpen] = useState(false);
+  const [popoverPosition, setPopoverPosition] = useState<PopoverPosition | null>(null);
   const ref = useRef<HTMLDivElement>(null!);
 
   const profit  = cell.hasData && cell.pnl >= 0;
@@ -91,7 +95,12 @@ export function JournalCell({ cell }: { cell: CalendarCell }) {
         {/* Overflow badge */}
         {overflow > 0 && (
           <button
-            onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = ref.current?.getBoundingClientRect();
+              setPopoverPosition(rect ? { top: rect.bottom + 4, left: rect.left } : null);
+              setOpen((o) => !o);
+            }}
             style={{
               marginTop: 2,
               fontSize: 9,
@@ -109,15 +118,18 @@ export function JournalCell({ cell }: { cell: CalendarCell }) {
         )}
       </div>
 
-      {/* Popover — rendered outside cell to avoid clipping */}
+      {/* Popover rendered outside cell to avoid clipping */}
       {open && (
         <>
           {/* Backdrop to close */}
           <div
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              setPopoverPosition(null);
+            }}
             style={{ position: "fixed", inset: 0, zIndex: 998 }}
           />
-          <Popover trades={cell.trades} anchorRef={ref} />
+          {popoverPosition && <Popover trades={cell.trades} position={popoverPosition} />}
         </>
       )}
     </>
@@ -145,12 +157,12 @@ export function Journal() {
 
   return (
     <Card
-      title={`Journal — ${cal.month} ${cal.year}`}
+      title={`Journal - ${cal.month} ${cal.year}`}
       action={
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button onClick={() => setSelectedMonth(prevMonth(selectedMonth))} style={{ background: "none", border: "none", color: tokens.text3, cursor: "pointer" }}>‹</button>
-          <button onClick={() => setSelectedMonth(undefined)} style={{ background: "none", border: "none", color: tokens.text3, cursor: "pointer", fontSize: 11 }}>Today</button>
-          <button onClick={() => setSelectedMonth(nextMonth(selectedMonth))} style={{ background: "none", border: "none", color: tokens.text3, cursor: "pointer" }}>›</button>
+          <Btn onClick={() => setSelectedMonth(prevMonth(selectedMonth))}>Prev</Btn>
+          <Btn onClick={() => setSelectedMonth(undefined)}>Today</Btn>
+          <Btn onClick={() => setSelectedMonth(nextMonth(selectedMonth))}>Next</Btn>
         </div>
       }
     >

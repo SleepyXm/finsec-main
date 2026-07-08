@@ -1,23 +1,21 @@
 "use client";
 
 import {
-  Badge, BarRow, Card, CardFooter, DataTable,
+  Badge, BarRow, Btn, Card, CardFooter, DataTable,
   Grid2, PageHeader, Row, StatCard, StatRow, tokens,
 } from "@/app/dashboard/components/dashboard";
+import { gridBgStyle, pageStyle, theme } from "@/app/components/UI/UI";
 import { useState } from "react";
 import { useUser } from "../provider/userprovider";
-import { usePortfolio, useAccountStats, useJournal, usePnLCurve } from "../hooks/usePortfolio";
+import { usePortfolio, useAccountStats, usePnLCurve } from "../hooks/usePortfolio";
 import { usePositions } from "../hooks/usePositions";
 import { PnLChart } from "@/app/chart/chartrender/charts/PnLChart";
 import { ASSETS } from "./constants/assets";
 import { INDICATORS } from "./constants/indicators";
 import { TRADE_COLUMNS } from "./constants/tradeColumns";
 import { STATS } from "./constants/stats";
-import { buildCalendarFromJournal } from "./constants/journal";
 import { PnLPeriod } from "../types/accounts";
 import { Journal } from "./components/journal";
-
-const DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -26,23 +24,21 @@ export default function DashboardPage() {
   const { stats }         = useAccountStats();
   const { positions: openPositions } = usePositions("");
 
-  const [selectedMonth, setSelectedMonth]   = useState<string | undefined>(undefined); // undefined = current month
   const [selectedPeriod, setSelectedPeriod] = useState<PnLPeriod>("month");
 
-  const { journal } = useJournal(selectedMonth);
   const { curve }   = usePnLCurve(selectedPeriod);
 
-  const cal = buildCalendarFromJournal(journal, selectedMonth);
-
   return (
-    <div style={{ background: tokens.bg0, minHeight: "100vh", padding: "24px 28px 48px", display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ ...pageStyle, position: "relative", padding: "24px 28px 48px" }}>
+      <div aria-hidden="true" style={{ ...gridBgStyle, opacity: 0.18 }} />
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
 
       <PageHeader
         title={`Welcome back, ${user?.username}`}
         subtitle={`Date today: ${new Date().toLocaleDateString("en-GB")}`}
       />
 
-      {/* Stat strip — driven by useAccountStats */}
+      {/* Stat strip driven by useAccountStats */}
       <StatRow>
         {STATS(stats, openPositions).map((s) => (
           <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} valueColor={s.color} />
@@ -50,14 +46,14 @@ export default function DashboardPage() {
       </StatRow>
 
       <Grid2>
-        {/* P&L chart — driven by usePnLCurve */}
+        {/* P&L chart driven by usePnLCurve */}
         <Card
           title="P&L curve"
           action={
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value as PnLPeriod)}
-              style={{ background: "transparent", color: tokens.text3, border: "none", fontSize: 12, cursor: "pointer" }}
+              style={{ background: "transparent", color: theme.dark.muted2, border: "none", fontSize: 12, cursor: "pointer" }}
             >
               <option value="week">Weekly</option>
               <option value="month">Monthly</option>
@@ -71,7 +67,7 @@ export default function DashboardPage() {
           />
         </Card>
 
-        <Card title="Favourite assets" action="✦ Edit" divided>
+        <Card title="Favourite assets" action={<Btn>Edit</Btn>} divided>
           {ASSETS.map((a) => (
             <Row key={a.symbol}>
               <Badge bg={a.bg} color={a.color}>{a.init}</Badge>
@@ -89,46 +85,35 @@ export default function DashboardPage() {
       </Grid2>
 
       <Grid2>
-        {/* Journal calendar — driven by useJournal */}
+        {/* Journal calendar driven by useJournal */}
         <Journal />
 
-        <Card title="Most used indicators" action="All time ▾" divided>
+        <Card title="Most used indicators" action={<Btn>All time</Btn>} divided>
           <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 11 }}>
             {INDICATORS.map((b) => (
               <BarRow key={b.label} label={b.label} value={b.value} max={92} color={b.color} count={b.value} />
             ))}
           </div>
-          <CardFooter>🤖 Bots — coming soon</CardFooter>
+          <CardFooter>Bots - coming soon</CardFooter>
         </Card>
       </Grid2>
 
       {/* Paginated trade history */}
-      <Card title="Trade history" action="Full history →" divided>
-  <div style={{ maxHeight: 400, overflowY: "auto", overflowX: "hidden" }}>
-    <DataTable columns={TRADE_COLUMNS} rows={rows} />
-    <div ref={sentinelRef} style={{ height: 1 }} />
-    {loading && (
-      <div style={{ padding: "12px 16px", fontSize: 12, color: tokens.text3, textAlign: "center" }}>Loading…</div>
-    )}
-    {!hasMore && rows.length > 0 && (
-      <div style={{ padding: "12px 16px", fontSize: 12, color: tokens.text3, textAlign: "center" }}>All trades loaded</div>
-    )}
-  </div>
-</Card>
+      <Card title="Trade history" action={<Btn>Full history</Btn>} divided>
+        <div style={{ maxHeight: 400, overflowY: "auto", overflowX: "hidden" }}>
+          <DataTable columns={TRADE_COLUMNS} rows={rows} />
+          <div ref={sentinelRef} style={{ height: 1 }} />
+          {loading && (
+            <div style={{ padding: "12px 16px", fontSize: 12, color: tokens.text3, textAlign: "center" }}>Loading...</div>
+          )}
+          {!hasMore && rows.length > 0 && (
+            <div style={{ padding: "12px 16px", fontSize: 12, color: tokens.text3, textAlign: "center" }}>All trades loaded</div>
+          )}
+        </div>
+      </Card>
 
+      </div>
     </div>
   );
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────────
-function prevMonth(current: string | undefined): string {
-  const d = current ? new Date(`${current}-01`) : new Date();
-  d.setMonth(d.getMonth() - 1);
-  return d.toISOString().slice(0, 7);
-}
-
-function nextMonth(current: string | undefined): string {
-  const d = current ? new Date(`${current}-01`) : new Date();
-  d.setMonth(d.getMonth() + 1);
-  return d.toISOString().slice(0, 7);
-}
