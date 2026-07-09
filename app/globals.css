@@ -377,6 +377,16 @@ select {
   max-width: 100%;
 }
 
+/* MarketSection asset rail uses traderInsetPanelStyle() from app/components/UI/UI.tsx. */
+.finsec-asset-rail {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.finsec-asset-rail::-webkit-scrollbar {
+  display: none;
+}
+
 .comparison-head,
 .comparison-row {
   display: grid;

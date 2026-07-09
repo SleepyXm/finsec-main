@@ -146,7 +146,7 @@ const Navbar = () => {
         alignItems: "center",
         columnGap: 18,
         minHeight: 56,
-        padding: "0 24px",
+        padding: "16px 24px",
         overflow: "visible",
         background: "linear-gradient(180deg, rgba(19,24,33,0.88), rgba(14,17,23,0.78))",
         boxShadow: isChartPage ? "none" : "0 18px 48px rgba(0,0,0,0.22)",
@@ -228,7 +228,7 @@ const Navbar = () => {
 
         {mobileOpen && (
           <ul
-            className="absolute top-full right-0 flex flex-col gap-0.5 list-none px-4 pb-3 pt-2 min-w-[160px]"
+            className="absolute top-full right-0 flex flex-col gap-0.5 list-none px-4 pb-3 pt-2 min-w-[40]"
             style={{ ...panelStyle(theme.dark), borderRadius: 0, overflow: "hidden" }}
           >
             <li aria-hidden="true" style={{ ...cornerStyle(), listStyle: "none" }} />

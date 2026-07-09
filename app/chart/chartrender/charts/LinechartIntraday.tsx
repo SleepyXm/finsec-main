@@ -3,12 +3,18 @@ import { AreaSeries } from 'lightweight-charts';
 import { useChart } from '../hooks/useChart';
 import { intradayChartTheme, type ChartTheme } from '../themes/themes';
 
+export type IntradayLinePoint = {
+  time: string | number;
+  value?: number | null;
+  close?: number | null;
+};
+
 export const LinechartIntraday: React.FC<{
-  data: any[];
-  colors?: any;
+  data: IntradayLinePoint[];
+  colors?: unknown;
   minimal?: boolean;
   theme?: ChartTheme;
-}> = ({ data, colors = {}, minimal = false, theme = intradayChartTheme }) => {
+}> = ({ data, minimal = false, theme = intradayChartTheme }) => {
   
   // ✅ Normalize to { time, value } — AreaSeries requires `value`, not `close`
   const lineData = useMemo(() => {
@@ -63,7 +69,7 @@ export const LinechartIntraday: React.FC<{
   }, [chartRef, lineData.length]);
 
   return (
-    <div style={{ width: '100%', height: '300px' }}>
+    <div style={{ width: '100%', height: minimal ? '100%' : '300px' }}>
       {chartElement}
     </div>
   );

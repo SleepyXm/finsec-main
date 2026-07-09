@@ -84,6 +84,7 @@ export const theme = {
     accentBorder: "rgba(143,170,220,0.34)",
 
     btn: ACCENT,
+    btnDiff: WHITE,
     btnText: "#0E1117",
 
     pill: "rgba(238,242,247,0.045)",
@@ -190,12 +191,31 @@ export const glowCardStyle = (t = theme.dark): React.CSSProperties => ({
   boxShadow: "none",
 });
 
+export const traderPanelStyle = (t = theme.dark): React.CSSProperties => ({
+  ...panelStyle(t),
+  background:
+    "linear-gradient(180deg, rgba(238,242,247,0.045), rgba(238,242,247,0.018))",
+  border: `1px solid ${t.border}`,
+  boxShadow: "inset 0 1px 0 rgba(238,242,247,0.04)",
+});
+
+export const traderInsetPanelStyle = (t = theme.dark): React.CSSProperties => ({
+  ...panelStyle(t),
+  background: "rgba(14,17,23,0.42)",
+  border: `1px solid ${t.borderSoft}`,
+});
+
 export const cornerStyle = (): React.CSSProperties => ({
   position: "absolute",
   inset: -1,
   pointerEvents: "none",
   background:
     "linear-gradient(to right, rgba(238,242,247,0.36) 1px, transparent 1px) 0 0 / 14px 14px no-repeat, linear-gradient(to bottom, rgba(238,242,247,0.36) 1px, transparent 1px) 0 0 / 14px 14px no-repeat, linear-gradient(to left, rgba(238,242,247,0.36) 1px, transparent 1px) 100% 0 / 14px 14px no-repeat, linear-gradient(to bottom, rgba(238,242,247,0.36) 1px, transparent 1px) 100% 0 / 14px 14px no-repeat, linear-gradient(to right, rgba(238,242,247,0.36) 1px, transparent 1px) 0 100% / 14px 14px no-repeat, linear-gradient(to top, rgba(238,242,247,0.36) 1px, transparent 1px) 0 100% / 14px 14px no-repeat, linear-gradient(to left, rgba(238,242,247,0.36) 1px, transparent 1px) 100% 100% / 14px 14px no-repeat, linear-gradient(to top, rgba(238,242,247,0.36) 1px, transparent 1px) 100% 100% / 14px 14px no-repeat",
+});
+
+export const traderCornerStyle = (opacity = 0.36): React.CSSProperties => ({
+  ...cornerStyle(),
+  opacity,
 });
 
 export const buttonStyle = (t = theme.dark): React.CSSProperties => ({
@@ -224,6 +244,49 @@ export const ghostButtonStyle = (t = theme.dark): React.CSSProperties => ({
   textTransform: "uppercase",
   cursor: "pointer",
   transition: "transform 0.18s ease, border-color 0.18s ease",
+});
+
+export const traderWhiteButtonStyle = (
+  hovered = false,
+  t = theme.dark
+): React.CSSProperties => ({
+  background: hovered ? "#DDE2EA" : WHITE,
+  color: "#0E1117",
+  border: `1px solid ${hovered ? t.borderStrong : t.borderSoft}`,
+  borderRadius: 999,
+  padding: "0.85rem 1.25rem",
+  fontSize: 13,
+  fontWeight: 600,
+  letterSpacing: 0.4,
+  textTransform: "uppercase",
+  cursor: "pointer",
+  transition:
+    "background 0.16s ease, border-color 0.16s ease, transform 0.16s ease",
+});
+
+export const traderBlankButtonStyle = ({
+  active = false,
+  hovered = false,
+  t = theme.dark,
+}: {
+  active?: boolean;
+  hovered?: boolean;
+  t?: typeof theme.dark | typeof theme.light;
+} = {}): React.CSSProperties => ({
+  background: active
+    ? "rgba(143,170,220,0.14)"
+    : hovered
+      ? "rgba(238,242,247,0.075)"
+      : "transparent",
+  color: t.text,
+  border: `1px solid ${
+    active ? t.accentBorder : hovered ? t.borderStrong : t.borderSoft
+  }`,
+  borderRadius: 0,
+  padding: "0.85rem 1.25rem",
+  cursor: "pointer",
+  transition:
+    "background 0.16s ease, border-color 0.16s ease, opacity 0.16s ease",
 });
 
 export function MonoLabel({

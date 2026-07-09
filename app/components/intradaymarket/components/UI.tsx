@@ -1,3 +1,9 @@
+import { useState } from "react";
+import {
+  traderBlankButtonStyle,
+  traderCornerStyle,
+} from "@/app/components/UI/UI";
+
 export const LOGO_MAP: Record<string, string> = {
   "ES=F":     "/logos/sp500.png",
   "NQ=F":     "/logos/nasdaq.png",
@@ -38,26 +44,45 @@ export function AssetPill({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const [hovered, setHovered] = useState(false);
+  const closeLabel = Number.isFinite(close)
+    ? close.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    : "—";
+
   return (
     <button
       onClick={onSelect}
-      className={`
-        shrink-0 flex items-center gap-3 px-4 py-2.5 rounded-4xl border transition-all w-80 h-25
-        ${selected
-          ? "bg-[#1e2d40] border-[#2962ff]"
-          : "bg-[#1a1f2e] border-[#2a2e3a] hover:border-[#3a4060]"
-        }
-      `}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        ...traderBlankButtonStyle({ active: selected, hovered }),
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        flexShrink: 0,
+        scrollSnapAlign: "start",
+        width: 280,
+        minHeight: 84,
+        overflow: "hidden",
+        textAlign: "left",
+      }}
+      className="shrink-0"
     >
+      <div style={traderCornerStyle(selected ? 0.54 : 0.18)} />
       <img
         src={LOGO_MAP[ticker] ?? undefined}
         onError={(e) => e.currentTarget.style.display = 'none'}
+        alt=""
         className="w-12 h-12 rounded-full shrink-0"
       />
       <div className="text-left">
         <div className="text-xl font-medium text-white leading-tight">{name}</div>
         <div className="text-m text-[#8a90a0] leading-tight">
-          {close !== null ? close.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+          {closeLabel}
         </div>
       </div>
     </button>

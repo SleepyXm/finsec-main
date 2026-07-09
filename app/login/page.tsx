@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signup, login } from "@/app/handlers/auth";
 import { useUser } from "@/app/provider/userprovider";
@@ -14,7 +14,6 @@ export default function Auth() {
 
   const [userName, setUserName] = useState("");
   const [email, setEmail] = useState("");
-  const [mounted, setMounted] = useState(false);
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -23,12 +22,6 @@ export default function Auth() {
   const t = theme.dark;
 
   const router = useRouter();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
 
   async function handleSubmit() {
     setError("");

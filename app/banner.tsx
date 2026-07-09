@@ -124,6 +124,7 @@ export function Banner() {
               type="button"
               onClick={() => closeBanner("accepted")}
               style={buttonStyle(t)}
+              /*className="auth-submit"*/
             >
               Accept
             </button>

@@ -14,7 +14,6 @@ const TABS = [
 
 export default function MarketOverview() {
   const [items, setItems] = useState<MarketOverviewItem[]>([]);
-  const [activeTab, setActiveTab] = useState(0);
 
   const merged = TABS.map(tab => ({
     ...tab,
@@ -28,12 +27,8 @@ export default function MarketOverview() {
     fetchMarketOverview().then(setItems).catch(console.error);
   }, []);
 
-  const visibleItems = items.filter(item =>
-    TABS[activeTab].tickers.some(t => t.ticker === item.ticker)
-  );
-
   return (
-    <div className="w-full">
+    <div className="mx-auto w-full max-w-[1920px]">
       {merged.filter(tab => tab.label !== "Popular").map(tab => (
         <MarketSection key={tab.label} title={tab.label} items={tab.tickers} />
       ))}

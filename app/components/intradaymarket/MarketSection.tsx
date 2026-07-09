@@ -1,60 +1,194 @@
-import { useEffect, useState } from "react";
-import { LinechartIntraday } from "@/app/chart/chartrender/charts/LinechartIntraday";
+import { useEffect, useRef, useState } from "react";
+import {
+  LinechartIntraday,
+  type IntradayLinePoint,
+} from "@/app/chart/chartrender/charts/LinechartIntraday";
 import { fetchIntraday } from "@/app/types/assets";
 import { AssetPill } from "@/app/components/intradaymarket/components/UI";
+import {
+  theme,
+  traderBlankButtonStyle,
+  traderCornerStyle,
+  traderInsetPanelStyle,
+  traderPanelStyle,
+} from "@/app/components/UI/UI";
+
+const ASSET_CARD_WIDTH = 280;
+const ASSET_CARD_GAP = 12;
+const ASSET_RAIL_SIDE_PADDING = 56;
 
 export function MarketSection({ title, items }: { title: string; items: { ticker: string, name: string, close: number,  }[] }) {
+  const assetRailShellRef = useRef<HTMLDivElement | null>(null);
+  const assetRailRef = useRef<HTMLDivElement | null>(null);
+  const [assetRailWidth, setAssetRailWidth] = useState<number | null>(null);
   const [selected, setSelected] = useState(items[0]?.ticker ?? "");
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartState, setChartState] = useState<{
+    ticker: string;
+    data: IntradayLinePoint[];
+  }>({ ticker: "", data: [] });
+  const selectedItem = items.find((item) => item.ticker === selected);
+  const selectedName = selectedItem?.name ?? selected;
+  const chartData = chartState.ticker === selected ? chartState.data : [];
 
   useEffect(() => {
     if (!selected) return;
-    setChartData([]);
-    fetchIntraday(selected).then(setChartData).catch(console.error);
+    let cancelled = false;
+
+    fetchIntraday(selected)
+      .then((data) => {
+        if (!cancelled) {
+          setChartState({ ticker: selected, data });
+        }
+      })
+      .catch(console.error);
+
+    return () => {
+      cancelled = true;
+    };
   }, [selected]);
 
-  
   useEffect(() => {
-  if (items.length > 0 && !selected) {
-    setSelected(items[0].ticker);
-  }
-}, [items]);
+    const shell = assetRailShellRef.current;
+    if (!shell) return;
+
+    const setWholeCardWidth = () => {
+      const availableWidth = shell.clientWidth;
+      const assetAreaWidth = Math.max(
+        ASSET_CARD_WIDTH,
+        availableWidth - ASSET_RAIL_SIDE_PADDING * 2
+      );
+      const visibleCards = Math.max(
+        1,
+        Math.floor(
+          (assetAreaWidth + ASSET_CARD_GAP) /
+            (ASSET_CARD_WIDTH + ASSET_CARD_GAP)
+        )
+      );
+
+      setAssetRailWidth(
+        ASSET_RAIL_SIDE_PADDING * 2 +
+          visibleCards * ASSET_CARD_WIDTH +
+          (visibleCards - 1) * ASSET_CARD_GAP
+      );
+    };
+
+    setWholeCardWidth();
+
+    const observer = new ResizeObserver(setWholeCardWidth);
+    observer.observe(shell);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollAssetRail = (direction: -1 | 1) => {
+    assetRailRef.current?.scrollBy({
+      left: direction * (ASSET_CARD_WIDTH + ASSET_CARD_GAP),
+      behavior: "smooth",
+    });
+  };
 
   return (
-    <div className="mb-8">
-      <h2 className="text-5xl font-bold text-white px-6 mb-4">{title} ›</h2>
-      
-      {/* CONTAINER FOR PILLS */}
-      <div className="relative overflow-hidden">
-        {/* LEFT FADE */}
-        <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-8 bg-gradient-to-r from-[#1a1f2b] to-transparent" />
+    <section className="mb-6 px-6">
+      <div
+        style={{
+          ...traderPanelStyle(theme.dark),
+          padding: "1rem",
+          overflow: "hidden",
+        }}
+      >
+        <div style={traderCornerStyle(0.42)} />
 
-        {/* RIGHT FADE */}
-        <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-8 bg-gradient-to-l from-[#1a1f2b] to-transparent" />
-
-
-
-
-        <div className="flex gap-2 px-6 overflow-x-auto pb-2 max-w-375 scrollbar-hide z-10">
-          {items.map((item) => (
-            <AssetPill
-              key={item.ticker}
-              ticker={item.ticker}
-              name={item.name}
-              close={item.close}
-              selected={selected === item.ticker}
-              onSelect={() => setSelected(item.ticker)}
-            />
-          ))}
-        </div>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="text-5xl font-bold text-white">{title} ›</h2>
         </div>
 
-        <div className="px-6 mt-4 h-[300px]">
+        <div
+          ref={assetRailShellRef}
+          className="relative mb-4 overflow-hidden"
+          style={traderInsetPanelStyle(theme.dark)}
+        >
+          <div style={traderCornerStyle(0.24)} />
+          <button
+            type="button"
+            aria-label={`Scroll ${title} assets left`}
+            onClick={() => scrollAssetRail(-1)}
+            className="absolute left-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-sm"
+            style={{
+              ...traderBlankButtonStyle(),
+              padding: 0,
+            }}
+          >
+            {"<"}
+          </button>
+          <button
+            type="button"
+            aria-label={`Scroll ${title} assets right`}
+            onClick={() => scrollAssetRail(1)}
+            className="absolute right-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-sm"
+            style={{
+              ...traderBlankButtonStyle(),
+              padding: 0,
+            }}
+          >
+            {">"}
+          </button>
+
+          <div
+            ref={assetRailRef}
+            className="finsec-asset-rail relative z-0 flex gap-3 overflow-x-auto px-14 py-3 scrollbar-hide"
+            style={{
+              maxWidth: "100%",
+              scrollPaddingInline: ASSET_RAIL_SIDE_PADDING,
+              scrollSnapType: "x mandatory",
+              width: assetRailWidth == null ? "100%" : assetRailWidth,
+            }}
+            onWheel={(event) => {
+              if (event.currentTarget.scrollWidth <= event.currentTarget.clientWidth) return;
+              if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+
+              event.preventDefault();
+              event.currentTarget.scrollLeft += event.deltaY;
+            }}
+          >
+            {items.map((item) => (
+              <AssetPill
+                key={item.ticker}
+                ticker={item.ticker}
+                name={item.name}
+                close={item.close}
+                selected={selected === item.ticker}
+                onSelect={() => setSelected(item.ticker)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div
+          className="relative h-[320px] overflow-hidden"
+          style={traderInsetPanelStyle(theme.dark)}
+        >
+          <div style={traderCornerStyle(0.22)} />
           {chartData.length > 0
             ? <LinechartIntraday data={chartData} minimal />
-            : <div className="w-full h-full bg-[#1a1f2e00] rounded-lg flex items-center justify-center text-[#5d6578] text-sm">Loading...</div>
+            : <div className="flex h-full w-full items-center justify-center text-sm text-[#5d6578]">Loading...</div>
           }
         </div>
+
+        <div
+          className="relative mt-3 min-h-[104px] p-4"
+          style={traderInsetPanelStyle(theme.dark)}
+          aria-live="polite"
+        >
+          <div style={traderCornerStyle(0.2)} />
+          <div className="flex items-center justify-between gap-4">
+            <div className="text-sm text-white">Relevant news</div>
+            <div className="text-sm text-[#8a90a0]">{selectedName}</div>
+          </div>
+          <p className="mt-3 text-sm text-[#8a90a0]">
+            Loading relevant news for {selectedName}...
+          </p>
+        </div>
       </div>
+    </section>
   );
 }
