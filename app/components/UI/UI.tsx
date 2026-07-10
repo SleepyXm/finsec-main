@@ -105,6 +105,45 @@ export type ClassValue =
   | undefined
   | Record<string, boolean>;
 
+type TraderButtonClassOptions = {
+  rounded?: boolean;
+  inactive?: boolean;
+  fullWidth?: boolean;
+};
+
+const traderButtonBaseClassName =
+  "inline-flex h-11 items-center justify-center px-4 text-sm font-semibold uppercase tracking-[0.08em] transition duration-150";
+
+const traderButtonWidthClassName = "w-full";
+
+const traderWhiteButtonToneClassName =
+  "bg-[#EEF2F7] text-[#0E1117] hover:bg-[#DDE2EA] disabled:cursor-not-allowed disabled:border disabled:border-white/[0.09] disabled:bg-white/[0.045] disabled:text-white/35";
+
+const traderInactiveButtonToneClassName =
+  "cursor-not-allowed border border-white/[0.09] bg-white/[0.045] text-white/35";
+
+export const traderWhiteButtonClassName = `${traderButtonBaseClassName} ${traderButtonWidthClassName} ${traderWhiteButtonToneClassName}`;
+
+export const traderWhiteRoundedButtonClassName = `${traderWhiteButtonClassName} rounded-full`;
+
+export const traderInactiveButtonClassName = `${traderButtonBaseClassName} ${traderButtonWidthClassName} ${traderInactiveButtonToneClassName}`;
+
+export const traderInactiveRoundedButtonClassName = `${traderInactiveButtonClassName} rounded-full`;
+
+export const traderButtonClassName = ({
+  rounded = false,
+  inactive = false,
+  fullWidth = true,
+}: TraderButtonClassOptions = {}) =>
+  [
+    traderButtonBaseClassName,
+    fullWidth && traderButtonWidthClassName,
+    inactive ? traderInactiveButtonToneClassName : traderWhiteButtonToneClassName,
+    rounded && "rounded-full",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
 export const pageStyle: React.CSSProperties = {
   background:
     "radial-gradient(circle at 15% 10%, rgba(143,170,220,0.10), transparent 28%), linear-gradient(180deg, #0E1117 0%, #131821 45%, #0E1117 100%)",
@@ -250,10 +289,10 @@ export const traderWhiteButtonStyle = (
   hovered = false,
   t = theme.dark
 ): React.CSSProperties => ({
-  background: hovered ? "#DDE2EA" : WHITE,
+  background: hovered ? '#DDDFE0' : 'WHITE',
   color: "#0E1117",
   border: `1px solid ${hovered ? t.borderStrong : t.borderSoft}`,
-  borderRadius: 999,
+  borderRadius: 0,
   padding: "0.85rem 1.25rem",
   fontSize: 13,
   fontWeight: 600,
@@ -263,6 +302,38 @@ export const traderWhiteButtonStyle = (
   transition:
     "background 0.16s ease, border-color 0.16s ease, transform 0.16s ease",
 });
+
+export const traderWhiteRoundedButtonStyle = (
+  hovered = false,
+  t = theme.dark
+): React.CSSProperties => ({
+  ...traderWhiteButtonStyle(hovered, t),
+  borderRadius: 999,
+});
+
+export const traderInactiveButtonStyle = ({
+  rounded = false,
+  t = theme.dark,
+}: {
+  rounded?: boolean;
+  t?: typeof theme.dark | typeof theme.light;
+} = {}): React.CSSProperties => ({
+  background: t.pill,
+  color: t.muted2,
+  border: `1px solid ${t.borderSoft}`,
+  borderRadius: rounded ? 999 : 0,
+  padding: "0.85rem 1.25rem",
+  fontSize: 13,
+  fontWeight: 600,
+  letterSpacing: 0.4,
+  textTransform: "uppercase",
+  cursor: "not-allowed",
+  transition: "opacity 0.16s ease",
+});
+
+export const traderInactiveRoundedButtonStyle = (
+  t = theme.dark
+): React.CSSProperties => traderInactiveButtonStyle({ rounded: true, t });
 
 export const traderBlankButtonStyle = ({
   active = false,

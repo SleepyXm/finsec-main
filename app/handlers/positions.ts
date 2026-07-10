@@ -3,11 +3,11 @@ import { Trade, TradePatch } from "@/app/types/trades";
 
 
 export async function fetchOpenPositions(): Promise<Trade[]> {
-  return request("/api/positions", { method: "GET" });
+  return request<Trade[]>("/api/positions", { method: "GET" });
 }
 
 export async function updateTrade(tradeId: string, patch: TradePatch): Promise<Trade> {
-  const res = await request(`/api/trade/${tradeId}`, {
+  const res = await request<{ data: Trade }>(`/api/trade/${tradeId}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
   });

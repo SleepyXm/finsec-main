@@ -1,20 +1,33 @@
 "use client";
 import { logout } from "@/app/handlers/auth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useUser } from "@/app/provider/userprovider";
 import { InfoRow, SidebarTab, TabSection, UserAvatar, SidebarActions, SectionDivider, ConnectionCard, EmptyState } from "./profilecomponents";
+import { checkoutSuccess } from "@/app/handlers/products";
 
 export default function Profile() {
   const [activeTab, setActiveTab] = useState("account");
+  const searchParams = useSearchParams();
   const { user, account } = useUser();
+
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const checkout = params.get("checkout");
+  const sessionId = params.get("session_id");
+
+  if (checkout === "success" && sessionId) {
+    checkoutSuccess(sessionId);
+  }
+}, []);
 
   if (!user) return null;
 
   const sessions: any[] = [];
 
   return (
-    <div className="min-h-screen flex justify-center items-start py-8 relative text-black dark:text-zinc-200">
-      <div className="w-[85vw] h-[85vh] rounded-[8px] bg-white/20 dark:bg-white/[0.055] backdrop-blur-2xl border border-white/40 dark:border-white/[0.09] p-6 shadow-2xl flex gap-6">
+    <div className="min-h-screen flex justify-center items-start py-8 relative text-black dark:text-zinc-200 bg-[radial-gradient(circle_at_15%_10%,rgba(143,170,220,0.10),transparent_28%),linear-gradient(180deg,#0E1117_0%,#131821_45%,#0E1117_100%)]">
+      <div className="w-[85vw] h-[85vh] rounded-lg backdrop-blur-lg bg-black/20 border border-white/40 dark:border-white/9 p-6 shadow-2xl flex gap-6">
 
         {/* Sidebar */}
         <div className="w-48 flex flex-col items-center border-r border-black/20 dark:border-white/10 pr-4 gap-6">
@@ -40,6 +53,7 @@ export default function Profile() {
               <InfoRow label="Username" value={user.username} />
               <InfoRow label="Email" value={user.email ?? "No email on file"} action={() => {}} actionLabel="Change" />
               <InfoRow label="Password" value="••••••••" action={() => {}} actionLabel="Change" />
+              <InfoRow label="Subscription" value={user?.subscription_tier ?? "Free"} action={() => {}} actionLabel="Manage" />
               <SectionDivider label="Danger Zone" />
               <InfoRow label="Delete Account" value="Permanently remove your account and all data." action={() => {}} actionLabel="Delete" actionVariant="danger" />
             </TabSection>

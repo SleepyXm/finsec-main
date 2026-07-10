@@ -2,7 +2,7 @@ import { request } from "./auth";
 import { TradeCursor, PortfolioPage, Portfolio } from "../types/portfolio";
 
 export async function fetchPortfolio(): Promise<Portfolio> {
-  return request("/api/portfolio", { method: "GET" });
+  return request<Portfolio>("/api/portfolio", { method: "GET" });
 }
 
 export async function fetchPortfolioPage(
@@ -14,5 +14,5 @@ export async function fetchPortfolioPage(
     params.set("cursor_time", cursor.cursor_time);
     params.set("cursor_id", cursor.cursor_id);
   }
-  return request(`/api/portfolio?${params}`, { method: "GET" });
+  return request<PortfolioPage>(`/api/portfolio?${params}`, { method: "GET" });
 }

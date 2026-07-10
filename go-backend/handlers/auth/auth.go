@@ -210,10 +210,11 @@ func Me(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.MustGet("userID").(string)
 
-		var username, email string
+		var username, email, subscriptionTier string
 		err := db.QueryRowContext(c,
-			"SELECT username, email FROM users WHERE id = $1", userID,
-		).Scan(&username, &email)
+			`SELECT username, email, COALESCE(NULLIF(subscription_tier, ''), 'free')
+             FROM users WHERE id = $1`, userID,
+		).Scan(&username, &email, &subscriptionTier)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
@@ -227,7 +228,11 @@ func Me(db *sql.DB) gin.HandlerFunc {
 		).Scan(&accountType, &balance, &currency, &status)
 
 		resp := gin.H{
-			"user": gin.H{"username": username, "email": email},
+			"user": gin.H{
+				"username":          username,
+				"email":             email,
+				"subscription_tier": subscriptionTier,
+			},
 		}
 		if err == nil {
 			resp["account"] = gin.H{

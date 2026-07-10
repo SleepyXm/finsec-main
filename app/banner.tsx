@@ -7,11 +7,13 @@ import {
   cornerStyle,
   buttonStyle,
   ghostButtonStyle,
+  traderWhiteButtonStyle,
 } from "@/app/components/UI/UI";
 
 export function Banner() {
   const [consentGiven, setConsentGiven] = useState("");
   const [isClosing, setIsClosing] = useState(false);
+  const [acceptHovered, setAcceptHovered] = useState(false);
 
   useEffect(() => {
     setConsentGiven("pending");
@@ -123,7 +125,9 @@ export function Banner() {
             <button
               type="button"
               onClick={() => closeBanner("accepted")}
-              style={buttonStyle(t)}
+              onMouseEnter={() => setAcceptHovered(true)}
+              onMouseLeave={() => setAcceptHovered(false)}
+              style={traderWhiteButtonStyle(acceptHovered, t)}
               /*className="auth-submit"*/
             >
               Accept

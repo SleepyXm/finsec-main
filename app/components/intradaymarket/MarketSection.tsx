@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   LinechartIntraday,
   type IntradayLinePoint,
@@ -15,12 +15,14 @@ import {
 
 const ASSET_CARD_WIDTH = 280;
 const ASSET_CARD_GAP = 12;
-const ASSET_RAIL_SIDE_PADDING = 56;
+const ASSET_RAIL_BUTTON_WIDTH = 36;
+const ASSET_RAIL_GAP = 8;
+const ASSET_RAIL_PADDING = 12;
 
 export function MarketSection({ title, items }: { title: string; items: { ticker: string, name: string, close: number,  }[] }) {
   const assetRailShellRef = useRef<HTMLDivElement | null>(null);
   const assetRailRef = useRef<HTMLDivElement | null>(null);
-  const [assetRailWidth, setAssetRailWidth] = useState<number | null>(null);
+  const [assetRailWidth, setAssetRailWidth] = useState(ASSET_CARD_WIDTH);
   const [selected, setSelected] = useState(items[0]?.ticker ?? "");
   const [chartState, setChartState] = useState<{
     ticker: string;
@@ -47,15 +49,19 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
     };
   }, [selected]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const shell = assetRailShellRef.current;
     if (!shell) return;
 
     const setWholeCardWidth = () => {
-      const availableWidth = shell.clientWidth;
+      const availableWidth =
+        shell.clientWidth -
+        ASSET_RAIL_PADDING * 2 -
+        ASSET_RAIL_BUTTON_WIDTH * 2 -
+        ASSET_RAIL_GAP * 2;
       const assetAreaWidth = Math.max(
         ASSET_CARD_WIDTH,
-        availableWidth - ASSET_RAIL_SIDE_PADDING * 2
+        availableWidth
       );
       const visibleCards = Math.max(
         1,
@@ -66,8 +72,7 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
       );
 
       setAssetRailWidth(
-        ASSET_RAIL_SIDE_PADDING * 2 +
-          visibleCards * ASSET_CARD_WIDTH +
+        visibleCards * ASSET_CARD_WIDTH +
           (visibleCards - 1) * ASSET_CARD_GAP
       );
     };
@@ -105,14 +110,21 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
         <div
           ref={assetRailShellRef}
           className="relative mb-4 overflow-hidden"
-          style={traderInsetPanelStyle(theme.dark)}
+          style={{
+            ...traderInsetPanelStyle(theme.dark),
+            display: "grid",
+            gridTemplateColumns: `${ASSET_RAIL_BUTTON_WIDTH}px minmax(0, 1fr) ${ASSET_RAIL_BUTTON_WIDTH}px`,
+            gap: ASSET_RAIL_GAP,
+            alignItems: "center",
+            padding: ASSET_RAIL_PADDING,
+          }}
         >
           <div style={traderCornerStyle(0.24)} />
           <button
             type="button"
             aria-label={`Scroll ${title} assets left`}
             onClick={() => scrollAssetRail(-1)}
-            className="absolute left-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-sm"
+            className="relative z-20 flex h-9 w-9 items-center justify-center text-sm"
             style={{
               ...traderBlankButtonStyle(),
               padding: 0,
@@ -120,27 +132,14 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
           >
             {"<"}
           </button>
-          <button
-            type="button"
-            aria-label={`Scroll ${title} assets right`}
-            onClick={() => scrollAssetRail(1)}
-            className="absolute right-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center text-sm"
-            style={{
-              ...traderBlankButtonStyle(),
-              padding: 0,
-            }}
-          >
-            {">"}
-          </button>
 
           <div
             ref={assetRailRef}
-            className="finsec-asset-rail relative z-0 flex gap-3 overflow-x-auto px-14 py-3 scrollbar-hide"
+            className="finsec-asset-rail relative z-0 flex gap-3 overflow-x-hidden scrollbar-hide"
             style={{
-              maxWidth: "100%",
-              scrollPaddingInline: ASSET_RAIL_SIDE_PADDING,
+              minWidth: 0,
+              width: "100%",
               scrollSnapType: "x mandatory",
-              width: assetRailWidth == null ? "100%" : assetRailWidth,
             }}
             onWheel={(event) => {
               if (event.currentTarget.scrollWidth <= event.currentTarget.clientWidth) return;
@@ -161,6 +160,18 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
               />
             ))}
           </div>
+          <button
+            type="button"
+            aria-label={`Scroll ${title} assets right`}
+            onClick={() => scrollAssetRail(1)}
+            className="relative z-20 flex h-9 w-9 items-center justify-center text-sm"
+            style={{
+              ...traderBlankButtonStyle(),
+              padding: 0,
+            }}
+          >
+            {">"}
+          </button>
         </div>
 
         <div

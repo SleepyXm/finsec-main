@@ -3,7 +3,7 @@ export const WSAPI_BASE = process.env.NEXT_PUBLIC_WS_API_BASE2;
 
 let refreshPromise: Promise<boolean> | null = null;
 
-export async function request(path: string, options: RequestInit, isRetry = false): Promise<any> {
+export async function request<T = unknown>(path: string, options: RequestInit, isRetry = false): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     credentials: "include",
@@ -21,21 +21,22 @@ export async function request(path: string, options: RequestInit, isRetry = fals
         .finally(() => { refreshPromise = null; });
     }
     const refreshed = await refreshPromise;
-    if (refreshed) return request(path, options, true);
+    if (refreshed) return request<T>(path, options, true);
 
     throw new Error("UNAUTHENTICATED");
   }
 
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || `Request failed with status ${res.status}`);
-  return data;
+  return data as T;
 }
 
 
 
 export type User = {
-    username: string;
-    email: string;
+  username: string;
+  email: string;
+  subscription_tier?: string;
 };
 
 export type UserAccount = {
@@ -43,6 +44,10 @@ export type UserAccount = {
   balance: string;
   currency: string;
   status: string;
+};
+
+type AuthMessageResponse = {
+  message: string;
 };
 
 const STALE_TIME = 5 * 60 * 1000;
@@ -53,14 +58,22 @@ export async function validateUser(): Promise<{ user: User; account: UserAccount
     const cachedUser = localStorage.getItem("user");
     const cachedAccount = localStorage.getItem("user_account");
 
-    if (lastCheck && cachedUser && cachedAccount && Date.now() - Number(lastCheck) < STALE_TIME) {
+    const parsedUser = cachedUser ? JSON.parse(cachedUser) as User : null;
+    const parsedAccount = cachedAccount ? JSON.parse(cachedAccount) as UserAccount : null;
+
+    if (
+      lastCheck &&
+      parsedUser?.subscription_tier &&
+      parsedAccount &&
+      Date.now() - Number(lastCheck) < STALE_TIME
+    ) {
       return {
-        user: JSON.parse(cachedUser),
-        account: JSON.parse(cachedAccount),
+        user: parsedUser,
+        account: parsedAccount,
       };
     }
 
-    const { user, account } = await request("/api/auth/me", { method: "GET" });
+    const { user, account } = await request<{ user: User; account: UserAccount }>("/api/auth/me", { method: "GET" });
     
     localStorage.setItem("user", JSON.stringify(user));
     localStorage.setItem("user_account", JSON.stringify(account));
@@ -73,21 +86,21 @@ export async function validateUser(): Promise<{ user: User; account: UserAccount
 }
 
 
-export async function signup(username: string, email: string, password: string) {
-  return request("/api/auth/signup", {
+export async function signup(username: string, email: string, password: string): Promise<AuthMessageResponse> {
+  return request<AuthMessageResponse>("/api/auth/signup", {
     method: "POST",
     body: JSON.stringify({ username, email, password }),
   });
 }
 
-export async function login(email: string, password: string) {
-  await request("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+export async function login(email: string, password: string): Promise<{ user: User; account: UserAccount } | null> {
+  await request<AuthMessageResponse>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
   return validateUser();
 }
 
 export async function fetchUserAccountInfo(): Promise<UserAccount | null> {
   try {
-    const data = await request("/api/user/accounts", { method: "GET" });
+    const data = await request<UserAccount>("/api/user/accounts", { method: "GET" });
     localStorage.setItem("user_account", JSON.stringify(data));
     return data;
   } catch {
@@ -96,7 +109,7 @@ export async function fetchUserAccountInfo(): Promise<UserAccount | null> {
 }
 
 
-export async function logout() {
-  await request("/api/auth/logout", { method: "POST" });
+export async function logout(): Promise<void> {
+  await request<AuthMessageResponse>("/api/auth/logout", { method: "POST" });
   ["user", "user_account", "user_validated_at"].forEach(k => localStorage.removeItem(k));
 }

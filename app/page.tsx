@@ -18,7 +18,7 @@ export default function Home() {
             <svg
               width="auto"
               height="90"
-              viewBox="0 0 500 80"
+              viewBox="0 0 360 80"
               className="inline align-middle"
             >
               <defs>
