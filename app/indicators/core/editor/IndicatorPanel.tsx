@@ -5,15 +5,41 @@
 import { useState } from "react"
 import { IndicatorEditor } from "./Editor"
 import { DEFAULT_INDICATOR_SCRIPT } from "./defaults"
+import { compileFinScript } from "@/app/indicators/language/compiler"
+import type { FinScriptDiagnostic } from "@/app/indicators/language/types"
+import { useChartContext } from "@/app/chart/chartcontext"
 
 export function IndicatorPanel() {
+  const { applyIndicator, removeIndicator, appliedIndicators } = useChartContext()
   const [script, setScript] = useState(DEFAULT_INDICATOR_SCRIPT)
   const [tab, setTab] = useState<"editor" | "export">("editor")
+  const [diagnostics, setDiagnostics] = useState<FinScriptDiagnostic[]>([])
+  const [status, setStatus] = useState<"idle" | "applied" | "error">("idle")
+  const preview = appliedIndicators.find((entry) => entry.id === "editor-preview")
+
+  const handleApply = () => {
+    const result = compileFinScript(script)
+    setDiagnostics(result.diagnostics)
+
+    if (!result.ok) {
+      setStatus("error")
+      return
+    }
+
+    applyIndicator({
+      id: "editor-preview",
+      source: script,
+      compiled: result.compiled,
+      inputs: Object.fromEntries(result.compiled.inputs.map((input) => [input.id, input.defaultValue])),
+      enabled: true,
+    })
+    setStatus("applied")
+  }
 
   return (
     <div
       style={{
-        width: 460,
+        width: "100%",
         height: "100%",
         background: "#090b10",
         borderLeft: "1px solid #1e2130",
@@ -43,11 +69,34 @@ export function IndicatorPanel() {
           active={tab === "export"}
           onClick={() => setTab("export")}
         />
+
+        <div style={{ flex: 1 }} />
+
+        {preview && (
+          <button
+            type="button"
+            onClick={() => removeIndicator("editor-preview")}
+            style={actionButtonStyle("secondary")}
+          >
+            Remove
+          </button>
+        )}
+
+        <button type="button" onClick={handleApply} style={actionButtonStyle("primary")}>
+          Apply
+        </button>
       </div>
 
-      <div style={{ flex: 1, padding: 12 }}>
+      <div style={{ flex: 1, minHeight: 0, padding: 12 }}>
         {tab === "editor" && (
-          <IndicatorEditor value={script} onChange={setScript} />
+          <IndicatorEditor
+            value={script}
+            onChange={(value) => {
+              setScript(value)
+              setStatus("idle")
+            }}
+            diagnostics={diagnostics}
+          />
         )}
 
         {tab === "export" && (
@@ -70,8 +119,43 @@ export function IndicatorPanel() {
           />
         )}
       </div>
+
+      {(status !== "idle" || diagnostics.length > 0) && (
+        <div style={{
+          flexShrink: 0,
+          maxHeight: 120,
+          overflowY: "auto",
+          padding: "8px 12px",
+          borderTop: "1px solid #1e2130",
+          fontSize: 11,
+        }}>
+          {status === "applied" && diagnostics.length === 0 && (
+            <div style={{ color: "#34d399" }}>Applied to the chart.</div>
+          )}
+          {diagnostics.map((entry, index) => (
+            <div key={`${entry.code}-${entry.start}-${index}`} style={{
+              color: entry.severity === "error" ? "#fb7185" : "#fbbf24",
+              marginBottom: 3,
+            }}>
+              {entry.line}:{entry.column} {entry.message}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
+}
+
+function actionButtonStyle(kind: "primary" | "secondary"): React.CSSProperties {
+  return {
+    border: `1px solid ${kind === "primary" ? "#2563eb" : "#31384a"}`,
+    background: kind === "primary" ? "#2563eb" : "transparent",
+    color: kind === "primary" ? "#fff" : "#94a3b8",
+    borderRadius: 4,
+    padding: "5px 9px",
+    cursor: "pointer",
+    fontSize: 11,
+  }
 }
 
 function TabButton({

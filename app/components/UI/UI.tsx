@@ -257,6 +257,11 @@ export const traderCornerStyle = (opacity = 0.36): React.CSSProperties => ({
   opacity,
 });
 
+export const traderCornerOpacity = {
+  subtle: 0.24,
+  active: 0.42,
+} as const;
+
 export const buttonStyle = (t = theme.dark): React.CSSProperties => ({
   background: t.accent,
   color: t.btnText,
@@ -359,6 +364,42 @@ export const traderBlankButtonStyle = ({
   transition:
     "background 0.16s ease, border-color 0.16s ease, opacity 0.16s ease",
 });
+
+type TraderBlankButtonProps = Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  "style"
+> & {
+  active?: boolean;
+  hovered?: boolean;
+  cornerOpacity?: number;
+  style?: React.CSSProperties;
+};
+
+export function TraderBlankButton({
+  active = false,
+  hovered = false,
+  cornerOpacity = traderCornerOpacity.subtle,
+  style,
+  children,
+  type = "button",
+  ...props
+}: TraderBlankButtonProps) {
+  return (
+    <button
+      {...props}
+      type={type}
+      style={{
+        ...traderBlankButtonStyle({ active, hovered }),
+        position: "relative",
+        overflow: "hidden",
+        ...style,
+      }}
+    >
+      <span aria-hidden="true" style={traderCornerStyle(cornerOpacity)} />
+      {children}
+    </button>
+  );
+}
 
 export function MonoLabel({
   children,

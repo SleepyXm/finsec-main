@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
-  traderBlankButtonStyle,
-  traderCornerStyle,
+  TraderBlankButton,
+  traderCornerOpacity,
 } from "@/app/components/UI/UI";
 
 export const LOGO_MAP: Record<string, string> = {
@@ -53,13 +53,16 @@ export function AssetPill({
     : "—";
 
   return (
-    <button
+    <TraderBlankButton
       onClick={onSelect}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      active={selected}
+      hovered={hovered}
+      cornerOpacity={
+        selected ? traderCornerOpacity.active : traderCornerOpacity.subtle
+      }
       style={{
-        ...traderBlankButtonStyle({ active: selected, hovered }),
-        position: "relative",
         display: "flex",
         alignItems: "center",
         gap: 12,
@@ -67,12 +70,10 @@ export function AssetPill({
         scrollSnapAlign: "start",
         width: 280,
         minHeight: 84,
-        overflow: "hidden",
         textAlign: "left",
       }}
       className="shrink-0"
     >
-      <div style={traderCornerStyle(selected ? 0.54 : 0.18)} />
       <img
         src={LOGO_MAP[ticker] ?? undefined}
         onError={(e) => e.currentTarget.style.display = 'none'}
@@ -85,6 +86,6 @@ export function AssetPill({
           {closeLabel}
         </div>
       </div>
-    </button>
+    </TraderBlankButton>
   );
 }

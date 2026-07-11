@@ -1,12 +1,13 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useCallback, useContext, useState, useEffect, ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Interval } from "../types/charts";
 import { useChartData } from "./chartdata";
 import { useStockSocket } from "@/app/hooks/useStockSocket";
 import { usePositions } from "@/app/hooks/usePositions";
 import { useTrades } from "../hooks/useTrades";
+import type { AppliedIndicator } from "@/app/indicators/language/types";
 
 const intervals: Interval[] = ["1m", "5m", "15m", "1h", "1d", "1wk", "1mo"];
 
@@ -30,6 +31,10 @@ interface ChartContextValue {
   // indicator Editor
   isIndicatorPanelOpen: boolean
   setIsIndicatorPanelOpen: (value: boolean) => void
+  appliedIndicators: AppliedIndicator[];
+  applyIndicator: (indicator: AppliedIndicator) => void;
+  removeIndicator: (id: string) => void;
+  setIndicatorEnabled: (id: string, enabled: boolean) => void;
 
   // live data
   tick: any;
@@ -83,8 +88,29 @@ export function ChartProvider({ children, symbol }: { children: ReactNode; symbo
   const [isCreatingStrategy, setIsCreatingStrategy] = useState(false);
   const [annotations, setAnnotations] = useState<any[]>([]);
   const [isIndicatorPanelOpen, setIsIndicatorPanelOpen] = useState(false);
+  const [appliedIndicators, setAppliedIndicators] = useState<AppliedIndicator[]>([]);
   
   const [accountUnrealisedPnL, setAccountUnrealisedPnL] = useState(0);
+
+  const applyIndicator = useCallback((indicator: AppliedIndicator) => {
+    setAppliedIndicators((current) => {
+      const existingIndex = current.findIndex((entry) => entry.id === indicator.id);
+      if (existingIndex === -1) return [...current, indicator];
+      const next = [...current];
+      next[existingIndex] = indicator;
+      return next;
+    });
+  }, []);
+
+  const removeIndicator = useCallback((id: string) => {
+    setAppliedIndicators((current) => current.filter((entry) => entry.id !== id));
+  }, []);
+
+  const setIndicatorEnabled = useCallback((id: string, enabled: boolean) => {
+    setAppliedIndicators((current) => current.map((entry) =>
+      entry.id === id ? { ...entry, enabled } : entry
+    ));
+  }, []);
 
   const { positions, setPositions, handlePositionClosed, updatePosition } = usePositions(shortname);
   const { placeTrade, closeTrade, error } = useTrades(positions, setPositions);
@@ -146,6 +172,10 @@ export function ChartProvider({ children, symbol }: { children: ReactNode; symbo
         handleAnnotation,
         isIndicatorPanelOpen,
         setIsIndicatorPanelOpen,
+        appliedIndicators,
+        applyIndicator,
+        removeIndicator,
+        setIndicatorEnabled,
         tick,
         connected,
         chartData: chartData ?? [],

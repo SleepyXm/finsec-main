@@ -8,7 +8,8 @@ import {
 import { PriceLines } from "@/app/components/trading/price";
 import { StrategyOverlay } from "../overlays/Strategy";
 import { useCandleHighlight } from "@/app/chart/chartrender/overlays/CandleHighlight";
-import { useIndicators } from "@/app/indicators/hooks/useIndicator";
+import { useScriptIndicators } from "@/app/indicators/hooks/useIndicator";
+import type { AppliedIndicator } from "@/app/indicators/language/types";
 import { PositionTags } from "@/app/chart/chartrender/overlays/PositionOverlay";
 import { ACCENT, DANGER, SUCCESS } from "@/app/components/UI/UI";
 
@@ -26,6 +27,7 @@ type ChartPlugins = {
 
   enableStrategyOverlay?: boolean;
   enableIndicators?: boolean;
+  appliedIndicators?: AppliedIndicator[];
 
   getPositionLabel?: (position: any) => string;
   onClosePosition?: (id: string) => void;
@@ -392,19 +394,11 @@ export function useChart(
     };
   }, [plugins.onScrollLeft, chartKey]);
 
-  useIndicators(
+  useScriptIndicators(
     chartRef,
-    seriesRef,
     data,
-    plugins.enableIndicators
-      ? {
-          series: {},
-          zones: {},
-        }
-      : {
-          series: {},
-          zones: {},
-        },
+    plugins.enableIndicators ? plugins.appliedIndicators ?? [] : [],
+    chartKey,
   );
 
   const { setSelection, clearSelection } = useCandleHighlight({

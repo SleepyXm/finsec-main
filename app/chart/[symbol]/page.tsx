@@ -18,7 +18,7 @@ function ChartPageInner() {
     chartData, isCandle, isCreatingStrategy,
     handleAnnotation, positions, livePnLMap,
     accountUnrealisedPnL, placeTrade, closeTrade,
-    updatePosition, loadPreviousPage,
+    updatePosition, loadPreviousPage, appliedIndicators,
   } = useChartContext();
 
   const [quantity,       setQuantity]       = useState(1);
@@ -70,6 +70,7 @@ function ChartPageInner() {
           isCreatingStrategy={isCreatingStrategy}
           onAnnotation={handleAnnotation}
           onScrollLeft={loadPreviousPage}
+          appliedIndicators={appliedIndicators}
           theme={activeTheme}
         />
       ) : (

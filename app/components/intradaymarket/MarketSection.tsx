@@ -11,6 +11,7 @@ import {
   traderCornerStyle,
   traderInsetPanelStyle,
   traderPanelStyle,
+  cornerStyle,
 } from "@/app/components/UI/UI";
 
 const ASSET_CARD_WIDTH = 280;

@@ -11,7 +11,7 @@ import type { DrawTool } from "./LeftBarSection";
 // ── extra chart (one per additional symbol) ──────────────────────────────────
 
 function ExtraChartInner({ onRemove }: { onRemove: () => void }) {
-  const { chartData, isCandle, positions, livePnLMap, updatePosition } = useChartContext();
+  const { chartData, isCandle, positions, livePnLMap, updatePosition, appliedIndicators } = useChartContext();
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", borderLeft: "1px solid #1e2130" }}>
@@ -40,6 +40,7 @@ function ExtraChartInner({ onRemove }: { onRemove: () => void }) {
           positions={positions}
           livePnLMap={livePnLMap}
           updatePosition={updatePosition}
+          appliedIndicators={appliedIndicators}
           theme={defaultChartTheme}
         />
       ) : (

@@ -7,6 +7,7 @@ import {
   ChartTheme,
   defaultChartTheme,
 } from "@/app/chart/chartrender/themes/themes";
+import type { AppliedIndicator } from "@/app/indicators/language/types";
 
 type ChartKind = "candlestick" | "line";
 
@@ -26,6 +27,7 @@ type ChartRendererProps = {
   updatePosition?: (id: string, patch: any) => void | Promise<void>;
   onAnnotation?: (annotation: any) => void;
   onScrollLeft?: () => void;
+  appliedIndicators?: AppliedIndicator[];
 
   theme?: ChartTheme;
 };
@@ -43,6 +45,7 @@ export function ChartRenderer({
   onScrollLeft,
   onClosePosition,
   updatePosition,
+  appliedIndicators = [],
   theme = defaultChartTheme,
 }: ChartRendererProps) {
   const getPositionLabel = useCallback(
@@ -110,6 +113,7 @@ export function ChartRenderer({
     updatePosition,
     enableStrategyOverlay: type === "candlestick",
     enableIndicators: type === "candlestick",
+    appliedIndicators,
   },
   theme
 );

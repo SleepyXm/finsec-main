@@ -5,6 +5,8 @@ import { computeSuperTrend, SuperTrendConfig } from "@/app/indicators/supertrend
 import { computeLiquidityVoids, LiquidityVoidConfig } from "@/app/indicators/liquidityvoids"
 import { LiquidityVoidPlugin } from "@/app/indicators/plugins/liquidityvoidplugin"
 import { SuperTrendFillPlugin } from "@/app/indicators/plugins/supertrendplugin"
+import type { AppliedIndicator } from "@/app/indicators/language/types"
+import { executeIndicator } from "@/app/indicators/runtime/executor"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,8 +33,9 @@ export type IndicatorConfig = {
 // ── Registries ────────────────────────────────────────────────────────────────
 
 type SimpleCompute = (data: OHLCVBar[], period: number) => SeriesPoint[]
+type SimpleSeriesKey = "sma" | "ema"
 
-const SERIES_COMPUTE: Partial<Record<keyof SeriesIndicatorConfig, SimpleCompute>> = {
+const SERIES_COMPUTE: Record<SimpleSeriesKey, SimpleCompute> = {
   sma: computeSMA,
   ema: computeEMA,
 }
@@ -173,7 +176,7 @@ export function useIndicators(
     const cfg = config.series ?? {}
 
     // SMA, EMA
-    for (const _key of Object.keys(SERIES_COMPUTE) as (keyof typeof SERIES_COMPUTE)[]) {
+    for (const _key of Object.keys(SERIES_COMPUTE) as SimpleSeriesKey[]) {
       const entry   = cfg[_key]
       const series  = seriesMap.current.get(_key)
       const compute = SERIES_COMPUTE[_key]
@@ -207,4 +210,79 @@ export function useIndicators(
     }
 
   }, [data, config])
+}
+
+// Generic FinScript output path. The legacy hook above remains available for
+// the hand-written SuperTrend and liquidity-void implementations while the
+// language grows support for custom primitives.
+export function useScriptIndicators(
+  chartRef: React.MutableRefObject<any>,
+  data: OHLCVBar[],
+  indicators: AppliedIndicator[],
+  chartVersion: number,
+) {
+  const seriesMap = useRef<Map<string, any>>(new Map())
+
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart) return
+
+    const activeSeries = new Set<string>()
+
+    for (const indicator of indicators) {
+      if (!indicator.enabled) continue
+
+      try {
+        const result = executeIndicator({
+          compiled: indicator.compiled,
+          bars: data,
+          inputs: indicator.inputs,
+        })
+
+        for (const plot of result.plots) {
+          const key = `${indicator.id}:${plot.id}`
+          activeSeries.add(key)
+          let series = seriesMap.current.get(key)
+
+          if (!series) {
+            series = chart.addSeries(LineSeries, {
+              color: plot.style.color,
+              lineWidth: plot.style.lineWidth,
+              priceLineVisible: false,
+              lastValueVisible: true,
+              title: plot.title,
+            }, plot.paneIndex)
+            seriesMap.current.set(key, series)
+          } else {
+            series.applyOptions({
+              color: plot.style.color,
+              lineWidth: plot.style.lineWidth,
+              title: plot.title,
+            })
+          }
+
+          series.setData(plot.points)
+        }
+      } catch (error) {
+        console.error(`[FinScript] Failed to execute '${indicator.compiled.metadata.title}'.`, error)
+      }
+    }
+
+    seriesMap.current.forEach((series, key) => {
+      if (!activeSeries.has(key)) {
+        chart.removeSeries(series)
+        seriesMap.current.delete(key)
+      }
+    })
+  }, [chartRef, chartVersion, data, indicators])
+
+  useEffect(() => {
+    return () => {
+      const chart = chartRef.current
+      if (chart) {
+        seriesMap.current.forEach((series) => chart.removeSeries(series))
+      }
+      seriesMap.current.clear()
+    }
+  }, [chartRef, chartVersion])
 }

@@ -7,6 +7,7 @@ import { IndicatorPanel } from "@/app/indicators/core/editor/IndicatorPanel";
 import { AssetSearchBar, AssetListItem } from "@/app/assetsearch/assetsearchcomponents";
 import { useAssetSearch } from "@/app/hooks/utility";
 import { theme, cornerStyle } from "@/app/components/UI/UI";
+import { CandleStickChart } from "../chartrender/charts/CandleStickChart";
 
 export type RightTab =
   | "watchlist" | "add-chart" | "strategy"
@@ -26,6 +27,20 @@ const selectedBlurBg     = "rgba(238,242,247,0.085)";
 const selectedBlurBorder = "rgba(238,242,247,0.26)";
 const hoverBg            = "rgba(238,242,247,0.055)";
 const idleBg             = "rgba(238,242,247,0.025)";
+
+interface SavedStrategyPreview {
+  id: string;
+  label: string;
+  symbol: string;
+  interval: string;
+  candles: Array<{
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+  }>;
+}
 
 interface RightPanelSectionProps {
   rightOpen:        boolean;
@@ -145,6 +160,9 @@ function AddChartTab({ onAddChart }: { onAddChart: (s: string) => void }) {
 
 function StrategyTab() {
   const { isCreatingStrategy, setIsCreatingStrategy } = useChartContext();
+  const savedStrategies: SavedStrategyPreview[] = [];
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
+  const selectedStrategy = savedStrategies.find((strategy) => strategy.id === selectedStrategyId);
 
   return (
     <div style={{ padding: 12 }}>
@@ -173,6 +191,59 @@ function StrategyTab() {
           Click on the chart to place strategy points
         </p>
       )}
+
+      <div style={{ marginTop: 18 }}>
+        <p style={{ color: theme.dark.muted2, fontSize: 11, marginBottom: 8, letterSpacing: "0.03em" }}>
+          Saved annotations
+        </p>
+
+        {savedStrategies.length === 0 ? (
+          <p style={{ color: theme.dark.muted2, fontSize: 11 }}>
+            No saved strategies yet.
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {savedStrategies.map((strategy) => {
+              const selected = strategy.id === selectedStrategyId;
+
+              return (
+                <button
+                  key={strategy.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setSelectedStrategyId(selected ? null : strategy.id)}
+                  style={{
+                    width: "100%", padding: "9px 10px", textAlign: "left",
+                    background: selected ? selectedBlurBg : idleBg,
+                    border: `1px solid ${selected ? selectedBlurBorder : theme.dark.borderSoft}`,
+                    borderRadius: 0, color: theme.dark.text,
+                    cursor: "pointer", fontFamily: "inherit",
+                  }}
+                >
+                  <span style={{ display: "block", fontSize: 12 }}>
+                    {strategy.label.replace(/_/g, " ")}
+                  </span>
+                  <span style={{ display: "block", color: theme.dark.muted2, fontSize: 10, marginTop: 3 }}>
+                    {strategy.symbol} · {strategy.interval} · {strategy.candles.length} candles
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {selectedStrategy && (
+          <div style={{ height: 220, marginTop: 10, border: `1px solid ${theme.dark.borderSoft}` }}>
+            {selectedStrategy.candles.length >= 2 ? (
+              <CandleStickChart data={selectedStrategy.candles} />
+            ) : (
+              <p style={{ color: theme.dark.muted2, fontSize: 11, padding: 12 }}>
+                This annotation does not contain a candle range.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
