@@ -204,7 +204,6 @@ export function checkFinScript(program: FinScriptProgram): CheckResult {
         checkExpression(expression.condition, scope)
         const whenTrue = checkExpression(expression.whenTrue, scope)
         const whenFalse = checkExpression(expression.whenFalse, scope)
-        capability("CAP008", "Conditional expressions are parsed but not yet implemented by the browser runtime.", expression)
         if (whenTrue === "series<number>" || whenFalse === "series<number>") type = "series<number>"
         else if (whenTrue === "series<boolean>" || whenFalse === "series<boolean>") type = "series<boolean>"
         else type = whenTrue === "unknown" ? whenFalse : whenTrue
@@ -230,7 +229,6 @@ export function checkFinScript(program: FinScriptProgram): CheckResult {
             diagnostics.push(diagnostic("TYPE012", `Cannot reassign unknown variable '${statement.name}'.`, statement))
           }
           scope.set(statement.name, checkExpression(statement.value, scope))
-          capability("CAP002", "Stateful reassignment is parsed but not yet implemented by the browser runtime.", statement)
           break
         case "tuple-assignment": {
           const valueType = checkExpression(statement.value, scope)
@@ -258,7 +256,6 @@ export function checkFinScript(program: FinScriptProgram): CheckResult {
           checkExpression(statement.expression, scope)
           break
         case "function-declaration": {
-          capability("CAP001", "User-defined functions are parsed but not yet implemented by the browser runtime.", statement)
           const local = new Map(scope)
           statement.parameters.forEach((parameter) => local.set(parameter, "unknown"))
           checkStatements(statement.body, local)
@@ -273,7 +270,6 @@ export function checkFinScript(program: FinScriptProgram): CheckResult {
           break
         }
         case "if":
-          capability("CAP003", "Conditional blocks are parsed but not yet implemented by the browser runtime.", statement)
           statement.branches.forEach((branch) => {
             checkExpression(branch.condition, scope)
             checkStatements(branch.body, new Map(scope))

@@ -6,7 +6,7 @@ import { useState } from "react"
 import { IndicatorEditor } from "./Editor"
 import { DEFAULT_INDICATOR_SCRIPT } from "./defaults"
 import { compileFinScript } from "@/app/indicators/language/compiler"
-import type { FinScriptDiagnostic } from "@/app/indicators/language/types"
+import type { FinScriptDiagnostic, InputDescriptor } from "@/app/indicators/language/types"
 import { FINSCRIPT_EXAMPLES } from "@/app/indicators/language/examples"
 import { useChartContext } from "@/app/chart/chartcontext"
 
@@ -16,6 +16,8 @@ export function IndicatorPanel() {
   const [tab, setTab] = useState<"editor" | "export">("editor")
   const [diagnostics, setDiagnostics] = useState<FinScriptDiagnostic[]>([])
   const [status, setStatus] = useState<"idle" | "applied" | "error">("idle")
+  const [inputDefinitions, setInputDefinitions] = useState<InputDescriptor[]>([])
+  const [inputValues, setInputValues] = useState<Record<string, number | boolean | string>>({})
   const preview = appliedIndicators.find((entry) => entry.id === "editor-preview")
 
   const handleApply = () => {
@@ -27,11 +29,18 @@ export function IndicatorPanel() {
       return
     }
 
+    const nextInputs = Object.fromEntries(result.compiled.inputs.map((input) => [
+      input.id,
+      inputValues[input.id] ?? input.defaultValue,
+    ]))
+    setInputDefinitions(result.compiled.inputs)
+    setInputValues(nextInputs)
+
     applyIndicator({
       id: "editor-preview",
       source: script,
       compiled: result.compiled,
-      inputs: Object.fromEntries(result.compiled.inputs.map((input) => [input.id, input.defaultValue])),
+      inputs: nextInputs,
       enabled: true,
     })
     setStatus("applied")
@@ -80,6 +89,8 @@ export function IndicatorPanel() {
             setScript(example.source)
             setDiagnostics([])
             setStatus("idle")
+            setInputDefinitions([])
+            setInputValues({})
             event.target.value = ""
           }}
           style={{
@@ -115,6 +126,29 @@ export function IndicatorPanel() {
         </button>
       </div>
 
+      {inputDefinitions.length > 0 && (
+        <div style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 10,
+          padding: "8px 12px",
+          borderBottom: "1px solid #1e2130",
+          background: "#0d1017",
+        }}>
+          {inputDefinitions.map((input) => (
+            <IndicatorInput
+              key={input.id}
+              input={input}
+              value={inputValues[input.id] ?? input.defaultValue}
+              onChange={(value) => {
+                setInputValues((current) => ({ ...current, [input.id]: value }))
+                setStatus("idle")
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       <div style={{ flex: 1, minHeight: 0, padding: 12 }}>
         {tab === "editor" && (
           <IndicatorEditor
@@ -122,6 +156,8 @@ export function IndicatorPanel() {
             onChange={(value) => {
               setScript(value)
               setStatus("idle")
+              setInputDefinitions([])
+              setInputValues({})
             }}
             diagnostics={diagnostics}
           />
@@ -171,6 +207,59 @@ export function IndicatorPanel() {
         </div>
       )}
     </div>
+  )
+}
+
+function IndicatorInput({
+  input,
+  value,
+  onChange,
+}: {
+  input: InputDescriptor
+  value: number | boolean | string
+  onChange: (value: number | boolean | string) => void
+}) {
+  const controlStyle: React.CSSProperties = {
+    width: input.type === "color" ? 34 : 82,
+    height: 26,
+    border: "1px solid #31384a",
+    borderRadius: 4,
+    background: "#11151d",
+    color: "#e2e8f0",
+    padding: input.type === "color" ? 2 : "3px 6px",
+    fontSize: 11,
+  }
+
+  return (
+    <label style={{ display: "flex", alignItems: "center", gap: 6, color: "#94a3b8", fontSize: 11 }}>
+      <span>{input.title}</span>
+      {input.type === "bool" ? (
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+      ) : input.type === "color" ? (
+        <input
+          aria-label={input.title}
+          type="color"
+          value={typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value : "#2962ff"}
+          onChange={(event) => onChange(event.target.value)}
+          style={controlStyle}
+        />
+      ) : (
+        <input
+          aria-label={input.title}
+          type="number"
+          step={input.type === "int" ? 1 : "any"}
+          value={Number(value)}
+          onChange={(event) => onChange(input.type === "int"
+            ? Math.trunc(event.target.valueAsNumber)
+            : event.target.valueAsNumber)}
+          style={controlStyle}
+        />
+      )}
+    </label>
   )
 }
 

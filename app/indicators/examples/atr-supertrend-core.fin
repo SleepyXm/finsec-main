@@ -1,0 +1,50 @@
+//@finscript=1
+indicator("ATR SuperTrend Core Test", overlay = true)
+
+atrLength = input.int(10, "ATR Length")
+factor = input.float(3, "Factor")
+bullishColor = input.color(#00c853, "Bullish Color")
+bearishColor = input.color(#ff1744, "Bearish Color")
+
+calculateSuperTrend(factorValue, atrValue) =>
+    source = hl2
+    upperBand = source + factorValue * atrValue
+    lowerBand = source - factorValue * atrValue
+    previousLowerBand = nz(lowerBand[1])
+    previousUpperBand = nz(upperBand[1])
+
+    lowerBand := lowerBand > previousLowerBand or close[1] < previousLowerBand ? lowerBand : previousLowerBand
+    upperBand := upperBand < previousUpperBand or close[1] > previousUpperBand ? upperBand : previousUpperBand
+
+    direction = na
+    superTrend = na
+    previousSuperTrend = superTrend[1]
+
+    if na(atrValue[1])
+        direction := 1
+    else if previousSuperTrend == previousUpperBand
+        direction := close > upperBand ? -1 : 1
+    else
+        direction := close < lowerBand ? 1 : -1
+
+    superTrend := direction == -1 ? lowerBand : upperBand
+    [superTrend, direction]
+
+atr = ta.atr(atrLength)
+[superTrend, direction] = calculateSuperTrend(factor, atr)
+
+bullishTrend = not na(atr) and direction == -1 ? superTrend : na
+bearishTrend = not na(atr) and direction == 1 ? superTrend : na
+
+bullishPlot = plot(bullishTrend, "Bullish Trend", color = color.new(bullishColor, 15), style = plot.linebreak, linewidth = 2)
+bearishPlot = plot(bearishTrend, "Bearish Trend", color = color.new(bearishColor, 15), style = plot.linebreak, linewidth = 2)
+bodyMiddle = plot(math.avg(open, close), "Body Middle", display = display.none)
+
+fill(bodyMiddle, bullishPlot, color = color.new(bullishColor, 90))
+fill(bodyMiddle, bearishPlot, color = color.new(bearishColor, 90))
+
+bullishShift = ta.crossunder(direction, 0)
+bearishShift = ta.crossover(direction, 0)
+
+plotshape(bullishShift ? superTrend : na, "Bullish Shift", color = bullishColor, location = location.absolute, shape = shape.labelup, text = "▲")
+plotshape(bearishShift ? superTrend : na, "Bearish Shift", color = bearishColor, location = location.absolute, shape = shape.labeldown, text = "▼")

@@ -1,0 +1,141 @@
+//@finscript=1
+indicator("Adaptive SuperTrend", overlay = true)
+
+atrLength = input.int(10, "ATR Length", group = "SuperTrend Settings")
+factor = input.float(3, "SuperTrend Factor", group = "SuperTrend Settings")
+trainingPeriod = input.int(100, "Training Data Length", group = "K-Means Settings")
+highVolatilityGuess = input.float(0.75, "Initial High Volatility Percentile", max = 1, group = "K-Means Settings")
+mediumVolatilityGuess = input.float(0.50, "Initial Medium Volatility Percentile", max = 1, group = "K-Means Settings")
+lowVolatilityGuess = input.float(0.25, "Initial Low Volatility Percentile", max = 1, group = "K-Means Settings")
+lineTransparency = input.int(70, "Line Transparency", min = 0, max = 100, group = "Appearance")
+fillTransparency = input.int(95, "Fill Transparency", min = 0, max = 100, group = "Appearance")
+bullishColor = input.color(#00ffbb, "Bullish Color", group = "Appearance")
+bearishColor = input.color(#ff1100, "Bearish Color", group = "Appearance")
+
+calculateSuperTrend(factorValue, atrValue) =>
+    source = hl2
+    upperBand = source + factorValue * atrValue
+    lowerBand = source - factorValue * atrValue
+    previousLowerBand = nz(lowerBand[1])
+    previousUpperBand = nz(upperBand[1])
+
+    lowerBand := lowerBand > previousLowerBand or close[1] < previousLowerBand ? lowerBand : previousLowerBand
+    upperBand := upperBand < previousUpperBand or close[1] > previousUpperBand ? upperBand : previousUpperBand
+
+    direction = na
+    superTrend = na
+    previousSuperTrend = superTrend[1]
+
+    if na(atrValue[1])
+        direction := 1
+    else if previousSuperTrend == previousUpperBand
+        direction := close > upperBand ? -1 : 1
+    else
+        direction := close < lowerBand ? 1 : -1
+
+    superTrend := direction == -1 ? lowerBand : upperBand
+    [superTrend, direction]
+
+volatility = ta.atr(atrLength)
+highestVolatility = ta.highest(volatility, trainingPeriod)
+lowestVolatility = ta.lowest(volatility, trainingPeriod)
+volatilityRange = highestVolatility - lowestVolatility
+
+highCentroid = lowestVolatility + volatilityRange * highVolatilityGuess
+mediumCentroid = lowestVolatility + volatilityRange * mediumVolatilityGuess
+lowCentroid = lowestVolatility + volatilityRange * lowVolatilityGuess
+
+highCluster = array.float()
+mediumCluster = array.float()
+lowCluster = array.float()
+highMeans = array.float(highCentroid)
+mediumMeans = array.float(mediumCentroid)
+lowMeans = array.float(lowCentroid)
+
+if nz(volatility) > 0 and bar_index >= trainingPeriod - 1
+    while highMeans.size() == 1 or highMeans.first() != highMeans.get(1) or mediumMeans.size() == 1 or mediumMeans.first() != mediumMeans.get(1) or lowMeans.size() == 1 or lowMeans.first() != lowMeans.get(1)
+        highCluster.clear()
+        mediumCluster.clear()
+        lowCluster.clear()
+
+        for offset = trainingPeriod - 1 to 0
+            highDistance = math.abs(volatility[offset] - highMeans.first())
+            mediumDistance = math.abs(volatility[offset] - mediumMeans.first())
+            lowDistance = math.abs(volatility[offset] - lowMeans.first())
+
+            if highDistance < mediumDistance and highDistance < lowDistance
+                highCluster.push(volatility[offset])
+
+            if mediumDistance < highDistance and mediumDistance < lowDistance
+                mediumCluster.push(volatility[offset])
+
+            if lowDistance < highDistance and lowDistance < mediumDistance
+                lowCluster.push(volatility[offset])
+
+        highMeans.unshift(highCluster.avg())
+        mediumMeans.unshift(mediumCluster.avg())
+        lowMeans.unshift(lowCluster.avg())
+
+currentHighMean = highMeans.first()
+currentMediumMean = mediumMeans.first()
+currentLowMean = lowMeans.first()
+
+highDistance = math.abs(volatility - currentHighMean)
+mediumDistance = math.abs(volatility - currentMediumMean)
+lowDistance = math.abs(volatility - currentLowMean)
+
+distances = array.float(highDistance, mediumDistance, lowDistance)
+centroids = array.float(currentHighMean, currentMediumMean, currentLowMean)
+cluster = distances.indexof(distances.min())
+assignedCentroid = cluster == -1 ? na : centroids.get(cluster)
+
+[superTrend, direction] = calculateSuperTrend(factor, assignedCentroid)
+
+bullishTrend = close > superTrend ? superTrend : na
+bearishTrend = close < superTrend ? superTrend : na
+
+bullishPlot = plot(
+    bullishTrend,
+    "Bullish Trend",
+    color = color.new(bullishColor, lineTransparency),
+    style = plot.linebreak,
+    linewidth = 2
+)
+
+bearishPlot = plot(
+    bearishTrend,
+    "Bearish Trend",
+    color = color.new(bearishColor, lineTransparency),
+    style = plot.linebreak,
+    linewidth = 2
+)
+
+bodyMiddle = plot(
+    barstate.first ? na : math.avg(open, close),
+    "Body Middle",
+    display = display.none
+)
+
+fill(bodyMiddle, bullishPlot, color = color.new(bullishColor, fillTransparency))
+fill(bodyMiddle, bearishPlot, color = color.new(bearishColor, fillTransparency))
+
+bullishShift = ta.crossunder(direction, 0)
+bearishShift = ta.crossover(direction, 0)
+
+plotshape(
+    bullishShift ? superTrend : na,
+    "Bullish Trend Shift",
+    color = bullishColor,
+    location = location.absolute,
+    shape = shape.labelup,
+    text = "▲"
+)
+
+plotshape(
+    bearishShift ? superTrend : na,
+    "Bearish Trend Shift",
+    color = bearishColor,
+    location = location.absolute,
+    shape = shape.labeldown,
+    text = "▼"
+)
