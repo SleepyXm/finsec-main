@@ -1,13 +1,22 @@
-import type { OHLCVBar } from "@/app/indicators/primitives"
 import type {
   CallExpression,
   Expression,
   IndicatorExecutionRequest,
   IndicatorExecutionResult,
 } from "@/app/indicators/language/types"
-
-type RuntimeScalar = number | boolean | string
-type RuntimeValue = RuntimeScalar | number[]
+import { executeMathFunction, isMathFunction } from "./builtins/math"
+import { executeTaFunction, isTaFunction } from "./builtins/ta"
+import { executeColorFunction, isColorFunction } from "./builtins/color"
+import {
+  isBooleanSeries,
+  isNumericSeries,
+  isSeries,
+  isTuple,
+  isPlotHandle,
+  type RuntimeValue,
+  toBooleanSeries,
+  toNumericSeries,
+} from "./valueTypes"
 
 const COLORS: Record<string, string> = {
   "color.blue": "#2962FF",
@@ -15,94 +24,61 @@ const COLORS: Record<string, string> = {
   "color.green": "#00C853",
   "color.red": "#FF1744",
   "color.white": "#FFFFFF",
-}
-
-function isSeries(value: RuntimeValue): value is number[] {
-  return Array.isArray(value)
-}
-
-function toSeries(value: RuntimeValue, length: number): number[] {
-  if (isSeries(value)) return value
-  if (typeof value === "number") return new Array(length).fill(value)
-  throw new Error("Expected a numerical value or series.")
-}
-
-function periodOf(value: RuntimeValue) {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 1) {
-    throw new Error("Indicator lengths must be positive numbers.")
-  }
-  return Math.max(1, Math.trunc(value))
-}
-
-function sma(values: number[], period: number) {
-  const result = new Array(values.length).fill(Number.NaN)
-  let sum = 0
-  for (let index = 0; index < values.length; index += 1) {
-    sum += values[index]
-    if (index >= period) sum -= values[index - period]
-    if (index >= period - 1) result[index] = sum / period
-  }
-  return result
-}
-
-function ema(values: number[], period: number) {
-  const result = new Array(values.length).fill(Number.NaN)
-  if (!values.length) return result
-  const alpha = 2 / (period + 1)
-  let current = values[0]
-  for (let index = 0; index < values.length; index += 1) {
-    current = index === 0 ? values[index] : values[index] * alpha + current * (1 - alpha)
-    if (index >= period - 1) result[index] = current
-  }
-  return result
-}
-
-function rma(values: number[], period: number) {
-  const result = new Array(values.length).fill(Number.NaN)
-  if (!values.length) return result
-  const alpha = 1 / period
-  let current = values[0]
-  for (let index = 0; index < values.length; index += 1) {
-    current = index === 0 ? values[index] : values[index] * alpha + current * (1 - alpha)
-    if (index >= period - 1) result[index] = current
-  }
-  return result
-}
-
-function atr(bars: OHLCVBar[], period: number) {
-  const trueRange = bars.map((bar, index) => {
-    if (index === 0) return bar.high - bar.low
-    const previousClose = bars[index - 1].close
-    return Math.max(bar.high - bar.low, Math.abs(bar.high - previousClose), Math.abs(bar.low - previousClose))
-  })
-  return rma(trueRange, period)
-}
-
-function rsi(values: number[], period: number) {
-  const gains = new Array(values.length).fill(0)
-  const losses = new Array(values.length).fill(0)
-  for (let index = 1; index < values.length; index += 1) {
-    const delta = values[index] - values[index - 1]
-    gains[index] = Math.max(delta, 0)
-    losses[index] = Math.max(-delta, 0)
-  }
-  const averageGain = rma(gains, period)
-  const averageLoss = rma(losses, period)
-  return values.map((_, index) => {
-    if (index < period || Number.isNaN(averageGain[index]) || Number.isNaN(averageLoss[index])) return Number.NaN
-    if (averageLoss[index] === 0) return 100
-    const relativeStrength = averageGain[index] / averageLoss[index]
-    return 100 - 100 / (1 + relativeStrength)
-  })
+  "color.yellow": "#FFD600",
+  "color.purple": "#AA00FF",
+  "color.aqua": "#00E5FF",
+  "color.gray": "#9E9E9E",
+  "location.abovebar": "aboveBar",
+  "location.belowbar": "belowBar",
+  "location.inbar": "inBar",
+  "shape.circle": "circle",
+  "shape.square": "square",
+  "shape.arrowup": "arrowUp",
+  "shape.arrowdown": "arrowDown",
+  "shape.labelup": "arrowUp",
+  "shape.labeldown": "arrowDown",
+  "location.absolute": "absolute",
+  "plot.linebreak": "linebreak",
+  "display.none": "none",
 }
 
 function argument(call: CallExpression, name: string, index: number) {
-  return call.args.find((entry) => entry.name === name)?.value ?? call.args.filter((entry) => !entry.name)[index]?.value
+  return call.args.find((entry) => entry.name === name)?.value
+    ?? call.args.filter((entry) => !entry.name)[index]?.value
+}
+
+function scalarBinary(operator: string, left: RuntimeValue, right: RuntimeValue): RuntimeValue {
+  if (isSeries(left) || isSeries(right) || isTuple(left) || isTuple(right)) {
+    throw new Error(`Operator '${operator}' received an unsupported value.`)
+  }
+
+  if (operator === "and") return Boolean(left) && Boolean(right)
+  if (operator === "or") return Boolean(left) || Boolean(right)
+  if (operator === "==") return left === right
+  if (operator === "!=") return left !== right
+
+  if (typeof left !== "number" || typeof right !== "number") {
+    throw new Error(`Operator '${operator}' requires numerical operands.`)
+  }
+
+  if (operator === "+") return left + right
+  if (operator === "-") return left - right
+  if (operator === "*") return left * right
+  if (operator === "/") return left / right
+  if (operator === "%") return left % right
+  if (operator === "<") return left < right
+  if (operator === "<=") return left <= right
+  if (operator === ">") return left > right
+  if (operator === ">=") return left >= right
+  throw new Error(`Unsupported operator '${operator}'.`)
 }
 
 export function executeIndicator({ compiled, bars, inputs = {} }: IndicatorExecutionRequest): IndicatorExecutionResult {
   const variables = new Map<string, RuntimeValue>()
   const plots: IndicatorExecutionResult["plots"] = []
+  const fills: IndicatorExecutionResult["fills"] = []
+  const boxes: IndicatorExecutionResult["boxes"] = []
+  const signals: IndicatorExecutionResult["signals"] = []
   const length = bars.length
 
   const sourceValues: Record<string, number[]> = {
@@ -118,29 +94,38 @@ export function executeIndicator({ compiled, bars, inputs = {} }: IndicatorExecu
   }
 
   const evaluateBinary = (operator: string, left: RuntimeValue, right: RuntimeValue): RuntimeValue => {
-    if (!isSeries(left) && !isSeries(right)) {
-      if (typeof left === "number" && typeof right === "number") {
-        if (operator === "+") return left + right
-        if (operator === "-") return left - right
-        if (operator === "*") return left * right
-        if (operator === "/") return left / right
-        if (operator === "%") return left % right
-        if (operator === "==") return left === right
-        if (operator === "!=") return left !== right
-        if (operator === "<") return left < right
-        if (operator === "<=") return left <= right
-        if (operator === ">") return left > right
-        if (operator === ">=") return left >= right
-      }
-      if (operator === "and") return Boolean(left) && Boolean(right)
-      if (operator === "or") return Boolean(left) || Boolean(right)
-      if (operator === "==") return left === right
-      if (operator === "!=") return left !== right
-      throw new Error(`Unsupported scalar operation '${operator}'.`)
+    if (!isSeries(left) && !isSeries(right)) return scalarBinary(operator, left, right)
+
+    if (operator === "and" || operator === "or") {
+      const leftSeries = toBooleanSeries(left, length)
+      const rightSeries = toBooleanSeries(right, length)
+      return leftSeries.map((value, index) => operator === "and"
+        ? value && rightSeries[index]
+        : value || rightSeries[index])
     }
 
-    const leftSeries = toSeries(left, length)
-    const rightSeries = toSeries(right, length)
+    if (isBooleanSeries(left) || isBooleanSeries(right)) {
+      const leftSeries = toBooleanSeries(left, length)
+      const rightSeries = toBooleanSeries(right, length)
+      if (operator === "==") return leftSeries.map((value, index) => value === rightSeries[index])
+      if (operator === "!=") return leftSeries.map((value, index) => value !== rightSeries[index])
+      throw new Error(`Operator '${operator}' does not support boolean series.`)
+    }
+
+    const leftSeries = toNumericSeries(left, length)
+    const rightSeries = toNumericSeries(right, length)
+    if (["==", "!=", "<", "<=", ">", ">="].includes(operator)) {
+      return leftSeries.map((value, index) => {
+        const other = rightSeries[index]
+        if (operator === "==") return value === other
+        if (operator === "!=") return value !== other
+        if (operator === "<") return value < other
+        if (operator === "<=") return value <= other
+        if (operator === ">") return value > other
+        return value >= other
+      })
+    }
+
     return leftSeries.map((value, index) => {
       const other = rightSeries[index]
       if (operator === "+") return value + other
@@ -161,21 +146,23 @@ export function executeIndicator({ compiled, bars, inputs = {} }: IndicatorExecu
       return evaluate(defaultExpression)
     }
 
-    if (call.callee === "ta.sma" || call.callee === "ta.ema" || call.callee === "ta.rsi") {
-      const sourceExpression = argument(call, "source", 0)
-      const periodExpression = argument(call, "length", 1)
-      if (!sourceExpression || !periodExpression) throw new Error(`${call.callee} requires source and length.`)
-      const values = toSeries(evaluate(sourceExpression), length)
-      const period = periodOf(evaluate(periodExpression))
-      if (call.callee === "ta.sma") return sma(values, period)
-      if (call.callee === "ta.ema") return ema(values, period)
-      return rsi(values, period)
+    if (call.callee === "na") {
+      const valueExpression = argument(call, "value", 0)
+      if (!valueExpression) throw new Error("na requires a value.")
+      const value = evaluate(valueExpression)
+      if (isNumericSeries(value)) return value.map((entry) => Number.isNaN(entry))
+      return typeof value === "number" && Number.isNaN(value)
     }
 
-    if (call.callee === "ta.atr") {
-      const periodExpression = argument(call, "length", 0)
-      if (!periodExpression) throw new Error("ta.atr requires a length.")
-      return atr(bars, periodOf(evaluate(periodExpression)))
+    if (call.callee === "nz") {
+      const valueExpression = argument(call, "value", 0)
+      if (!valueExpression) throw new Error("nz requires a value.")
+      const replacementExpression = argument(call, "replacement", 1)
+      const replacementValue = replacementExpression ? evaluate(replacementExpression) : 0
+      const replacement = typeof replacementValue === "number" ? replacementValue : 0
+      const value = evaluate(valueExpression)
+      if (isNumericSeries(value)) return value.map((entry) => Number.isNaN(entry) ? replacement : entry)
+      return typeof value === "number" && Number.isNaN(value) ? replacement : value
     }
 
     if (call.callee === "plot") {
@@ -184,25 +171,110 @@ export function executeIndicator({ compiled, bars, inputs = {} }: IndicatorExecu
       const titleExpression = argument(call, "title", 1)
       const colorExpression = argument(call, "color", 2)
       const widthExpression = argument(call, "linewidth", 3)
-      const values = toSeries(evaluate(seriesExpression), length)
+      const styleExpression = argument(call, "style", 4)
+      const displayExpression = argument(call, "display", 5)
+      const values = toNumericSeries(evaluate(seriesExpression), length)
       const titleValue = titleExpression ? evaluate(titleExpression) : `Plot ${plots.length + 1}`
       const colorValue = colorExpression ? evaluate(colorExpression) : "#2962FF"
       const widthValue = widthExpression ? evaluate(widthExpression) : 2
+      const styleValue = styleExpression ? evaluate(styleExpression) : "line"
+      const displayValue = displayExpression ? evaluate(displayExpression) : "visible"
       const lineWidth = Math.min(4, Math.max(1, Math.trunc(Number(widthValue)))) as 1 | 2 | 3 | 4
+      const plotId = `plot_${plots.length}`
 
       plots.push({
-        id: `plot_${plots.length}`,
+        id: plotId,
         title: String(titleValue),
         kind: "line",
         paneIndex: compiled.metadata.overlay ? 0 : 1,
-        style: { color: String(colorValue), lineWidth },
+        style: {
+          color: String(colorValue),
+          lineWidth,
+          lineBreak: styleValue === "linebreak",
+          visible: displayValue !== "none",
+        },
         points: values
-          .map((value, index) => ({ time: bars[index].time, value }))
-          .filter((point) => Number.isFinite(point.value)),
+          .map((value, index) => Number.isFinite(value)
+            ? { time: bars[index].time, value }
+            : { time: bars[index].time })
+          .filter((point) => styleValue === "linebreak" || point.value !== undefined),
+      })
+      return { kind: "plot-handle", id: plotId }
+    }
+
+    if (call.callee === "fill") {
+      const firstExpression = argument(call, "plot1", 0)
+      const secondExpression = argument(call, "plot2", 1)
+      if (!firstExpression || !secondExpression) throw new Error("fill requires two plot handles.")
+      const firstHandle = evaluate(firstExpression)
+      const secondHandle = evaluate(secondExpression)
+      if (!isPlotHandle(firstHandle) || !isPlotHandle(secondHandle)) {
+        throw new Error("fill arguments must be values returned by plot().")
+      }
+      const firstPlot = plots.find((plot) => plot.id === firstHandle.id)
+      const secondPlot = plots.find((plot) => plot.id === secondHandle.id)
+      if (!firstPlot || !secondPlot) throw new Error("fill could not resolve its plot outputs.")
+      const colorExpression = argument(call, "color", 2)
+      const color = colorExpression ? String(evaluate(colorExpression)) : "rgba(41, 98, 255, 0.15)"
+      const secondValues = new Map(secondPlot.points.map((point) => [point.time, point.value]))
+      fills.push({
+        id: `fill_${fills.length}`,
+        title: `${firstPlot.title} / ${secondPlot.title}`,
+        paneIndex: firstPlot.paneIndex,
+        points: firstPlot.points.flatMap((point) => {
+          const other = secondValues.get(point.time)
+          if (point.value === undefined || other === undefined) return []
+          return [{
+            time: point.time,
+            top: Math.max(point.value, other),
+            bottom: Math.min(point.value, other),
+            color,
+          }]
+        }),
       })
       return 0
     }
 
+    if (call.callee === "plotshape") {
+      const conditionExpression = argument(call, "condition", 0)
+      if (!conditionExpression) throw new Error("plotshape requires a condition.")
+      const titleExpression = argument(call, "title", 1)
+      const colorExpression = argument(call, "color", 2)
+      const locationExpression = argument(call, "location", 3)
+      const shapeExpression = argument(call, "shape", 4)
+      const textExpression = argument(call, "text", 5)
+      const condition = evaluate(conditionExpression)
+      const title = titleExpression ? String(evaluate(titleExpression)) : `Signal ${signals.length + 1}`
+      const color = colorExpression ? String(evaluate(colorExpression)) : "#00C853"
+      const positionValue = locationExpression ? String(evaluate(locationExpression)) : "belowBar"
+      const shapeValue = shapeExpression ? String(evaluate(shapeExpression)) : "arrowUp"
+      const text = textExpression ? String(evaluate(textExpression)) : title
+      const position = (["aboveBar", "belowBar", "inBar"].includes(positionValue)
+        ? positionValue
+        : "belowBar") as "aboveBar" | "belowBar" | "inBar"
+      const shape = (["circle", "square", "arrowUp", "arrowDown"].includes(shapeValue)
+        ? shapeValue
+        : "arrowUp") as "circle" | "square" | "arrowUp" | "arrowDown"
+
+      signals.push({
+        id: `signal_${signals.length}`,
+        title,
+        style: { color, position, shape, text },
+        points: isBooleanSeries(condition)
+          ? condition.map((visible, index) => ({ time: bars[index].time, visible }))
+          : toNumericSeries(condition, length).map((price, index) => ({
+              time: bars[index].time,
+              visible: Number.isFinite(price),
+              price: Number.isFinite(price) ? price : undefined,
+            })),
+      })
+      return 0
+    }
+
+    const args = call.args.map((entry) => evaluate(entry.value))
+    if (isColorFunction(call.callee)) return executeColorFunction(call.callee, args)
+    if (isMathFunction(call.callee)) return executeMathFunction(call.callee, args, length)
+    if (isTaFunction(call.callee)) return executeTaFunction(call.callee, args, bars, length)
     throw new Error(`Unsupported runtime function '${call.callee}'.`)
   }
 
@@ -210,6 +282,7 @@ export function executeIndicator({ compiled, bars, inputs = {} }: IndicatorExecu
     switch (expression.kind) {
       case "literal": return expression.value
       case "identifier": {
+        if (expression.name === "na") return Number.NaN
         if (variables.has(expression.name)) return variables.get(expression.name)!
         if (sourceValues[expression.name]) return sourceValues[expression.name]
         if (COLORS[expression.name]) return COLORS[expression.name]
@@ -217,33 +290,55 @@ export function executeIndicator({ compiled, bars, inputs = {} }: IndicatorExecu
       }
       case "call": return evaluateCall(expression)
       case "history": {
-        const values = toSeries(evaluate(expression.target), length)
-        return values.map((_, index) => index < expression.offset ? Number.NaN : values[index - expression.offset])
+        const value = evaluate(expression.target)
+        const offsetValue = evaluate(expression.offset)
+        if (typeof offsetValue !== "number" || !Number.isFinite(offsetValue)) {
+          throw new Error("The vector runtime requires a constant numerical history offset.")
+        }
+        const offset = Math.max(0, Math.trunc(offsetValue))
+        if (isNumericSeries(value)) {
+          return value.map((_, index) => index < offset ? Number.NaN : value[index - offset])
+        }
+        if (isBooleanSeries(value)) {
+          return value.map((_, index) => index < offset ? false : value[index - offset])
+        }
+        throw new Error("History access requires a series.")
       }
       case "unary": {
         const value = evaluate(expression.operand)
-        if (expression.operator === "not") return !Boolean(value)
-        if (isSeries(value)) return value.map((entry) => expression.operator === "-" ? -entry : entry)
+        if (expression.operator === "not") {
+          if (isBooleanSeries(value)) return value.map((entry) => !entry)
+          return !Boolean(value)
+        }
+        if (isNumericSeries(value)) return value.map((entry) => expression.operator === "-" ? -entry : entry)
         if (typeof value !== "number") throw new Error("Unary numeric operators require a number.")
         return expression.operator === "-" ? -value : value
       }
       case "binary": return evaluateBinary(expression.operator, evaluate(expression.left), evaluate(expression.right))
+      case "conditional":
+        throw new Error("Conditional expressions require the stateful runtime, which is not implemented yet.")
+      case "tuple":
+        return { kind: "tuple", values: expression.values.map((value) => evaluate(value)) }
     }
   }
 
   for (const statement of compiled.program.statements) {
     if (statement.kind === "assignment") {
       const input = compiled.inputs.find((entry) => entry.id === statement.name)
-      if (input) {
-        variables.set(statement.name, inputs[statement.name] ?? input.defaultValue)
-      } else {
-        variables.set(statement.name, evaluate(statement.value))
-      }
-    } else {
+      variables.set(
+        statement.name,
+        input ? inputs[statement.name] ?? input.defaultValue : evaluate(statement.value),
+      )
+    } else if (statement.kind === "tuple-assignment") {
+      const result = evaluate(statement.value)
+      if (!isTuple(result)) throw new Error("Tuple assignment received a non-tuple result.")
+      statement.names.forEach((name, index) => variables.set(name, result.values[index]))
+    } else if (statement.kind === "expression") {
       evaluate(statement.expression)
+    } else {
+      throw new Error(`Statement '${statement.kind}' is not implemented by the vector runtime.`)
     }
   }
 
-  return { metadata: compiled.metadata, plots }
+  return { metadata: compiled.metadata, plots, fills, boxes, signals }
 }
-

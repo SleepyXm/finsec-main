@@ -10,9 +10,12 @@ export type LexResult = {
 export function lexFinScript(source: string): LexResult {
   const tokens: Token[] = []
   const diagnostics: FinScriptDiagnostic[] = []
+  const indentStack = [0]
   let index = 0
   let line = 1
   let column = 1
+  let delimiterDepth = 0
+  let atLineStart = true
 
   const location = (start: number, startLine: number, startColumn: number) => ({
     line: startLine,
@@ -36,6 +39,17 @@ export function lexFinScript(source: string): LexResult {
     })
   }
 
+  const addSynthetic = (kind: "indent" | "dedent", start: number, tokenLine: number, tokenColumn: number) => {
+    tokens.push({
+      kind,
+      lexeme: "",
+      line: tokenLine,
+      column: tokenColumn,
+      start,
+      end: start,
+    })
+  }
+
   const advance = () => {
     const char = source[index++]
     column += 1
@@ -49,6 +63,39 @@ export function lexFinScript(source: string): LexResult {
   }
 
   while (index < source.length) {
+    if (atLineStart) {
+      let indentation = 0
+      while (source[index] === " " || source[index] === "\t") {
+        indentation += source[index] === "\t" ? 4 : 1
+        advance()
+      }
+
+      const blankOrComment = source[index] === "\n"
+        || source[index] === "\r"
+        || (source[index] === "/" && source[index + 1] === "/")
+
+      if (delimiterDepth === 0 && !blankOrComment && index < source.length) {
+        const previousIndent = indentStack[indentStack.length - 1]
+        if (indentation > previousIndent) {
+          indentStack.push(indentation)
+          addSynthetic("indent", index, line, column)
+        } else if (indentation < previousIndent) {
+          while (indentStack.length > 1 && indentation < indentStack[indentStack.length - 1]) {
+            indentStack.pop()
+            addSynthetic("dedent", index, line, column)
+          }
+          if (indentation !== indentStack[indentStack.length - 1]) {
+            diagnostics.push(diagnostic(
+              "LEX004",
+              "Indentation does not match an outer block.",
+              { line, column, start: index, end: index },
+            ))
+          }
+        }
+      }
+      atLineStart = false
+    }
+
     const start = index
     const startLine = line
     const startColumn = column
@@ -57,14 +104,25 @@ export function lexFinScript(source: string): LexResult {
     if (char === " " || char === "\t" || char === "\r") continue
 
     if (char === "\n") {
-      add("newline", start, startLine, startColumn)
+      if (delimiterDepth === 0) add("newline", start, startLine, startColumn)
       line += 1
       column = 1
+      atLineStart = true
       continue
     }
 
     if (char === "/" && source[index] === "/") {
       while (index < source.length && source[index] !== "\n") advance()
+      continue
+    }
+
+    if (char === "#") {
+      while (index < source.length && /[0-9A-Fa-f]/.test(source[index])) advance()
+      const value = source.slice(start, index)
+      if (![4, 5, 7, 9].includes(value.length)) {
+        diagnostics.push(diagnostic("LEX005", "Hex colours must use 3, 4, 6, or 8 digits.", location(start, startLine, startColumn)))
+      }
+      add("hexColor", start, startLine, startColumn, value)
       continue
     }
 
@@ -79,10 +137,14 @@ export function lexFinScript(source: string): LexResult {
       "-": "minus",
       "*": "star",
       "%": "percent",
+      "?": "question",
     }
 
     if (single[char]) {
-      add(single[char]!, start, startLine, startColumn)
+      const kind = single[char]!
+      if (kind === "leftParen" || kind === "leftBracket") delimiterDepth += 1
+      if (kind === "rightParen" || kind === "rightBracket") delimiterDepth = Math.max(0, delimiterDepth - 1)
+      add(kind, start, startLine, startColumn)
       continue
     }
 
@@ -92,7 +154,13 @@ export function lexFinScript(source: string): LexResult {
     }
 
     if (char === "=") {
-      add(match("=") ? "equalEqual" : "equal", start, startLine, startColumn)
+      if (match(">")) add("arrow", start, startLine, startColumn)
+      else add(match("=") ? "equalEqual" : "equal", start, startLine, startColumn)
+      continue
+    }
+
+    if (char === ":") {
+      add(match("=") ? "colonEqual" : "colon", start, startLine, startColumn)
       continue
     }
 
@@ -155,6 +223,11 @@ export function lexFinScript(source: string): LexResult {
         and: "and",
         or: "or",
         not: "not",
+        if: "if",
+        else: "else",
+        while: "while",
+        for: "for",
+        to: "to",
       }
       const kind = keywords[lexeme] ?? "identifier"
       const value = kind === "true" ? true : kind === "false" ? false : lexeme
@@ -165,15 +238,14 @@ export function lexFinScript(source: string): LexResult {
     diagnostics.push(diagnostic("LEX003", `Unexpected character '${char}'.`, location(start, startLine, startColumn)))
   }
 
-  tokens.push({
-    kind: "eof",
-    lexeme: "",
-    line,
-    column,
-    start: index,
-    end: index,
-  })
+  if (tokens.length > 0 && tokens[tokens.length - 1].kind !== "newline") {
+    tokens.push({ kind: "newline", lexeme: "", line, column, start: index, end: index })
+  }
+  while (indentStack.length > 1) {
+    indentStack.pop()
+    addSynthetic("dedent", index, line, column)
+  }
+  tokens.push({ kind: "eof", lexeme: "", line, column, start: index, end: index })
 
   return { tokens, diagnostics }
 }
-

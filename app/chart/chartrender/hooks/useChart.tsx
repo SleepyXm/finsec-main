@@ -396,6 +396,7 @@ export function useChart(
 
   useScriptIndicators(
     chartRef,
+    seriesRef,
     data,
     plugins.enableIndicators ? plugins.appliedIndicators ?? [] : [],
     chartKey,

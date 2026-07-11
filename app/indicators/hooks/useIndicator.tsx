@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { LineSeries } from "lightweight-charts"
+import { createSeriesMarkers, LineSeries, type SeriesMarker } from "lightweight-charts"
 import { OHLCVBar, SeriesPoint, computeSMA, computeEMA } from "@/app/indicators/primitives"
 import { computeSuperTrend, SuperTrendConfig } from "@/app/indicators/supertrend"
 import { computeLiquidityVoids, LiquidityVoidConfig } from "@/app/indicators/liquidityvoids"
@@ -7,6 +7,7 @@ import { LiquidityVoidPlugin } from "@/app/indicators/plugins/liquidityvoidplugi
 import { SuperTrendFillPlugin } from "@/app/indicators/plugins/supertrendplugin"
 import type { AppliedIndicator } from "@/app/indicators/language/types"
 import { executeIndicator } from "@/app/indicators/runtime/executor"
+import { FinScriptPrimitivePlugin } from "@/app/indicators/plugins/finscriptplugin"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -217,17 +218,24 @@ export function useIndicators(
 // language grows support for custom primitives.
 export function useScriptIndicators(
   chartRef: React.MutableRefObject<any>,
+  priceSeriesRef: React.MutableRefObject<any>,
   data: OHLCVBar[],
   indicators: AppliedIndicator[],
   chartVersion: number,
 ) {
   const seriesMap = useRef<Map<string, any>>(new Map())
+  const signalMarkers = useRef<ReturnType<typeof createSeriesMarkers> | null>(null)
+  const primitivePlugin = useRef<FinScriptPrimitivePlugin | null>(null)
+  const primitivePane = useRef<any>(null)
 
   useEffect(() => {
     const chart = chartRef.current
     if (!chart) return
 
     const activeSeries = new Set<string>()
+    const markers: SeriesMarker<number>[] = []
+    const fills = [] as ReturnType<typeof executeIndicator>["fills"]
+    const boxes = [] as ReturnType<typeof executeIndicator>["boxes"]
 
     for (const indicator of indicators) {
       if (!indicator.enabled) continue
@@ -251,6 +259,7 @@ export function useScriptIndicators(
               priceLineVisible: false,
               lastValueVisible: true,
               title: plot.title,
+              visible: plot.style.visible,
             }, plot.paneIndex)
             seriesMap.current.set(key, series)
           } else {
@@ -258,10 +267,36 @@ export function useScriptIndicators(
               color: plot.style.color,
               lineWidth: plot.style.lineWidth,
               title: plot.title,
+              visible: plot.style.visible,
             })
           }
 
           series.setData(plot.points)
+        }
+
+        fills.push(...result.fills)
+        boxes.push(...result.boxes)
+
+        for (const signal of result.signals) {
+          for (const point of signal.points) {
+            if (!point.visible) continue
+            markers.push(point.price === undefined
+              ? {
+                  time: point.time,
+                  position: signal.style.position,
+                  color: signal.style.color,
+                  shape: signal.style.shape,
+                  text: signal.style.text ?? signal.title,
+                }
+              : {
+                  time: point.time,
+                  position: "atPriceMiddle",
+                  price: point.price,
+                  color: signal.style.color,
+                  shape: signal.style.shape,
+                  text: signal.style.text ?? signal.title,
+                })
+          }
         }
       } catch (error) {
         console.error(`[FinScript] Failed to execute '${indicator.compiled.metadata.title}'.`, error)
@@ -274,7 +309,27 @@ export function useScriptIndicators(
         seriesMap.current.delete(key)
       }
     })
-  }, [chartRef, chartVersion, data, indicators])
+
+    markers.sort((left, right) => left.time - right.time)
+    if (priceSeriesRef.current) {
+      signalMarkers.current ??= createSeriesMarkers(priceSeriesRef.current)
+      signalMarkers.current.setMarkers(markers)
+    }
+
+    if ((fills.length > 0 || boxes.length > 0) && priceSeriesRef.current) {
+      if (!primitivePlugin.current) {
+        primitivePlugin.current = new FinScriptPrimitivePlugin()
+        primitivePlugin.current.setSeries(priceSeriesRef.current)
+        primitivePane.current = chart.panes()[0]
+        primitivePane.current.attachPrimitive(primitivePlugin.current)
+      }
+      primitivePlugin.current.setData(fills, boxes)
+    } else if (primitivePlugin.current && primitivePane.current) {
+      primitivePane.current.detachPrimitive(primitivePlugin.current)
+      primitivePlugin.current = null
+      primitivePane.current = null
+    }
+  }, [chartRef, chartVersion, data, indicators, priceSeriesRef])
 
   useEffect(() => {
     return () => {
@@ -283,6 +338,13 @@ export function useScriptIndicators(
         seriesMap.current.forEach((series) => chart.removeSeries(series))
       }
       seriesMap.current.clear()
+      signalMarkers.current?.setMarkers([])
+      signalMarkers.current = null
+      if (primitivePlugin.current && primitivePane.current) {
+        primitivePane.current.detachPrimitive(primitivePlugin.current)
+      }
+      primitivePlugin.current = null
+      primitivePane.current = null
     }
-  }, [chartRef, chartVersion])
+  }, [chartRef, chartVersion, priceSeriesRef])
 }

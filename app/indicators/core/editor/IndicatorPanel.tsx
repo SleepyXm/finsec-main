@@ -7,6 +7,7 @@ import { IndicatorEditor } from "./Editor"
 import { DEFAULT_INDICATOR_SCRIPT } from "./defaults"
 import { compileFinScript } from "@/app/indicators/language/compiler"
 import type { FinScriptDiagnostic } from "@/app/indicators/language/types"
+import { FINSCRIPT_EXAMPLES } from "@/app/indicators/language/examples"
 import { useChartContext } from "@/app/chart/chartcontext"
 
 export function IndicatorPanel() {
@@ -69,6 +70,33 @@ export function IndicatorPanel() {
           active={tab === "export"}
           onClick={() => setTab("export")}
         />
+
+        <select
+          aria-label="Load example indicator"
+          defaultValue=""
+          onChange={(event) => {
+            const example = FINSCRIPT_EXAMPLES.find((entry) => entry.id === event.target.value)
+            if (!example) return
+            setScript(example.source)
+            setDiagnostics([])
+            setStatus("idle")
+            event.target.value = ""
+          }}
+          style={{
+            maxWidth: 165,
+            border: "1px solid #31384a",
+            background: "#11151d",
+            color: "#94a3b8",
+            borderRadius: 4,
+            padding: "5px 7px",
+            fontSize: 11,
+          }}
+        >
+          <option value="" disabled>Load example…</option>
+          {FINSCRIPT_EXAMPLES.map((example) => (
+            <option key={example.id} value={example.id}>{example.title}</option>
+          ))}
+        </select>
 
         <div style={{ flex: 1 }} />
 

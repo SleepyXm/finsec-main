@@ -33,7 +33,12 @@ export function compileFinScript(source: string): CompileResult {
   const inputs: InputDescriptor[] = []
 
   for (const statement of parsed.program.statements) {
-    const expression = statement.kind === "expression" ? statement.expression : statement.value
+    let expression: CallExpression | import("./types").Expression | null = null
+    if (statement.kind === "expression") expression = statement.expression
+    else if (statement.kind === "assignment" || statement.kind === "reassignment" || statement.kind === "tuple-assignment") {
+      expression = statement.value
+    }
+    if (!expression) continue
     if (expression.kind === "call" && expression.callee === "indicator") {
       const nextTitle = literalValue(expression, "title", 0)
       const nextOverlay = literalValue(expression, "overlay", 1)
@@ -44,11 +49,17 @@ export function compileFinScript(source: string): CompileResult {
     if (statement.kind === "assignment" && expression.kind === "call" && expression.callee.startsWith("input.")) {
       const defaultValue = literalValue(expression, "default", 0)
       const inputTitle = literalValue(expression, "title", 1)
-      if (typeof defaultValue === "number" || typeof defaultValue === "boolean") {
+      if (typeof defaultValue === "number" || typeof defaultValue === "boolean" || typeof defaultValue === "string") {
         inputs.push({
           id: statement.name,
           title: typeof inputTitle === "string" ? inputTitle : statement.name,
-          type: expression.callee === "input.bool" ? "bool" : expression.callee === "input.int" ? "int" : "float",
+          type: expression.callee === "input.bool"
+            ? "bool"
+            : expression.callee === "input.int"
+              ? "int"
+              : expression.callee === "input.color"
+                ? "color"
+                : "float",
           defaultValue,
         })
       }
@@ -66,4 +77,3 @@ export function compileFinScript(source: string): CompileResult {
     },
   }
 }
-

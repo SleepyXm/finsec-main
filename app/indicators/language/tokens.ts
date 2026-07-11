@@ -6,6 +6,7 @@ export type TokenKind =
   | "string"
   | "true"
   | "false"
+  | "hexColor"
   | "newline"
   | "leftParen"
   | "rightParen"
@@ -14,6 +15,10 @@ export type TokenKind =
   | "comma"
   | "dot"
   | "equal"
+  | "colonEqual"
+  | "arrow"
+  | "question"
+  | "colon"
   | "plus"
   | "minus"
   | "star"
@@ -28,6 +33,13 @@ export type TokenKind =
   | "and"
   | "or"
   | "not"
+  | "if"
+  | "else"
+  | "while"
+  | "for"
+  | "to"
+  | "indent"
+  | "dedent"
   | "eof"
 
 export type Token = SourceLocation & {
@@ -35,4 +47,3 @@ export type Token = SourceLocation & {
   lexeme: string
   value?: string | number | boolean
 }
-
