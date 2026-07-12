@@ -11,6 +11,10 @@ import { ChartThemeModal } from "@/app/chart/chartrender/overlays/ThemeSettings"
 import { defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
 import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { getPreferences, savePreferences } from "@/app/handlers/profile";
+import {
+  BacktestProvider,
+  useBacktestContext,
+} from "@/app/backtest/components/BacktestContext";
 
 function ChartPageInner() {
   const {
@@ -20,6 +24,7 @@ function ChartPageInner() {
     accountUnrealisedPnL, placeTrade, closeTrade,
     updatePosition, loadPreviousPage, appliedIndicators,
   } = useChartContext();
+  const backtest = useBacktestContext();
 
   const [quantity,       setQuantity]       = useState(1);
   const [themeModalOpen, setThemeModalOpen] = useState(false);
@@ -32,6 +37,15 @@ function ChartPageInner() {
   }, []);
 
   const activeTheme = { ...defaultChartTheme, ...themeOverrides };
+  const isBacktesting = backtest.session !== null;
+  const activeData = isBacktesting
+    ? isCandle
+      ? backtest.visibleCandles
+      : backtest.visibleCandles.map((candle) => ({ ...candle, value: candle.close }))
+    : chartData;
+  const activePositions = isBacktesting ? backtest.positions : positions;
+  const activePnLMap = isBacktesting ? backtest.livePnLMap : livePnLMap;
+  const activePrice = isBacktesting ? backtest.currentCandle : tick;
 
   const handleSave = (overrides: Partial<ChartTheme>) => {
     const next = { ...themeOverrides, ...overrides };
@@ -44,37 +58,65 @@ function ChartPageInner() {
       style={{ position: "relative", width: "100%", height: "100%" }}
       onContextMenu={(e) => { e.preventDefault(); setThemeModalOpen(true); }}
     >
-      {chartData.length > 0 ? (
+      {activeData.length > 0 ? (
         <ChartRenderer
           type={isCandle ? "candlestick" : "line"}
-          data={chartData}
+          data={activeData}
           trades={[]}
           renderTradeUI={
             <>
-              {!connected && (
+              {!isBacktesting && !connected && (
                 <p className="text-xs text-yellow-500 mb-1">Connecting to feed…</p>
               )}
-              {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
+              {(isBacktesting ? backtest.error : error) && (
+                <p className="text-red-500 text-sm mb-2">
+                  {isBacktesting ? backtest.error : error}
+                </p>
+              )}
               <TradeButtons
-                data={tick}
-                onTrade={(action) => placeTrade(action, tick, shortname, quantity)}
-                quantity={quantity}
-                onQuantityChange={setQuantity}
+                data={activePrice}
+                onTrade={(action) => {
+                  if (isBacktesting && backtest.session && backtest.currentCandle) {
+                    backtest.placeTrade(
+                      action,
+                      backtest.currentCandle,
+                      backtest.session.ticker,
+                      backtest.quantity,
+                      backtest.session.session_id,
+                    );
+                    return;
+                  }
+                  placeTrade(action, tick, shortname, quantity);
+                }}
+                quantity={isBacktesting ? backtest.quantity : quantity}
+                onQuantityChange={isBacktesting ? backtest.setQuantity : setQuantity}
               />
             </>
           }
-          positions={positions}
-          livePnLMap={livePnLMap}
-          updatePosition={updatePosition}
-          onClosePosition={(id) => closeTrade(id, tick?.close ?? 0)}
-          isCreatingStrategy={isCreatingStrategy}
+          positions={activePositions}
+          livePnLMap={activePnLMap}
+          updatePosition={isBacktesting ? undefined : updatePosition}
+          onClosePosition={(id) => {
+            if (isBacktesting && backtest.session) {
+              backtest.closeTrade(
+                id,
+                backtest.currentCandle?.close ?? 0,
+                backtest.session.session_id,
+              );
+              return;
+            }
+            closeTrade(id, tick?.close ?? 0);
+          }}
+          isCreatingStrategy={!isBacktesting && isCreatingStrategy}
           onAnnotation={handleAnnotation}
-          onScrollLeft={loadPreviousPage}
+          onScrollLeft={isBacktesting ? undefined : loadPreviousPage}
           appliedIndicators={appliedIndicators}
           theme={activeTheme}
         />
       ) : (
-        <p style={{ color: "#6b7280", padding: 16 }}>Loading chart…</p>
+        <p style={{ color: "#6b7280", padding: 16 }}>
+          {isBacktesting ? "Press play to start replay…" : "Loading chart…"}
+        </p>
       )}
 
       {themeModalOpen && (
@@ -107,7 +149,9 @@ function ChartPageInner() {
 export default function ChartPage() {
   return (
     <ChartProvider>
-      <ChartPageInner />
+      <BacktestProvider>
+        <ChartPageInner />
+      </BacktestProvider>
     </ChartProvider>
   );
 }

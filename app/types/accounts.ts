@@ -1,4 +1,5 @@
 export interface AccountStats {
+  balance:           number;
   net_pnl:           number;
   trade_count:       number;
   wins:              number;

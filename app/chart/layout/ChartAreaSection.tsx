@@ -3,7 +3,6 @@
 import type React from "react";
 import DrawingCanvas, { Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
 import { ChartProvider, useChartContext } from "../chartcontext";
-import { TopBar } from "./TopBar";
 import { ChartRenderer } from "@/app/chart/chartrender/ChartRenderer";
 import { defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
 import type { DrawTool } from "./LeftBarSection";
@@ -15,10 +14,6 @@ function ExtraChartInner({ onRemove }: { onRemove: () => void }) {
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", borderLeft: "1px solid #1e2130" }}>
-      <div style={{ height: 40, minHeight: 40, borderBottom: "1px solid #1e2130" }}>
-        <TopBar />
-      </div>
-
       <button
         onClick={onRemove}
         title="Remove chart"

@@ -2,11 +2,11 @@
 
 The subscription schema and product seed now live in 006_add_subscriptions.
 This revision is intentionally a no-op so later migrations that already depend
-on 008_add_subscriptions_prod can keep their existing down_revision.
+on 012_add_subscriptions_prod can keep their existing down_revision.
 """
 
-revision = '008_add_subscriptions_prod'
-down_revision = '007_add_indicators'
+revision = '012_add_subscriptions_prod'
+down_revision = '010_add_strategies'
 branch_labels = None
 depends_on = None
 

@@ -74,14 +74,22 @@ export function useAccountStats() {
   const [stats, setStats]     = useState<AccountStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchAccountStats()
-      .then(setStats)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      setStats(await fetchAccountStats());
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { stats, loading };
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { stats, loading, refresh };
 }
 
 // ── useJournal ───────────────────────────────────────────────────────────────
