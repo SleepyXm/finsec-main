@@ -1,21 +1,36 @@
 import { useState } from "react";
 import { runBacktest } from "../services/backtest";
 import { BacktestSession, BacktestCandle } from "@/app/types/backend";
+import { theme, ACCENT, cornerStyle, panelStyle, Label } from "@/app/components/UI/UI";
 
 const INTERVALS = ["1m", "5m", "15m", "30m", "1h", "1d"];
 
 interface Props {
   onSessionStart: (session: BacktestSession, candles: BacktestCandle[]) => void;
+  defaultTicker?: string;
+  defaultInterval?: string;
 }
 
-export default function BacktestForm({ onSessionStart }: Props) {
-  const [ticker, setTicker]               = useState("");
-  const [interval, setInterval]           = useState("5m");
-  const [dateFrom, setDateFrom]           = useState("");
-  const [dateTo, setDateTo]               = useState("");
-  const [balance, setBalance]             = useState(100000);
-  const [loading, setLoading]             = useState(false);
-  const [error, setError]                 = useState<string | null>(null);
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  background: theme.dark.bg2,
+  border: `1px solid ${theme.dark.borderSoft}`,
+  color: theme.dark.text,
+  padding: "8px 10px",
+  fontSize: 12,
+  fontFamily: "inherit",
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+export default function BacktestForm({ onSessionStart, defaultTicker = "", defaultInterval = "5m" }: Props) {
+  const [ticker, setTicker]     = useState(defaultTicker);
+  const [interval, setInterval] = useState(defaultInterval);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo]     = useState("");
+  const [balance, setBalance]   = useState(100000);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,79 +59,122 @@ export default function BacktestForm({ onSessionStart }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-md space-y-4 mt-8">
-      <h2 className="text-xl font-bold">New Backtest</h2>
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-      <div className="space-y-1">
-        <label className="text-sm text-zinc-400">Ticker</label>
+      {/* Header pill */}
+      <div style={{ position: "relative", ...panelStyle(theme.dark), padding: "10px 14px" }}>
+        <div style={cornerStyle()} />
+        <p style={{
+          color: theme.dark.muted2, fontSize: 11, margin: 0,
+          letterSpacing: "0.06em", textTransform: "uppercase",
+          fontFamily: "var(--font-code), monospace",
+        }}>
+          Configure Backtest
+        </p>
+      </div>
+
+      {/* Ticker */}
+      <div>
+        <Label t={theme.dark}>Ticker</Label>
         <input
           value={ticker}
           onChange={(e) => setTicker(e.target.value)}
           placeholder="e.g. NQ=F"
-          className="w-full rounded bg-zinc-800 px-3 py-2 text-sm text-white"
+          style={inputStyle}
           required
         />
       </div>
 
-      <div className="space-y-1">
-        <label className="text-sm text-zinc-400">Interval</label>
-        <div className="flex gap-2 flex-wrap">
-          {INTERVALS.map((i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setInterval(i)}
-              className={`px-3 py-1 rounded text-sm ${interval === i ? "bg-blue-600 text-white" : "bg-zinc-700 text-zinc-300"}`}
-            >
-              {i}
-            </button>
-          ))}
+      {/* Interval */}
+      <div>
+        <Label t={theme.dark}>Interval</Label>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {INTERVALS.map((i) => {
+            const active = interval === i;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setInterval(i)}
+                style={{
+                  padding: "4px 12px", fontSize: 12,
+                  cursor: "pointer", fontFamily: "inherit", borderRadius: 0,
+                  background: active ? ACCENT : "transparent",
+                  color:      active ? theme.dark.btnText : theme.dark.muted,
+                  border: `1px solid ${active ? ACCENT : theme.dark.borderSoft}`,
+                  transition: "all 0.15s ease",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {i}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-sm text-zinc-400">From</label>
+      {/* Date range */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div>
+          <Label t={theme.dark}>From</Label>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="w-full rounded bg-zinc-800 px-3 py-2 text-sm text-white"
+            style={inputStyle}
             required
           />
         </div>
-        <div className="space-y-1">
-          <label className="text-sm text-zinc-400">To</label>
+        <div>
+          <Label t={theme.dark}>To</Label>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="w-full rounded bg-zinc-800 px-3 py-2 text-sm text-white"
+            style={inputStyle}
             required
           />
         </div>
       </div>
 
-      <div className="space-y-1">
-        <label className="text-sm text-zinc-400">Starting Balance ($)</label>
+      {/* Balance */}
+      <div>
+        <Label t={theme.dark}>Starting Balance ($)</Label>
         <input
           type="number"
           value={balance}
           onChange={(e) => setBalance(Number(e.target.value))}
-          className="w-full rounded bg-zinc-800 px-3 py-2 text-sm text-white"
+          style={inputStyle}
           required
         />
       </div>
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
+      {error && (
+        <p style={{ color: theme.dark.errorText, fontSize: 12, margin: 0 }}>{error}</p>
+      )}
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        style={{
+          width: "100%",
+          background: ACCENT,
+          color: theme.dark.btnText,
+          border: "none",
+          padding: "10px 0",
+          fontSize: 12,
+          fontWeight: 600,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          cursor: loading ? "not-allowed" : "pointer",
+          fontFamily: "inherit",
+          opacity: loading ? 0.55 : 1,
+          transition: "opacity 0.15s ease",
+        }}
       >
-        {loading ? "Loading..." : "Run Backtest"}
+        {loading ? "Loading…" : "Run Backtest"}
       </button>
+
     </form>
   );
 }

@@ -1,13 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
 import { useChartContext } from "../chartcontext";
 import { IndicatorPanel } from "@/app/indicators/core/editor/IndicatorPanel";
 import { AssetSearchBar, AssetListItem } from "@/app/assetsearch/assetsearchcomponents";
 import { useAssetSearch } from "@/app/hooks/utility";
 import { theme, cornerStyle } from "@/app/components/UI/UI";
 import { CandleStickChart } from "../chartrender/charts/CandleStickChart";
+import { ChartRenderer } from "@/app/chart/chartrender/ChartRenderer";
+import BacktestForm from "@/app/backtest/components/BacktestForm";
+import BacktestControls from "@/app/backtest/components/BacktestControls";
+import BacktestStats from "@/app/backtest/components/BacktestStats";
+import TradeButtons from "@/app/components/trading/tradebuttons";
+import OpenPositions from "@/app/components/trading/positions";
+import { usePositions } from "@/app/hooks/usePositions";
+import { useTrades } from "@/app/hooks/useTrades";
+import { BacktestSession, BacktestCandle } from "@/app/types/backend";
 
 export type RightTab =
   | "watchlist" | "add-chart" | "strategy"
@@ -145,8 +153,8 @@ function AddChartTab({ onAddChart }: { onAddChart: (s: string) => void }) {
               asset={asset}
               onSelect={() => {
                 onAddChart(asset.symbol);
-                search("");               // clear results
-                setResetKey((k) => k + 1); // remount bar → clears input
+                search("");
+                setResetKey((k) => k + 1);
               }}
             />
           ))}
@@ -251,30 +259,170 @@ function StrategyTab() {
 // ── backtest ──────────────────────────────────────────────────────────────────
 
 function BacktestTab() {
-  const router = useRouter();
   const { shortname, interval } = useChartContext();
 
-  return (
-    <div style={{ padding: 12 }}>
-      <p style={{ color: theme.dark.muted2, fontSize: 11, marginBottom: 12, letterSpacing: "0.03em" }}>
-        Run a backtest against {shortname} @ {interval}
-      </p>
+  const [session, setSession]   = useState<BacktestSession | null>(null);
+  const [candles, setCandles]   = useState<BacktestCandle[]>([]);
+  const [cursor, setCursor]     = useState(0);
+  const [playing, setPlaying]   = useState(false);
+  const [isCandle, setIsCandle] = useState(true);
+  const [quantity, setQuantity] = useState(1);
 
-      <button
-        onClick={() => router.push(`/backtest?ticker=${shortname}&interval=${interval}`)}
-        style={{
-          width: "100%", padding: "10px 0",
-          background: idleBg,
-          border: `1px solid ${theme.dark.borderSoft}`,
-          borderRadius: 0,
-          color: theme.dark.muted,
-          fontSize: 12, cursor: "pointer", fontFamily: "inherit",
-          letterSpacing: "0.03em",
-          transition: "background 0.16s ease",
-        }}
-      >
-        Open Backtest →
-      </button>
+  const visibleCandles = candles.slice(0, cursor);
+  const currentCandle  = visibleCandles[visibleCandles.length - 1] ?? null;
+
+  // Hooks must be called unconditionally — empty ticker is fine before session starts
+  const { positions, setPositions } = usePositions(session?.ticker ?? "", true);
+  const { placeTrade, closeTrade, error } = useTrades(positions, setPositions);
+
+  const livePnLMap = positions.reduce<Record<string, number>>((acc, p) => {
+    if (!currentCandle) return acc;
+    const direction = p.side === "long" ? 1 : -1;
+    acc[p.trade_id] = Math.round(
+      (currentCandle.close - p.entry_price) * direction * p.quantity * 100,
+    ) / 100;
+    return acc;
+  }, {});
+
+  // Area series wants a `value` field; candlestick series wants OHLC
+  const chartData = isCandle
+    ? visibleCandles
+    : visibleCandles.map((c) => ({ ...c, value: c.close }));
+
+  function resetSession() {
+    setSession(null);
+    setCandles([]);
+    setCursor(0);
+    setPlaying(false);
+  }
+
+  // ── No session: show form ────────────────────────────────────────────────
+  if (!session) {
+    return (
+      <div style={{ padding: 12 }}>
+        <BacktestForm
+          defaultTicker={shortname ?? ""}
+          defaultInterval={interval ?? "5m"}
+          onSessionStart={(sess, cands) => {
+            setSession(sess);
+            setCandles(cands);
+            setCursor(0);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // ── Session active: inline replay UI ────────────────────────────────────
+  const tradeUI = currentCandle ? (
+    <>
+      {error && (
+        <p style={{ color: "#f87171", fontSize: 11, marginBottom: 4 }}>{error}</p>
+      )}
+      <TradeButtons
+        data={currentCandle}
+        onTrade={(action, qty) =>
+          placeTrade(action, currentCandle, session.ticker, qty, session.session_id)
+        }
+        quantity={quantity}
+        onQuantityChange={setQuantity}
+      />
+    </>
+  ) : undefined;
+
+  return (
+    <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+
+      {/* Header: ticker label + chart-type toggle + reset */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ color: theme.dark.text, fontSize: 13, fontWeight: 600 }}>
+          {session.ticker} — Backtest
+        </span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {(["Candle", "Line"] as const).map((label) => {
+            const active = label === "Candle" ? isCandle : !isCandle;
+            return (
+              <button
+                key={label}
+                onClick={() => setIsCandle(label === "Candle")}
+                style={{
+                  padding: "3px 10px", fontSize: 11, cursor: "pointer",
+                  borderRadius: 0, fontFamily: "inherit",
+                  background: active ? "#2563eb" : idleBg,
+                  color:      active ? "#fff"    : theme.dark.muted,
+                  border: `1px solid ${active ? "#2563eb" : theme.dark.borderSoft}`,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+          <button
+            onClick={resetSession}
+            title="New backtest"
+            style={{
+              padding: "3px 8px", fontSize: 11, cursor: "pointer",
+              borderRadius: 0, fontFamily: "inherit",
+              background: idleBg,
+              color: theme.dark.muted,
+              border: `1px solid ${theme.dark.borderSoft}`,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div style={{ height: 300, border: `1px solid ${theme.dark.borderSoft}` }}>
+        {chartData.length > 0 ? (
+          <ChartRenderer
+            type={isCandle ? "candlestick" : "line"}
+            data={chartData}
+            positions={positions}
+            livePnLMap={livePnLMap}
+            renderTradeUI={tradeUI}
+            onClosePosition={(id) =>
+              closeTrade(id, currentCandle?.close ?? 0, session.session_id)
+            }
+            trades={[]}
+          />
+        ) : (
+          <div style={{
+            height: "100%", display: "flex",
+            alignItems: "center", justifyContent: "center",
+            color: theme.dark.muted2, fontSize: 12,
+          }}>
+            Press play to start replay…
+          </div>
+        )}
+      </div>
+
+      {/* Playback controls */}
+      <BacktestControls
+        session={session}
+        cursor={cursor}
+        setCursor={setCursor}
+        totalCandles={candles.length}
+        playing={playing}
+        setPlaying={setPlaying}
+      />
+
+      {/* Stats strip */}
+      <BacktestStats session={session} candles={visibleCandles} />
+
+      {/* Open positions — only rendered when there's something to show */}
+      {positions.length > 0 && (
+        <OpenPositions
+          positions={positions}
+          livePnLMap={livePnLMap}
+          onClose={(id) =>
+            closeTrade(id, currentCandle?.close ?? 0, session.session_id)
+          }
+        />
+      )}
+
     </div>
   );
 }

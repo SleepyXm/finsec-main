@@ -2,10 +2,8 @@ import { request } from "./auth";
 
 export interface ProductProps {
   product_id: string;
-  stripe_product_id: string;
   stripe_price_id: string;
   product_name: string;
-  name: string;
   description: string;
   tier: string;
   amount: number;
@@ -13,7 +11,6 @@ export interface ProductProps {
   currency: string;
   billing_interval: string;
   interval_count: number;
-  active: boolean;
 }
 
 export async function getProducts(): Promise<ProductProps[]> {
