@@ -4,6 +4,24 @@ export interface BacktestCandle {
   high: number;
   low: number;
   close: number;
+  buy_price: number;
+}
+
+export interface BacktestPosition {
+  id: string;
+  trade_id: string;
+  symbol: string;
+  side: "long" | "short";
+  quantity: number;
+  entry_price: number;
+  entry_candle: number;
+  entry_time: number;
+  exit_price: number | null;
+  exit_candle: number | null;
+  exit_time: number | null;
+  realised_pnl: number | null;
+  status: "open" | "closed";
+  opened_at: string;
 }
 
 export interface BacktestSession {
@@ -14,14 +32,26 @@ export interface BacktestSession {
   date_to: string;
   starting_balance: number;
   candle_count: number;
+  current_candle: number;
+  positions: BacktestPosition[];
   created_at: string;
+  updated_at?: string;
+  expires_at: string;
 }
 
-export interface BacktestResponse {
+export interface BacktestResponse extends BacktestSession {
+  candles: BacktestCandle[];
+}
+
+export interface BacktestSummary {
   session_id: string;
   ticker: string;
   interval: string;
-  candle_count: number;
+  date_from: string;
+  date_to: string;
   starting_balance: number;
-  candles: BacktestCandle[];
+  current_candle: number;
+  created_at: string;
+  updated_at: string;
+  expires_at: string;
 }

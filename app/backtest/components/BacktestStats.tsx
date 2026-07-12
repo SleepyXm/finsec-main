@@ -1,26 +1,65 @@
-import { BacktestSession, BacktestCandle } from "@/app/types/backend";
+import type { BacktestAnalysis } from "@/app/backtest/analysis";
+import type { BacktestCandle } from "@/app/types/backend";
+import { cornerStyle, panelStyle, theme } from "@/app/components/UI/UI";
 
 interface Props {
-  session: BacktestSession;
-  candles: BacktestCandle[];
+  analysis: BacktestAnalysis;
+  currentCandle: BacktestCandle | null;
+  openPositions: number;
 }
 
-export default function BacktestStats({ session, candles }: Props) {
-  const latest = candles[candles.length - 1];
+function money(value: number) {
+  return `${value < 0 ? "−" : ""}$${Math.abs(value).toFixed(2)}`;
+}
+
+export default function BacktestStats({ analysis, currentCandle, openPositions }: Props) {
+  const currentDate = currentCandle
+    ? new Date(currentCandle.time * 1000).toLocaleString()
+    : "—";
+  const metrics = [
+    { label: "Balance", value: money(analysis.balance) },
+    { label: "Net P&L", value: money(analysis.netPnl), signed: analysis.netPnl },
+    { label: "Positions", value: `${openPositions} open · ${analysis.totalTrades} closed` },
+    { label: "Current date", value: currentDate },
+    { label: "Win rate", value: `${analysis.winRate.toFixed(1)}%` },
+    { label: "Max drawdown", value: `${analysis.maxDrawdown.toFixed(2)}%` },
+    { label: "Best trade", value: analysis.bestTrade == null ? "—" : money(analysis.bestTrade), signed: analysis.bestTrade },
+    { label: "Worst trade", value: analysis.worstTrade == null ? "—" : money(analysis.worstTrade), signed: analysis.worstTrade },
+  ];
 
   return (
-    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {[
-        { label: "Balance",       value: `$${session.starting_balance.toLocaleString()}` },
-        { label: "Candles Seen",  value: candles.length },
-        { label: "Current Close", value: latest ? `$${latest.close.toFixed(2)}` : "—" },
-        { label: "Current Open",  value: latest ? `$${latest.open.toFixed(2)}`  : "—" },
-      ].map(({ label, value }) => (
-        <div key={label} className="rounded-lg bg-zinc-800 px-3 py-2">
-          <p className="text-xs text-zinc-400">{label}</p>
-          <p className="text-sm font-semibold text-white">{value}</p>
+    <section style={{ ...panelStyle(theme.dark), display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+      <div style={cornerStyle()} />
+      {metrics.map(({ label, value, signed }, index) => (
+        <div
+          key={label}
+          style={{
+            padding: "10px 12px",
+            minWidth: 0,
+            borderRight: index % 2 === 0 ? `1px solid ${theme.dark.borderSoft}` : undefined,
+            borderBottom: index < metrics.length - 2 ? `1px solid ${theme.dark.borderSoft}` : undefined,
+          }}
+        >
+          <div style={{ color: theme.dark.muted2, fontSize: 9, letterSpacing: "0.07em", textTransform: "uppercase" }}>
+            {label}
+          </div>
+          <div
+            style={{
+              color: signed == null
+                ? theme.dark.text
+                : signed >= 0 ? theme.dark.successText : theme.dark.errorText,
+              fontSize: 12,
+              marginTop: 4,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={String(value)}
+          >
+            {value}
+          </div>
         </div>
       ))}
-    </div>
+    </section>
   );
 }

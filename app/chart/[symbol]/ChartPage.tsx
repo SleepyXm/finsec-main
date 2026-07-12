@@ -43,7 +43,7 @@ function ChartPageInner() {
       ? backtest.visibleCandles
       : backtest.visibleCandles.map((candle) => ({ ...candle, value: candle.close }))
     : chartData;
-  const activePositions = isBacktesting ? backtest.positions : positions;
+  const activePositions = isBacktesting ? backtest.openPositions : positions;
   const activePnLMap = isBacktesting ? backtest.livePnLMap : livePnLMap;
   const activePrice = isBacktesting ? backtest.currentCandle : tick;
 
@@ -82,7 +82,6 @@ function ChartPageInner() {
                       backtest.currentCandle,
                       backtest.session.ticker,
                       backtest.quantity,
-                      backtest.session.session_id,
                     );
                     return;
                   }
@@ -101,7 +100,6 @@ function ChartPageInner() {
               backtest.closeTrade(
                 id,
                 backtest.currentCandle?.close ?? 0,
-                backtest.session.session_id,
               );
               return;
             }

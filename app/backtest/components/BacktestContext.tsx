@@ -1,99 +1,169 @@
 "use client";
 
-import { createContext, useContext, useState, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
-import { BacktestSession, BacktestCandle } from "@/app/types/backend";
-import { usePositions } from "@/app/hooks/usePositions";
-import { useTrades } from "@/app/hooks/useTrades";
+import type {
+  BacktestCandle,
+  BacktestPosition,
+  BacktestSession,
+} from "@/app/types/backend";
+import { deriveBacktestAnalysis, type BacktestAnalysis } from "../analysis";
+import { saveBacktestSession } from "../services/backtest";
 
 interface BacktestContextValue {
-  // Session lifecycle
-  session:      BacktestSession | null;
+  session: BacktestSession | null;
   startSession: (session: BacktestSession, candles: BacktestCandle[]) => void;
   resetSession: () => void;
-
-  // Replay controls
-  candles:    BacktestCandle[];
-  cursor:     number;
-  setCursor:  React.Dispatch<React.SetStateAction<number>>;
-  playing:    boolean;
+  resetReplay: () => void;
+  candles: BacktestCandle[];
+  cursor: number;
+  setCursor: React.Dispatch<React.SetStateAction<number>>;
+  playing: boolean;
   setPlaying: React.Dispatch<React.SetStateAction<boolean>>;
-
-  // Chart display
-  isCandle:    boolean;
-  setIsCandle: React.Dispatch<React.SetStateAction<boolean>>;
-
-  // Trade inputs
-  quantity:    number;
+  quantity: number;
   setQuantity: React.Dispatch<React.SetStateAction<number>>;
-
-  // Trade state
-  positions:    any[];
-  setPositions: any;
-  livePnLMap:   Record<string, number>;
-  placeTrade:   (...args: any[]) => void;
-  closeTrade:   (...args: any[]) => void;
-  error:        string | null;
-
-  // Derived — computed once here, consumed anywhere
+  positions: BacktestPosition[];
+  openPositions: BacktestPosition[];
+  livePnLMap: Record<string, number>;
+  placeTrade: (
+    action: "buy" | "sell",
+    candle: BacktestCandle,
+    ticker: string,
+    quantity: number,
+  ) => void;
+  closeTrade: (tradeId: string, exitPrice: number) => void;
+  error: string | null;
   visibleCandles: BacktestCandle[];
-  currentCandle:  BacktestCandle | null;
-  chartData:      any[]; // OHLC[] in candle mode, { ...c, value }[] in line mode
+  currentCandle: BacktestCandle | null;
+  analysis: BacktestAnalysis | null;
 }
 
 const BacktestContext = createContext<BacktestContextValue | null>(null);
 
 export function BacktestProvider({ children }: { children: React.ReactNode }) {
-  const [session,  setSession]  = useState<BacktestSession | null>(null);
-  const [candles,  setCandles]  = useState<BacktestCandle[]>([]);
-  const [cursor,   setCursor]   = useState(0);
-  const [playing,  setPlaying]  = useState(false);
-  const [isCandle, setIsCandle] = useState(true);
+  const [session, setSession] = useState<BacktestSession | null>(null);
+  const [candles, setCandles] = useState<BacktestCandle[]>([]);
+  const [cursor, setCursor] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [positions, setPositions] = useState<BacktestPosition[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const snapshotRef = useRef({ cursor: 0, positions: [] as BacktestPosition[] });
 
-  const visibleCandles = candles.slice(0, cursor);
-  const currentCandle  = visibleCandles[visibleCandles.length - 1] ?? null;
+  const visibleCandles = useMemo(() => candles.slice(0, cursor), [candles, cursor]);
+  const currentCandle = visibleCandles[visibleCandles.length - 1] ?? null;
+  const openPositions = useMemo(
+    () => positions.filter((position) => position.exit_candle == null),
+    [positions],
+  );
+  const livePnLMap = useMemo(() => {
+    if (!currentCandle) return {};
+    return openPositions.reduce<Record<string, number>>((map, position) => {
+      const direction = position.side === "long" ? 1 : -1;
+      map[position.trade_id] =
+        (currentCandle.close - position.entry_price) * direction * position.quantity;
+      return map;
+    }, {});
+  }, [currentCandle, openPositions]);
+  const analysis = useMemo(() => session
+    ? deriveBacktestAnalysis(session.starting_balance, candles, cursor, positions)
+    : null, [candles, cursor, positions, session]);
 
-  // Hooks called unconditionally — empty ticker before session starts is harmless
-  const { positions, setPositions } = usePositions(session?.ticker ?? "", true);
-  const { placeTrade, closeTrade, error } = useTrades(positions, setPositions);
+  useEffect(() => {
+    snapshotRef.current = { cursor, positions };
+  }, [cursor, positions]);
 
-  const livePnLMap = positions.reduce<Record<string, number>>((acc, p) => {
-    if (!currentCandle) return acc;
-    const direction = p.side === "long" ? 1 : -1;
-    acc[p.trade_id] = Math.round(
-      (currentCandle.close - p.entry_price) * direction * p.quantity * 100,
-    ) / 100;
-    return acc;
-  }, {});
+  useEffect(() => {
+    if (!session) return;
+    const persist = () => {
+      const snapshot = snapshotRef.current;
+      saveBacktestSession(session.session_id, snapshot.cursor, snapshot.positions)
+        .then(() => setError(null))
+        .catch((cause) => setError(cause instanceof Error ? cause.message : "Failed to save backtest"));
+    };
+    const interval = window.setInterval(persist, 2_000);
+    return () => {
+      window.clearInterval(interval);
+      persist();
+    };
+  }, [session]);
 
-  // AreaSeries needs a `value` field; CandlestickSeries wants raw OHLC
-  const chartData = isCandle
-    ? visibleCandles
-    : visibleCandles.map((c) => ({ ...c, value: c.close }));
-
-  function startSession(sess: BacktestSession, cands: BacktestCandle[]) {
-    setSession(sess);
-    setCandles(cands);
-    setCursor(0);
+  function startSession(next: BacktestSession, nextCandles: BacktestCandle[]) {
+    setSession(next);
+    setCandles(nextCandles);
+    setCursor(next.current_candle ?? 0);
+    setPositions(next.positions ?? []);
     setPlaying(false);
+    setError(null);
   }
 
   function resetSession() {
+    if (session) void saveBacktestSession(session.session_id, cursor, positions);
     setSession(null);
     setCandles([]);
     setCursor(0);
+    setPositions([]);
     setPlaying(false);
+    setError(null);
+  }
+
+  function resetReplay() {
+    setCursor(0);
+    setPositions([]);
+    setPlaying(false);
+  }
+
+  function placeTrade(
+    action: "buy" | "sell",
+    candle: BacktestCandle,
+    ticker: string,
+    tradeQuantity: number,
+  ) {
+    if (!session || !currentCandle || tradeQuantity <= 0) return;
+    const entryPrice = action === "buy" ? candle.buy_price ?? candle.close : candle.close;
+    const entryCandle = Math.max(0, cursor - 1);
+    const tradeId = crypto.randomUUID();
+    setPositions((current) => [...current, {
+      id: tradeId,
+      trade_id: tradeId,
+      symbol: ticker,
+      side: action === "buy" ? "long" : "short",
+      quantity: tradeQuantity,
+      entry_price: entryPrice,
+      entry_candle: entryCandle,
+      entry_time: currentCandle.time,
+      exit_price: null,
+      exit_candle: null,
+      exit_time: null,
+      realised_pnl: null,
+      status: "open",
+      opened_at: new Date(currentCandle.time * 1000).toISOString(),
+    }]);
+  }
+
+  function closeTrade(tradeId: string, exitPrice: number) {
+    if (!currentCandle) return;
+    setPositions((current) => current.map((position) => {
+      if (position.trade_id !== tradeId || position.exit_candle != null) return position;
+      const direction = position.side === "long" ? 1 : -1;
+      return {
+        ...position,
+        exit_price: exitPrice,
+        exit_candle: Math.max(0, cursor - 1),
+        exit_time: currentCandle.time,
+        realised_pnl: (exitPrice - position.entry_price) * direction * position.quantity,
+        status: "closed" as const,
+      };
+    }));
   }
 
   return (
     <BacktestContext.Provider value={{
-      session, startSession, resetSession,
+      session, startSession, resetSession, resetReplay,
       candles, cursor, setCursor, playing, setPlaying,
-      isCandle, setIsCandle,
-      quantity, setQuantity,
-      positions, setPositions, livePnLMap, placeTrade, closeTrade, error,
-      visibleCandles, currentCandle, chartData,
+      quantity, setQuantity, positions, openPositions,
+      livePnLMap, placeTrade, closeTrade, error,
+      visibleCandles, currentCandle, analysis,
     }}>
       {children}
     </BacktestContext.Provider>
@@ -101,7 +171,7 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useBacktestContext() {
-  const ctx = useContext(BacktestContext);
-  if (!ctx) throw new Error("useBacktestContext must be used inside <BacktestProvider>");
-  return ctx;
+  const context = useContext(BacktestContext);
+  if (!context) throw new Error("useBacktestContext must be used inside BacktestProvider");
+  return context;
 }

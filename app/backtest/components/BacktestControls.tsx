@@ -1,104 +1,117 @@
-import { useEffect, useRef } from "react";
-import { BacktestSession } from "@/app/types/backend";
+"use client";
+
+import { useEffect, useState } from "react";
+import type React from "react";
+import type { BacktestSession } from "@/app/types/backend";
+import {
+  MonoLabel,
+  TraderBlankButton,
+  buttonStyle,
+  cornerStyle,
+  panelStyle,
+  theme,
+} from "@/app/components/UI/UI";
 
 interface Props {
   session: BacktestSession;
   cursor: number;
-  setCursor: React.Dispatch<React.SetStateAction<number>>;  // ← this instead of (n: number) => void
+  setCursor: React.Dispatch<React.SetStateAction<number>>;
   totalCandles: number;
   playing: boolean;
   setPlaying: React.Dispatch<React.SetStateAction<boolean>>;
+  onReset: () => void;
 }
 
 const SPEEDS = [
   { label: "0.5x", ms: 1000 },
-  { label: "1x",   ms: 500  },
-  { label: "2x",   ms: 250  },
-  { label: "5x",   ms: 100  },
-  { label: "10x",  ms: 50   },
+  { label: "1x", ms: 500 },
+  { label: "2x", ms: 250 },
+  { label: "5x", ms: 100 },
+  { label: "10x", ms: 50 },
 ];
 
+const compactButton = { padding: "6px 10px", fontSize: 10, minHeight: 28 };
+
 export default function BacktestControls({
-  session, cursor, setCursor, totalCandles, playing, setPlaying,
+  session,
+  cursor,
+  setCursor,
+  totalCandles,
+  playing,
+  setPlaying,
+  onReset,
 }: Props) {
-  const speedRef  = useRef(500);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [speed, setSpeed] = useState(500);
 
   useEffect(() => {
-    if (playing) {
-      intervalRef.current = setInterval(() => {
-        setCursor((prev: number) => {
-          if (prev >= totalCandles) {
-            setPlaying(false);
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, speedRef.current);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [playing]);
+    if (!playing) return;
+    const timer = window.setInterval(() => {
+      setCursor((current) => {
+        if (current >= totalCandles) {
+          setPlaying(false);
+          return current;
+        }
+        return current + 1;
+      });
+    }, speed);
+    return () => window.clearInterval(timer);
+  }, [playing, setCursor, setPlaying, speed, totalCandles]);
 
-  function setSpeed(ms: number) {
-    speedRef.current = ms;
-    if (playing) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      intervalRef.current = setInterval(() => {
-        setCursor((prev: number) => {
-          if (prev >= totalCandles) { setPlaying(false); return prev; }
-          return prev + 1;
-        });
-      }, ms);
-    }
-  }
-
-  const progress = totalCandles > 0 ? (cursor / totalCandles) * 100 : 0;
+  const progress = totalCandles ? (cursor / totalCandles) * 100 : 0;
 
   return (
-    <div className="mt-4 rounded-xl border border-zinc-700 bg-zinc-900 p-4 space-y-3">
-      <div className="flex items-center gap-3">
+    <section style={{ ...panelStyle(theme.dark), padding: 12 }}>
+      <div style={cornerStyle()} />
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
         <button
-          onClick={() => setPlaying(!playing)}
-          className="px-4 py-1.5 rounded bg-blue-600 text-sm font-medium text-white hover:bg-blue-700"
+          type="button"
+          onClick={() => setPlaying((current) => !current)}
+          style={{ ...buttonStyle(theme.dark), ...compactButton }}
         >
           {playing ? "Pause" : "Play"}
         </button>
-        <button
-          onClick={() => { setPlaying(false); setCursor(0); }}
-          className="px-4 py-1.5 rounded bg-zinc-700 text-sm text-zinc-300 hover:bg-zinc-600"
-        >
+        <TraderBlankButton style={compactButton} onClick={onReset}>
           Reset
-        </button>
-        <button
-          onClick={() => setCursor(Math.min(cursor + 1, totalCandles))}
-          disabled={playing}
-          className="px-4 py-1.5 rounded bg-zinc-700 text-sm text-zinc-300 hover:bg-zinc-600 disabled:opacity-40"
+        </TraderBlankButton>
+        <TraderBlankButton
+          style={compactButton}
+          disabled={playing || cursor >= totalCandles}
+          onClick={() => setCursor((current) => Math.min(current + 1, totalCandles))}
         >
-          Step →
-        </button>
+          Step
+        </TraderBlankButton>
 
-        <div className="flex gap-1 ml-auto">
-          {SPEEDS.map((s) => (
-            <button
-              key={s.label}
-              onClick={() => setSpeed(s.ms)}
-              className={`px-2 py-1 rounded text-xs ${speedRef.current === s.ms ? "bg-blue-600 text-white" : "bg-zinc-700 text-zinc-400"}`}
+        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+          {SPEEDS.map((option) => (
+            <TraderBlankButton
+              key={option.label}
+              active={speed === option.ms}
+              style={{ padding: "5px 7px", fontSize: 10 }}
+              onClick={() => setSpeed(option.ms)}
             >
-              {s.label}
-            </button>
+              {option.label}
+            </TraderBlankButton>
           ))}
         </div>
       </div>
 
-      <div className="w-full bg-zinc-700 rounded-full h-1.5">
-        <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+      <div style={{ height: 2, background: theme.dark.bg3, margin: "12px 0 9px" }}>
+        <div
+          style={{
+            width: `${progress}%`,
+            height: "100%",
+            background: theme.dark.accent,
+            transition: "width 120ms linear",
+          }}
+        />
       </div>
 
-      <p className="text-xs text-zinc-500">
-        Candle {cursor} / {totalCandles} — {session.ticker} {session.interval}
-      </p>
-    </div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+        <MonoLabel>{session.ticker} · {session.interval}</MonoLabel>
+        <span style={{ color: theme.dark.muted2, fontSize: 10, fontFamily: "var(--font-code), monospace" }}>
+          Candle {cursor.toLocaleString()} / {totalCandles.toLocaleString()}
+        </span>
+      </div>
+    </section>
   );
 }

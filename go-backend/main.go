@@ -73,6 +73,7 @@ func main() {
 	// Pool init — single instance, lives for the lifetime of the process
 	pool := services.NewWorkerPool().WithRedis(utils.RDB)
 	pool.StartFlusher(ctx, db)
+	go services.RunBacktestCleanup(ctx, db)
 
 	allowedOrigins := []string{}
 	if dev := os.Getenv("DEV_SERVER"); dev != "" {

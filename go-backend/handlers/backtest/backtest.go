@@ -1,180 +1,145 @@
 package backtest
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"finsec-backend/structs"
-	"strings"
-
-	"bytes"
-	"database/sql"
-
 	"finsec-backend/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-const BacktestSessionTTL = 1 * time.Hour
+const BacktestSessionTTL = 72 * time.Hour
 
-// RunBacktest handles POST /backtest/run.
-// It loads candle data for the requested ticker/interval/date range from Parquet storage,
-// builds a enriched candle list with buy prices, creates a session record, stores it in
-// Redis, and returns the full candle sequence to the client.
+func fetchCandles(
+	ctx context.Context,
+	ticker string,
+	interval string,
+	dateFrom string,
+	dateTo string,
+) ([]structs.BacktestCandle, error) {
+	body, err := json.Marshal(map[string]any{
+		"ticker": strings.ToUpper(ticker), "interval": interval,
+		"date_from": dateFrom, "date_to": dateTo,
+	})
+	if err != nil {
+		return nil, err
+	}
 
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		utils.Cfg.PythonUrl+"/api/internal/backtest/candles",
+		bytes.NewBuffer(body),
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Secret", utils.Cfg.InternalSecret)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("candle service returned %d", resp.StatusCode)
+	}
+
+	var candles []structs.BacktestCandle
+	if err := json.NewDecoder(resp.Body).Decode(&candles); err != nil {
+		return nil, err
+	}
+	if len(candles) == 0 {
+		return nil, fmt.Errorf("no candles found")
+	}
+	return candles, nil
+}
+
+func cacheSession(
+	ctx context.Context,
+	session structs.BacktestSession,
+	candles []structs.BacktestCandle,
+) error {
+	sessionJSON, err := json.Marshal(session)
+	if err != nil {
+		return err
+	}
+	candlesJSON, err := json.Marshal(candles)
+	if err != nil {
+		return err
+	}
+
+	pipe := utils.RDB.TxPipeline()
+	pipe.SetEx(ctx, "backtest:session:"+session.SessionID, sessionJSON, BacktestSessionTTL)
+	pipe.SetEx(ctx, "backtest:candles:"+session.SessionID, candlesJSON, BacktestSessionTTL)
+	_, err = pipe.Exec(ctx)
+	return err
+}
+
+// RunBacktest creates the durable snapshot and the matching temporary candle cache.
 func RunBacktest(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.MustGet("userID").(string)
-
 		var req structs.BacktestRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		body, err := json.Marshal(map[string]any{
-			"ticker":    strings.ToUpper(req.Ticker),
-			"interval":  req.Interval,
-			"date_from": req.DateFrom,
-			"date_to":   req.DateTo,
-		})
+		candles, err := fetchCandles(c, req.Ticker, req.Interval, req.DateFrom, req.DateTo)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to build request"})
-			return
-		}
-
-		pyReq, err := http.NewRequest("POST", utils.Cfg.PythonUrl+"/api/internal/backtest/candles", bytes.NewBuffer(body))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to build request"})
-			return
-		}
-		pyReq.Header.Set("Content-Type", "application/json")
-		pyReq.Header.Set("X-Internal-Secret", utils.Cfg.InternalSecret)
-
-		pyResp, err := http.DefaultClient.Do(pyReq)
-		if err != nil || pyResp.StatusCode != 200 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to build candles"})
-			return
-		}
-		defer pyResp.Body.Close()
-
-		var candles []structs.BacktestCandle
-		if err := json.NewDecoder(pyResp.Body).Decode(&candles); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to decode candles"})
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 			return
 		}
 
 		sessionID := uuid.NewString()
-		session := structs.BacktestSession{
-			SessionID:       sessionID,
-			UserID:          userID,
-			Ticker:          strings.ToUpper(req.Ticker),
-			Interval:        req.Interval,
-			DateFrom:        req.DateFrom,
-			DateTo:          req.DateTo,
-			StartingBalance: req.StartingBalance,
-			CandleCount:     len(candles),
-			CreatedAt:       time.Now().UTC().Format(time.RFC3339),
+		var createdAt, expiresAt time.Time
+		err = db.QueryRowContext(c, `
+			INSERT INTO backtests (
+				id, user_id, ticker, interval, date_from, date_to, starting_balance
+			)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			RETURNING created_at, expires_at
+		`,
+			sessionID, userID, strings.ToUpper(req.Ticker), req.Interval,
+			req.DateFrom, req.DateTo, req.StartingBalance,
+		).Scan(&createdAt, &expiresAt)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create backtest"})
+			return
 		}
 
-		sessionJSON, _ := json.Marshal(session)
-		if err := utils.RDB.SetEx(context.Background(), fmt.Sprintf("backtest:session:%s", sessionID), sessionJSON, BacktestSessionTTL).Err(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to store session"})
+		session := structs.BacktestSession{
+			SessionID: sessionID, UserID: userID,
+			Ticker: strings.ToUpper(req.Ticker), Interval: req.Interval,
+			DateFrom: req.DateFrom, DateTo: req.DateTo,
+			StartingBalance: req.StartingBalance, CandleCount: len(candles),
+			CreatedAt: createdAt.UTC().Format(time.RFC3339),
+			ExpiresAt: expiresAt.UTC().Format(time.RFC3339),
+		}
+		if err := cacheSession(c, session, candles); err != nil {
+			_, _ = db.ExecContext(c, `DELETE FROM backtests WHERE id = $1`, sessionID)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cache backtest"})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"session_id":       sessionID,
-			"ticker":           session.Ticker,
-			"interval":         session.Interval,
-			"candle_count":     len(candles),
-			"starting_balance": req.StartingBalance,
-			"candles":          candles,
+			"session_id": sessionID, "ticker": session.Ticker,
+			"interval": session.Interval, "date_from": session.DateFrom,
+			"date_to": session.DateTo, "starting_balance": session.StartingBalance,
+			"candle_count": len(candles), "current_candle": 0,
+			"positions": []any{}, "created_at": session.CreatedAt,
+			"expires_at": session.ExpiresAt, "candles": candles,
 		})
-	}
-}
-
-// GetBacktestSession handles GET /backtest/session/:session_id.
-// It retrieves a previously created backtest session from Redis, verifies ownership,
-// and returns the session metadata to the authenticated user.
-func GetBacktestSession(db *sql.DB) gin.HandlerFunc {
-	// Authenticate the requesting user.
-	return func(c *gin.Context) {
-		userID := c.MustGet("userID").(string)
-
-		// Extract the session ID from the URL path parameter.
-		sessionID := c.Param("session_id")
-		sessionKey := fmt.Sprintf("backtest:session:%s", sessionID)
-
-		// Look up the session in Redis.
-		ctx := context.Background()
-		cached, err := utils.RDB.Get(ctx, sessionKey).Result()
-		if err != nil {
-			// Redis returns an error when the key does not exist.
-			c.JSON(http.StatusNotFound, gin.H{"error": "Backtest session not found or expired"})
-			return
-		}
-
-		// Deserialise the stored JSON back into a BacktestSession struct.
-		var session structs.BacktestSession
-		if err := json.Unmarshal([]byte(cached), &session); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse session"})
-			return
-		}
-
-		// Ensure the session belongs to the requesting user.
-		if session.UserID != fmt.Sprintf("%v", userID) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Not your session"})
-			return
-		}
-
-		c.JSON(http.StatusOK, session)
-	}
-}
-
-// DeleteBacktestSession handles DELETE /backtest/session/:session_id.
-// It verifies ownership of the session and then removes both the session metadata
-// and any associated candle cache entries from Redis.
-func DeleteBacktestSession(db *sql.DB) gin.HandlerFunc {
-	// Authenticate the requesting user.
-	return func(c *gin.Context) {
-		userID := c.MustGet("userID").(string)
-
-		// Extract the session ID from the URL path parameter.
-		sessionID := c.Param("session_id")
-		sessionKey := fmt.Sprintf("backtest:session:%s", sessionID)
-
-		// Fetch the session from Redis to verify it exists and check ownership.
-		ctx := context.Background()
-		cached, err := utils.RDB.Get(ctx, sessionKey).Result()
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
-			return
-		}
-
-		// Deserialise the session to check ownership before deletion.
-		var session structs.BacktestSession
-		if err := json.Unmarshal([]byte(cached), &session); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse session"})
-			return
-		}
-
-		// Reject the deletion if the session belongs to a different user.
-		if session.UserID != fmt.Sprintf("%v", userID) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Not your session"})
-			return
-		}
-
-		// Delete the session metadata key.
-		utils.RDB.Del(ctx, sessionKey)
-
-		// Also delete the associated candles cache key, if it exists.
-		utils.RDB.Del(ctx, fmt.Sprintf("backtest:candles:%s", sessionID))
-
-		c.JSON(http.StatusOK, gin.H{"message": "Session deleted"})
 	}
 }

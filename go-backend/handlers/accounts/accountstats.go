@@ -19,6 +19,7 @@ func GetAccountStats(db *sql.DB) gin.HandlerFunc {
 		userID := c.MustGet("userID").(string)
 
 		var (
+			balance    float64
 			netPnl     float64
 			tradeCount int
 			wins       int
@@ -27,13 +28,13 @@ func GetAccountStats(db *sql.DB) gin.HandlerFunc {
 			worstTrade float64
 		)
 		err := db.QueryRowContext(c, `
-			SELECT a.net_pnl, a.trade_count, a.wins, a.losses, a.best_trade, a.worst_trade
+			SELECT a.balance, a.net_pnl, a.trade_count, a.wins, a.losses, a.best_trade, a.worst_trade
 			FROM user_accounts a
 			WHERE a.user_id = $1
-		`, userID).Scan(&netPnl, &tradeCount, &wins, &losses, &bestTrade, &worstTrade)
+		`, userID).Scan(&balance, &netPnl, &tradeCount, &wins, &losses, &bestTrade, &worstTrade)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusOK, gin.H{
-				"net_pnl": 0, "trade_count": 0, "wins": 0,
+				"balance": 0, "net_pnl": 0, "trade_count": 0, "wins": 0,
 				"losses": 0, "win_rate": 0, "avg_pnl_per_trade": 0,
 				"best_trade": 0, "worst_trade": 0,
 			})
@@ -52,6 +53,7 @@ func GetAccountStats(db *sql.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
+			"balance":           math.Round(balance*100) / 100,
 			"net_pnl":           math.Round(netPnl*100) / 100,
 			"trade_count":       tradeCount,
 			"wins":              wins,

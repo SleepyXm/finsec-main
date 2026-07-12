@@ -3,10 +3,24 @@
 import BacktestControls from "./BacktestControls";
 import BacktestForm from "./BacktestForm";
 import BacktestStats from "./BacktestStats";
+import SavedBacktests from "./SavedBacktests";
 import { useBacktestContext } from "./BacktestContext";
 import OpenPositions from "@/app/components/trading/positions";
 import { useChartContext } from "@/app/chart/chartcontext";
-import { theme } from "@/app/components/UI/UI";
+import { PnLChart } from "@/app/chart/chartrender/charts/PnLChart";
+import {
+  TraderBlankButton,
+  cornerStyle,
+  MonoLabel,
+  theme,
+  traderInsetPanelStyle,
+  traderPanelStyle,
+} from "@/app/components/UI/UI";
+
+function displayDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+}
 
 export default function BacktestPanel() {
   const { shortname, interval } = useChartContext();
@@ -14,59 +28,55 @@ export default function BacktestPanel() {
     session,
     startSession,
     resetSession,
+    resetReplay,
     candles,
     cursor,
     setCursor,
     playing,
     setPlaying,
-    visibleCandles,
     currentCandle,
-    positions,
+    openPositions,
     livePnLMap,
     closeTrade,
+    error,
+    analysis,
   } = useBacktestContext();
 
   if (!session) {
     return (
-      <div style={{ padding: 12 }}>
+      <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 18 }}>
         <BacktestForm
           defaultTicker={shortname ?? ""}
           defaultInterval={interval ?? "5m"}
           onSessionStart={startSession}
         />
+        <SavedBacktests onResume={(backtest) => startSession(backtest, backtest.candles)} />
       </div>
     );
   }
 
   return (
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <header style={{ ...traderPanelStyle(theme.dark), padding: "10px 12px" }}>
+        <div style={cornerStyle()} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <div>
           <div style={{ color: theme.dark.text, fontSize: 13, fontWeight: 600 }}>
-            {session.ticker} — Backtest
+            {session.ticker} <span style={{ color: theme.dark.accent }}>·</span> Backtest
           </div>
           <div style={{ color: theme.dark.muted2, fontSize: 11, marginTop: 2 }}>
-            {session.interval} · {session.date_from} to {session.date_to}
+            {session.interval} · {displayDate(session.date_from)} — {displayDate(session.date_to)}
           </div>
         </div>
-        <button
-          type="button"
+        <TraderBlankButton
           onClick={resetSession}
-          title="New backtest"
-          style={{
-            padding: "4px 9px",
-            fontSize: 11,
-            cursor: "pointer",
-            borderRadius: 0,
-            fontFamily: "inherit",
-            background: "rgba(238,242,247,0.025)",
-            color: theme.dark.muted,
-            border: `1px solid ${theme.dark.borderSoft}`,
-          }}
+          title="Exit backtest"
+          style={{ padding: "6px 9px", fontSize: 9 }}
         >
-          New
-        </button>
-      </div>
+          Exit
+        </TraderBlankButton>
+        </div>
+      </header>
 
       <BacktestControls
         session={session}
@@ -75,17 +85,48 @@ export default function BacktestPanel() {
         totalCandles={candles.length}
         playing={playing}
         setPlaying={setPlaying}
+        onReset={resetReplay}
       />
 
-      <BacktestStats session={session} candles={visibleCandles} />
+      {error && (
+        <div style={{ color: theme.dark.errorText, background: theme.dark.errorBg, padding: 9, fontSize: 10 }}>
+          {error}
+        </div>
+      )}
 
-      {positions.length > 0 && (
+      {analysis && (
+        <section style={{ ...traderInsetPanelStyle(theme.dark), padding: "10px 10px 4px" }}>
+          <div style={cornerStyle()} />
+          <MonoLabel>P&amp;L curve</MonoLabel>
+          <div style={{ marginTop: 6 }}>
+            <PnLChart
+              height={170}
+              data={analysis.equityCurve.map((point) => ({
+                time: point.time,
+                value: point.value - session.starting_balance,
+              }))}
+              colors={{
+                backgroundColor: "transparent",
+                textColor: theme.dark.muted2,
+              }}
+            />
+          </div>
+        </section>
+      )}
+
+      {analysis && (
+        <BacktestStats
+          analysis={analysis}
+          currentCandle={currentCandle}
+          openPositions={openPositions.length}
+        />
+      )}
+
+      {openPositions.length > 0 && (
         <OpenPositions
-          positions={positions}
+          positions={openPositions}
           livePnLMap={livePnLMap}
-          onClose={(id) =>
-            closeTrade(id, currentCandle?.close ?? 0, session.session_id)
-          }
+          onClose={(id) => closeTrade(id, currentCandle?.close ?? 0)}
         />
       )}
     </div>

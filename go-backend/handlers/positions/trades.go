@@ -21,7 +21,7 @@ import (
 	"github.com/google/uuid"
 )
 
-var BacktestSessionTTL = 1 * time.Hour
+var BacktestSessionTTL = 72 * time.Hour
 
 func nullableFloat(raw json.RawMessage) (any, error) {
 	var value *float64
