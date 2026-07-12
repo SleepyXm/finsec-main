@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
 revision = '010_add_strategies'
-down_revision = '008_add_subscriptions_prod'
+down_revision = '008_add_indicators'
 branch_labels = None
 depends_on = None
 

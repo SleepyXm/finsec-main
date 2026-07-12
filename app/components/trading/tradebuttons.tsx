@@ -1,4 +1,6 @@
-﻿interface TradeButtonsProps {
+﻿import { QuantityStepper } from "@/app/components/UI/webui";
+
+interface TradeButtonsProps {
   data: any;
   onTrade: (action: "buy" | "sell", quantity: number) => void;
   quantity: number;
@@ -51,14 +53,9 @@ export default function TradeButtons({ data, onTrade, quantity, onQuantityChange
         <small className="tabular-nums leading-none font-bold">${sellPrice}</small>
       </button>
 
-      <input
-        type="number"
-        min={1}
+      <QuantityStepper
         value={quantity}
-        onChange={(e) =>
-          onQuantityChange(Math.max(1, parseInt(e.target.value) || 1))
-        }
-        className="w-12 h-7 text-center text-white border border-gray-300 rounded px-1 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        onChange={onQuantityChange}
       />
 
       <button

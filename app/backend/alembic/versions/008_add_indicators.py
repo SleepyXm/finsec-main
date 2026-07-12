@@ -6,8 +6,8 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import UUID
 
 
-revision = '007_add_indicators'
-down_revision = '006_add_subscriptions'
+revision = '008_add_indicators'
+down_revision = '007_add_backtests'
 branch_labels = None
 depends_on = None
 
