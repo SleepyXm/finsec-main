@@ -86,6 +86,9 @@ type BacktestSession struct {
 
 	// CreatedAt is the ISO-8601 UTC timestamp of when this session was created.
 	CreatedAt string `json:"created_at"`
+
+	// ExpiresAt is the immutable three-day expiry for this session.
+	ExpiresAt string `json:"expires_at"`
 }
 
 // BacktestRunResponse is the JSON response body returned from POST /backtest/run.

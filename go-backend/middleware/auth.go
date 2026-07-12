@@ -50,8 +50,12 @@ func AuthMiddleware(db *sql.DB) gin.HandlerFunc {
 
 		userID := claims["sub"].(string)
 
-		var id, username, email string
-		err = db.QueryRow("SELECT id, username, email FROM users WHERE id = $1", userID).Scan(&id, &username, &email)
+		var id, username, email, subscriptionTier string
+		err = db.QueryRow(`
+			SELECT id, username, email, COALESCE(NULLIF(subscription_tier, ''), 'free')
+			FROM users
+			WHERE id = $1
+		`, userID).Scan(&id, &username, &email, &subscriptionTier)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			c.Abort()
@@ -61,6 +65,7 @@ func AuthMiddleware(db *sql.DB) gin.HandlerFunc {
 		c.Set("userID", id)
 		c.Set("username", username)
 		c.Set("email", email)
+		c.Set("subscriptionTier", subscriptionTier)
 
 		c.Next()
 	}
