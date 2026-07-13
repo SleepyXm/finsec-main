@@ -66,18 +66,50 @@ func createStripeCheckoutSession(userID, customerID string, product checkoutProd
 		"product_name": product.ProductName, "stripe_price_id": product.StripePriceID,
 	}
 	return session.New(&stripe.CheckoutSessionParams{
-		Mode:                stripe.String("subscription"),
-		Customer:            stripe.String(customerID),
-		ClientReferenceID:   stripe.String(userID),
-		SuccessURL:          stripe.String(checkoutRedirectURL("CHECKOUT_SUCCESS_URL", "STRIPE_SUCCESS_URL", "/checkout/success?session_id={CHECKOUT_SESSION_ID}")),
-		CancelURL:           stripe.String(checkoutRedirectURL("CHECKOUT_CANCEL_URL", "STRIPE_CANCEL_URL", "/products?checkout=cancelled")),
-		AllowPromotionCodes: stripe.Bool(true),
+		Mode:                     stripe.String(string(stripe.CheckoutSessionModeSubscription)),
+		Customer:                 stripe.String(customerID),
+		ClientReferenceID:        stripe.String(userID),
+		SuccessURL:               stripe.String(checkoutRedirectURL("CHECKOUT_SUCCESS_URL", "STRIPE_SUCCESS_URL", "/checkout/success?session_id={CHECKOUT_SESSION_ID}")),
+		CancelURL:                stripe.String(checkoutRedirectURL("CHECKOUT_CANCEL_URL", "STRIPE_CANCEL_URL", "/products?checkout=cancelled")),
+		AllowPromotionCodes:      stripe.Bool(true),
+		BillingAddressCollection: stripe.String(string(stripe.CheckoutSessionBillingAddressCollectionAuto)),
+		SubmitType:               stripe.String(string(stripe.CheckoutSessionSubmitTypeSubscribe)),
+		BrandingSettings:         checkoutBrandingSettings(),
+		CustomText: &stripe.CheckoutSessionCustomTextParams{
+			Submit: &stripe.CheckoutSessionCustomTextSubmitParams{
+				Message: stripe.String("Your subscription renews automatically each month. Finsec access is enabled after payment is confirmed."),
+			},
+		},
 		LineItems: []*stripe.CheckoutSessionLineItemParams{{
 			Price: stripe.String(product.StripePriceID), Quantity: stripe.Int64(1),
 		}},
 		Metadata:         metadata,
 		SubscriptionData: &stripe.CheckoutSessionSubscriptionDataParams{Metadata: metadata},
 	})
+}
+
+func checkoutBrandingSettings() *stripe.CheckoutSessionBrandingSettingsParams {
+	branding := &stripe.CheckoutSessionBrandingSettingsParams{
+		BackgroundColor: stripe.String("#0E1117"),
+		BorderStyle:     stripe.String(string(stripe.CheckoutSessionBrandingSettingsBorderStyleRectangular)),
+		ButtonColor:     stripe.String("#8FAADC"),
+		DisplayName:     stripe.String("FinSec"),
+	}
+
+	if iconURL := strings.TrimSpace(os.Getenv("STRIPE_CHECKOUT_ICON_URL")); iconURL != "" {
+		branding.Icon = &stripe.CheckoutSessionBrandingSettingsIconParams{
+			Type: stripe.String(string(stripe.CheckoutSessionBrandingSettingsIconTypeURL)),
+			URL:  stripe.String(iconURL),
+		}
+	}
+	if logoURL := strings.TrimSpace(os.Getenv("STRIPE_CHECKOUT_LOGO_URL")); logoURL != "" {
+		branding.Logo = &stripe.CheckoutSessionBrandingSettingsLogoParams{
+			Type: stripe.String(string(stripe.CheckoutSessionBrandingSettingsLogoTypeURL)),
+			URL:  stripe.String(logoURL),
+		}
+	}
+
+	return branding
 }
 
 func retrieveStripeCheckoutSession(sessionID string) (*stripe.CheckoutSession, error) {
