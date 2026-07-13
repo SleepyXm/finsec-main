@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import CheckoutSuccess from "./CheckoutSuccess";
+
+export const metadata: Metadata = {
+  title: "FinSec - Checkout Success",
+};
 
 type CheckoutSuccessPageProps = {
   searchParams: Promise<{
