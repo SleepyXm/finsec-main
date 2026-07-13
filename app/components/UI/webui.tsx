@@ -41,7 +41,7 @@ export function QuantityStepper({
   return (
     <div style={{
       display: "grid",
-      gridTemplateColumns: "46px 20px",
+      gridTemplateColumns: "30px 20px",
       height: 28,
       background: "rgba(14,17,23,0.78)",
       border: `1px solid ${theme.dark.border}`,

@@ -47,10 +47,12 @@ function NavItem({
   link,
   pathname,
   mobile = false,
+  onNavigate,
 }: {
   link: NavLinkDef;
   pathname: string;
   mobile?: boolean;
+  onNavigate?: () => void;
 }) {
   const active = link.url ? pathname === link.url : false;
   const base = navItemStyle(active, link.cta);
@@ -71,12 +73,15 @@ function NavItem({
   const shared = { style, onMouseEnter: onEnter, onMouseLeave: onLeave };
 
   return link.url ? (
-    <Link href={link.url} {...shared}>
+    <Link href={link.url} onClick={onNavigate} {...shared}>
       {link.label}
     </Link>
   ) : (
     <button
-      onClick={link.onClick}
+      onClick={() => {
+        onNavigate?.();
+        link.onClick?.();
+      }}
       {...shared}
       style={{ ...style, textAlign: mobile ? "left" : undefined }}
     >
@@ -127,11 +132,11 @@ const Navbar = () => {
   ];
 
   const headerClass = [
-    "fixed z-50 border-b border-white/[0.09] backdrop-blur-sm transition-all",
+    "z-50 grid-cols-[minmax(0,1fr)_auto] border-b border-white/[0.09] backdrop-blur-sm transition-all md:grid-cols-[minmax(0,1fr)_minmax(180px,280px)_minmax(0,1fr)]",
     isChartPage
       ? "relative w-full rounded-none"
       : [
-          "top-3 left-1/2 -translate-x-1/2 w-[80vw] rounded-4xl border",
+          "fixed top-3 left-1/2 -translate-x-1/2 w-[80vw] rounded-4xl border",
           isVisible ? "translate-y-0" : "-translate-y-full",
         ].join(" "),
   ].join(" ");
@@ -141,8 +146,10 @@ const Navbar = () => {
       className={headerClass}
       style={{
         ...panelStyle(theme.dark),
+        // panelStyle is relative by default; floating navigation must be taken
+        // out of document flow while chart navigation remains part of it.
+        position: isChartPage ? "relative" : "fixed",
         display: "grid",
-        gridTemplateColumns: "minmax(0,1fr) minmax(180px,280px) minmax(0,1fr)",
         alignItems: "center",
         columnGap: 18,
         minHeight: 56,
@@ -167,6 +174,7 @@ const Navbar = () => {
 
       {/* Search */}
       <div
+        className="hidden md:block"
         style={{
           position: "relative",
           zIndex: 2,
@@ -198,43 +206,79 @@ const Navbar = () => {
       </div>
 
       {/* Nav */}
-      <nav style={{ justifySelf: "end", position: "relative", zIndex: 1 }}>
-        <ul className="flex items-center gap-0.5 list-none p-0 m-0">
+      <nav style={{ justifySelf: "end", position: "static", zIndex: 1 }}>
+        <ul className="m-0 hidden list-none items-center gap-0.5 p-0 md:flex">
           {links.map((link) => (
             <li key={link.label}>
               <NavItem link={link} pathname={pathname} />
             </li>
           ))}
-          <li>
-            <button
-              onClick={() => setMobileOpen((v) => !v)}
-              aria-label="Toggle menu"
-              style={navItemStyle()}
-              onMouseEnter={(e) =>
-                Object.assign(e.currentTarget.style, {
-                  background: NAV_HOVER_BG,
-                  borderColor: NAV_HOVER_BORDER,
-                  color: theme.dark.text,
-                })
-              }
-              onMouseLeave={(e) =>
-                Object.assign(e.currentTarget.style, navItemStyle())
-              }
-            >
-              ☰
-            </button>
-          </li>
         </ul>
+
+        <button
+          type="button"
+          className="md:hidden"
+          onClick={() => setMobileOpen((v) => !v)}
+          aria-label="Toggle menu"
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-navigation"
+          style={{ ...navItemStyle(), display: undefined, padding: "8px 11px" }}
+          onMouseEnter={(e) =>
+            Object.assign(e.currentTarget.style, {
+              background: NAV_HOVER_BG,
+              borderColor: NAV_HOVER_BORDER,
+              color: theme.dark.text,
+            })
+          }
+          onMouseLeave={(e) =>
+            Object.assign(e.currentTarget.style, {
+              ...navItemStyle(),
+              display: "",
+              padding: "8px 11px",
+            })
+          }
+        >
+          ☰
+        </button>
 
         {mobileOpen && (
           <ul
-            className="absolute top-full right-0 flex flex-col gap-0.5 list-none px-4 pb-3 pt-2 min-w-[40]"
-            style={{ ...panelStyle(theme.dark), borderRadius: 0, overflow: "hidden" }}
+            id="mobile-navigation"
+            className="absolute right-0 top-[calc(100%+8px)] m-0 flex w-[80vw] max-w-sm list-none flex-col gap-1 px-4 pb-4 pt-4 md:hidden"
+            style={{
+              ...panelStyle(theme.dark),
+              position: "absolute",
+              borderRadius: 0,
+              overflow: "hidden",
+            }}
           >
             <li aria-hidden="true" style={{ ...cornerStyle(), listStyle: "none" }} />
+            <li className="relative mb-2">
+              <AssetSearchBar onSearch={search} />
+              {searchOpen && (
+                <ul
+                  className="absolute left-0 right-0 top-[calc(100%+6px)] z-10 m-0 max-h-72 list-none overflow-y-auto p-0"
+                  style={{
+                    ...panelStyle(theme.dark),
+                    position: "absolute",
+                    borderRadius: 0,
+                  }}
+                >
+                  <li aria-hidden="true" style={{ ...cornerStyle(), listStyle: "none" }} />
+                  {assets.map((asset) => (
+                    <AssetListItem key={asset.symbol} asset={asset} />
+                  ))}
+                </ul>
+              )}
+            </li>
             {links.map((link) => (
               <li key={link.label}>
-                <NavItem link={link} pathname={pathname} mobile />
+                <NavItem
+                  link={link}
+                  pathname={pathname}
+                  mobile
+                  onNavigate={() => setMobileOpen(false)}
+                />
               </li>
             ))}
           </ul>

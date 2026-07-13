@@ -69,7 +69,7 @@ func createStripeCheckoutSession(userID, customerID string, product checkoutProd
 		Mode:                stripe.String("subscription"),
 		Customer:            stripe.String(customerID),
 		ClientReferenceID:   stripe.String(userID),
-		SuccessURL:          stripe.String(checkoutRedirectURL("CHECKOUT_SUCCESS_URL", "STRIPE_SUCCESS_URL", "/profile?checkout=success&session_id={CHECKOUT_SESSION_ID}")),
+		SuccessURL:          stripe.String(checkoutRedirectURL("CHECKOUT_SUCCESS_URL", "STRIPE_SUCCESS_URL", "/checkout/success?session_id={CHECKOUT_SESSION_ID}")),
 		CancelURL:           stripe.String(checkoutRedirectURL("CHECKOUT_CANCEL_URL", "STRIPE_CANCEL_URL", "/products?checkout=cancelled")),
 		AllowPromotionCodes: stripe.Bool(true),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{{

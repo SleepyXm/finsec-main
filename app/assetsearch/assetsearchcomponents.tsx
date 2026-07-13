@@ -1,6 +1,5 @@
 ﻿import { useState } from "react";
 import Link from "next/link";
-import { RawData } from "../types/charts";
 import { Asset } from "../types/assets";
 
 interface AssetSearchBarProps {
@@ -18,7 +17,7 @@ export function AssetSearchBar({ onSearch }: AssetSearchBarProps) {
   return (
     <form
       onChange={(e) => { e.preventDefault(); onSearch(input); }}
-      className="flex items-center gap-2 bg-white border border-[#2a2e3a] rounded-4xl px-3 h-9 w-[280px] focus-within:border-[#2962ff] transition-all"
+      className="flex h-9 w-full max-w-[280px] items-center gap-2 rounded-4xl border border-[#2a2e3a] bg-white px-3 transition-all focus-within:border-[#2962ff]"
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5d6578" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>

@@ -12,9 +12,9 @@ depends_on = None
 
 TEST_PRODUCTS = [
     {'stripe_product_id': 'there_isnt_a_real_product_id_for_free_tier', 'stripe_price_id': 'there_isnt_a_real_price_id_for_free_tier', 'name': 'Free',                   'tier': 'free',         'amount': 0,     'billing_interval': 'month'},
-    {'stripe_product_id': 'prod_Ur7SEvl41ewdeX',                       'stripe_price_id': 'price_1TrPDNGUL6ygYkqqQUP5PIIk',             'name': 'Premium (Monthly)',      'tier': 'premium',      'amount': 1499,  'billing_interval': 'month'},
-    {'stripe_product_id': 'prod_Ur7TvFJzszwFWq',                       'stripe_price_id': 'price_1TrPEBGUL6ygYkqqHIVNCJri',             'name': 'Professional (Monthly)', 'tier': 'professional', 'amount': 3499,  'billing_interval': 'month'},
-    {'stripe_product_id': 'prod_Ur7UOijTsiRpY1',                       'stripe_price_id': 'price_1TrPFFGUL6ygYkqqMTNqNrhk',             'name': 'Enterprise (Monthly)',   'tier': 'enterprise',   'amount': 99999, 'billing_interval': 'month'},
+    {'stripe_product_id': 'prod_Ur7SEvl41ewdeX',                       'stripe_price_id': 'price_1TrPDNGUL6ygYkqqQUP5PIIk',             'name': 'Premium',      'tier': 'premium',      'amount': 1499,  'billing_interval': 'month'},
+    {'stripe_product_id': 'prod_Ur7TvFJzszwFWq',                       'stripe_price_id': 'price_1TrPEBGUL6ygYkqqHIVNCJri',             'name': 'Professional', 'tier': 'professional', 'amount': 3499,  'billing_interval': 'month'},
+    {'stripe_product_id': 'prod_Ur7UOijTsiRpY1',                       'stripe_price_id': 'price_1TrPFFGUL6ygYkqqMTNqNrhk',             'name': 'Enterprise',   'tier': 'enterprise',   'amount': 99999, 'billing_interval': 'month'},
 ]
 
 

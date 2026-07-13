@@ -81,11 +81,11 @@ export default function Auth() {
 
           <div className="auth-visual-copy auth-visual-copy-top anim-fade-up">
             <p>Finsec</p>
-            <h1>Track markets, assets, and operations in one place.</h1>
+            <h1>Define your strategy, entries, exits</h1>
           </div>
 
           <div className="auth-visual-copy auth-visual-copy-bottom">
-            <h1>and turn your strategy to a trading bot.</h1>
+            <h1>And automate the chart out of your life.</h1>
           </div>
         </aside>
 
