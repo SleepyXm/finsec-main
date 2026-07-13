@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { signup, login } from "@/app/handlers/auth";
 import { useUser } from "@/app/provider/userprovider";
 import Popup from "../components/errorpopup";
-import { AuthChartAnimation } from "../components/UI/tradeanimation";
-import { theme, panelStyle, cornerStyle } from "@/app/components/UI/UI";
+import { AuthChartAnimation } from "@/app/ui/client";
+import { theme, panelStyle, cornerStyle } from "@/app/ui";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {

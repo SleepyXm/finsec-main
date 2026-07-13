@@ -5,12 +5,12 @@ import OpenPositions from "./positions";
 import RealisedPnL from "../portfolio/portfolio";
 import { OpenPositionsProps } from "@/app/types/trades";
 import { usePortfolio, useAccountStats } from "@/app/hooks/usePortfolio";
-import { theme, panelStyle, cornerStyle } from "@/app/components/UI/UI";
+import { theme, panelStyle, cornerStyle } from "@/app/ui";
+import styles from "./TradingPanel.module.css";
 
-type Tab = "pnl" | "realised" | "positions";
+type Tab = "realised" | "positions";
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "pnl", label: "Profit and Loss" },
   { key: "realised", label: "Orders" },
   { key: "positions", label: "Open Positions" },
 ];
@@ -22,7 +22,7 @@ export default function TradingPanel({
 }: OpenPositionsProps) {
   const t = theme.dark;
 
-  const [activeTab, setActiveTab] = useState<Tab>("pnl");
+  const [activeTab, setActiveTab] = useState<Tab>("realised");
 
   const { rows, loading, hasMore, sentinelRef } = usePortfolio();
   const { stats, loading: statsLoading, refresh: refreshStats } = useAccountStats();
@@ -62,65 +62,62 @@ export default function TradingPanel({
     >
       <div style={cornerStyle()} />
 
-      <div className="trading-panel-tabs">
-        {TABS.map((tab) => {
-          const isActive = activeTab === tab.key;
+      <div className={styles.header}>
+        <div className="trading-panel-tabs">
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
 
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={[
-                "trading-panel-tab",
-                isActive ? "trading-panel-tab-active" : "",
-              ].join(" ")}
-            >
-              {tab.label}
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={[
+                  "trading-panel-tab",
+                  isActive ? "trading-panel-tab-active" : "",
+                ].join(" ")}
+              >
+                {tab.label}
 
-              {tab.key === "positions" && positions.length > 0 && (
-                <span className="trading-panel-tab-count">
-                  {positions.length}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+                {tab.key === "positions" && positions.length > 0 && (
+                  <span className="trading-panel-tab-count">
+                    {positions.length}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-      <div className="trading-panel-content">
-        {activeTab === "pnl" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div className="trading-panel-metric">
-              <span className="trading-panel-metric-label">Account Balance</span>
-              <span className="trading-panel-metric-value">
-                {statsLoading || !stats
-                  ? "—"
-                  : `$${stats.balance.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}`}
-              </span>
-            </div>
+        <div className={styles.summary} aria-label="Profit and loss summary">
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>Account Balance</span>
+            <span className={styles.summaryValue}>
+              {statsLoading || !stats
+                ? "—"
+                : `$${stats.balance.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`}
+            </span>
+          </div>
 
-            <div className="trading-panel-metric">
-              <span className="trading-panel-metric-label">Unrealised PnL</span>
-
+          <div className={styles.summaryItem}>
+            <span className={styles.summaryLabel}>Unrealised PnL</span>
             <span
               className={[
-                "trading-panel-metric-value",
-                isPositive
-                  ? "trading-panel-metric-value-positive"
-                  : "trading-panel-metric-value-negative",
+                styles.summaryValue,
+                isPositive ? styles.positive : styles.negative,
               ].join(" ")}
             >
               {isPositive ? "+" : "−"}$
               {Math.abs(accountUnrealisedPnL).toFixed(2)}
-              </span>
-            </div>
+            </span>
           </div>
-        )}
+        </div>
+      </div>
 
+      <div className="trading-panel-content">
         {activeTab === "realised" && (
           <RealisedPnL
             rows={rows}
@@ -134,12 +131,14 @@ export default function TradingPanel({
 
         {activeTab === "positions" &&
           (positions.length > 0 ? (
-            <OpenPositions
-              positions={positions}
-              livePnLMap={livePnLMap}
-              onClose={handleClose}
-              accountUnrealisedPnL={accountUnrealisedPnL}
-            />
+            <div className="trading-panel-scroll">
+              <OpenPositions
+                positions={positions}
+                livePnLMap={livePnLMap}
+                onClose={handleClose}
+                accountUnrealisedPnL={accountUnrealisedPnL}
+              />
+            </div>
           ) : (
             <p className="trading-panel-empty">No open positions.</p>
           ))}

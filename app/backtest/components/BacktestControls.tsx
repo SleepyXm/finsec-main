@@ -6,11 +6,11 @@ import type { BacktestSession } from "@/app/types/backend";
 import {
   MonoLabel,
   TraderBlankButton,
-  buttonStyle,
+  Button,
   cornerStyle,
   panelStyle,
   theme,
-} from "@/app/components/UI/UI";
+} from "@/app/ui";
 
 interface Props {
   session: BacktestSession;
@@ -63,13 +63,15 @@ export default function BacktestControls({
     <section style={{ ...panelStyle(theme.dark), padding: 12 }}>
       <div style={cornerStyle()} />
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="sm"
           onClick={() => setPlaying((current) => !current)}
-          style={{ ...buttonStyle(theme.dark), ...compactButton }}
+          style={compactButton}
         >
           {playing ? "Pause" : "Play"}
-        </button>
+        </Button>
         <TraderBlankButton style={compactButton} onClick={onReset}>
           Reset
         </TraderBlankButton>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   TraderBlankButton,
   traderCornerOpacity,
-} from "@/app/components/UI/UI";
+} from "@/app/ui";
 
 export const LOGO_MAP: Record<string, string> = {
   "ES=F":     "/logos/sp500.png",

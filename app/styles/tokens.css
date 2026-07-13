@@ -1,0 +1,58 @@
+:root {
+  --background: #0e1117;
+  --foreground: #eef2f7;
+
+  --auth-card: rgba(238, 242, 247, 0.045);
+  --auth-border: rgba(238, 242, 247, 0.14);
+  --auth-border-hover: rgba(238, 242, 247, 0.26);
+  --auth-muted: rgba(238, 242, 247, 0.64);
+  --auth-faint: rgba(238, 242, 247, 0.38);
+  --auth-input: rgba(238, 242, 247, 0.045);
+
+  --font-display: "Familjen Grotesk", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
+
+#tv-attr-logo {
+  display: none !important;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-code);
+}
+
+/* Shared semantic aliases used by CSS Modules and Tailwind compositions. */
+:root {
+  --ui-bg: #0e1117;
+  --ui-surface: #131821;
+  --ui-text: #eef2f7;
+  --ui-text-soft: #dde2ea;
+  --ui-muted: rgba(238, 242, 247, 0.66);
+  --ui-muted-2: rgba(238, 242, 247, 0.42);
+  --ui-accent: #8faadc;
+  --ui-accent-strong: #7f9bce;
+  --ui-border: rgba(238, 242, 247, 0.12);
+  --ui-border-soft: rgba(238, 242, 247, 0.07);
+  --ui-border-strong: rgba(238, 242, 247, 0.22);
+  --ui-corner: rgba(238, 242, 247, 0.36);
+  --ui-focus: rgba(143, 170, 220, 0.62);
+  --ui-surface-hover: rgba(238, 242, 247, 0.075);
+  --ui-danger-soft: rgba(199, 125, 125, 0.12);
+  --ui-danger-border: rgba(199, 125, 125, 0.34);
+  --ui-danger-text: #e2a1a1;
+  --ui-danger-hover: rgba(199, 125, 125, 0.2);
+  --ui-page-gradient: radial-gradient(circle at 15% 10%, rgba(143,170,220,0.10), transparent 28%), linear-gradient(180deg, #0e1117 0%, #131821 45%, #0e1117 100%);
+  --ui-panel-gradient: linear-gradient(180deg, rgba(238,242,247,0.035), rgba(238,242,247,0.015));
+  --ui-trader-gradient: linear-gradient(180deg, rgba(238,242,247,0.045), rgba(238,242,247,0.018));
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --motion-fast: 160ms ease;
+}

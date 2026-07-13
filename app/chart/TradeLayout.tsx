@@ -12,7 +12,7 @@ import {
   pageStyle,
   panelStyle,
   theme,
-} from "@/app/components/UI/UI";
+} from "@/app/ui";
 
 const TOP_BAR_H = 40;
 const LEFT_BAR_W = 48;

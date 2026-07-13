@@ -8,7 +8,7 @@ import Link from "next/link";
 import { AssetSearchBar, AssetListItem } from "@/app/assetsearch/assetsearchcomponents";
 import { useAssetSearch } from "../hooks/utility";
 import { usePathname } from "next/navigation";
-import { cornerStyle, panelStyle, theme } from "@/app/components/UI/UI";
+import { cornerStyle, panelStyle, theme } from "@/app/ui";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -101,6 +101,7 @@ const Navbar = () => {
   const { assets, search } = useAssetSearch();
 
   const isChartPage = pathname.startsWith("/chart/") || pathname.startsWith("/dashboard");
+  const isTradingChart = pathname.startsWith("/chart/");
   const searchOpen  = assets.length > 0;
 
   useEffect(() => {
@@ -153,7 +154,9 @@ const Navbar = () => {
         alignItems: "center",
         columnGap: 18,
         minHeight: 56,
-        padding: "16px 24px",
+        height: isTradingChart ? 56 : undefined,
+        boxSizing: "border-box",
+        padding: isTradingChart ? "8px 24px" : "16px 24px",
         overflow: "visible",
         background: "linear-gradient(180deg, rgba(19,24,33,0.88), rgba(14,17,23,0.78))",
         boxShadow: isChartPage ? "none" : "0 18px 48px rgba(0,0,0,0.22)",

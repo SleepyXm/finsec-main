@@ -5,7 +5,7 @@ import { useChartContext } from "../chartcontext";
 import { IndicatorPanel } from "@/app/indicators/core/editor/IndicatorPanel";
 import { AssetSearchBar, AssetListItem } from "@/app/assetsearch/assetsearchcomponents";
 import { useAssetSearch } from "@/app/hooks/utility";
-import { theme, cornerStyle } from "@/app/components/UI/UI";
+import { theme, cornerStyle } from "@/app/ui";
 import { CandleStickChart } from "../chartrender/charts/CandleStickChart";
 import BacktestPanel from "@/app/backtest/components/BacktestPanel";
 
@@ -22,7 +22,7 @@ const RIGHT_TABS: { id: RightTab; label: string }[] = [
   { id: "tools",      label: "Tools"      },
 ];
 
-const RIGHT_PANEL_W      = 560;
+const RIGHT_PANEL_W      = "clamp(360px, 22vw, 440px)";
 const selectedBlurBg     = "rgba(238,242,247,0.085)";
 const selectedBlurBorder = "rgba(238,242,247,0.26)";
 const hoverBg            = "rgba(238,242,247,0.055)";

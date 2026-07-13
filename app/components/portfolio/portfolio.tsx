@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { TradeHistoryRow } from "@/app/types/portfolio";
 import { AccountStats } from "@/app/types/accounts";
 
@@ -14,7 +17,7 @@ interface RealisedPnLProps {
 function StatCard({ label, value, suffix }: { label: string; value: number; suffix?: string }) {
   const pos = value >= 0;
   return (
-    <div className="flex flex-col gap-0.5 border-r border-zinc-800 last:border-r-0 px-3 py-2.5">
+    <div className="flex items-center justify-between gap-3 border-r border-zinc-800 px-3 py-2 last:border-r-0">
       <span className="text-[11px] font-medium uppercase tracking-widest text-zinc-600">
         {label}
       </span>
@@ -28,29 +31,51 @@ function StatCard({ label, value, suffix }: { label: string; value: number; suff
 }
 
 export default function RealisedPnL({ rows, stats, loading, statsLoading, hasMore, sentinelRef }: RealisedPnLProps) {
+  const [statsOpen, setStatsOpen] = useState(false);
+
   if (loading && rows.length === 0)
     return <p className="text-xs text-zinc-600">Loading…</p>;
   if (!loading && rows.length === 0)
     return <p className="text-xs text-zinc-600">No realised PnL history yet.</p>;
 
   return (
-    <div className="space-y-3">
-      {/* Stats bar — from useAccountStats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 rounded-lg border border-zinc-800 overflow-hidden">
-        {statsLoading || !stats ? (
-          <p className="text-xs text-zinc-600 col-span-4 p-2">Loading stats…</p>
-        ) : (
-          <>
-            <StatCard label="Total PnL"   value={stats.net_pnl} />
-            <StatCard label="Win Rate"    value={stats.win_rate} suffix="%" />
-            <StatCard label="Best Trade"  value={stats.best_trade} />
-            <StatCard label="Worst Trade" value={stats.worst_trade} />
-          </>
-        )}
-      </div>
+    <div className="flex h-full min-h-0 flex-col gap-1.5 overflow-hidden">
+      <button
+        type="button"
+        aria-expanded={statsOpen}
+        onClick={() => setStatsOpen((open) => !open)}
+        className="flex h-6 shrink-0 items-center justify-between border border-zinc-800 px-3 text-[9px] font-medium uppercase tracking-[0.14em] text-zinc-500 transition-colors hover:border-zinc-700 hover:text-zinc-300"
+      >
+        <span>Performance stats</span>
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          fill="none"
+          aria-hidden="true"
+          className={`transition-transform ${statsOpen ? "rotate-180" : ""}`}
+        >
+          <path d="M2 3.5 5 6.5l3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {statsOpen && (
+        <div className="grid shrink-0 grid-cols-2 overflow-hidden rounded-lg border border-zinc-800 sm:grid-cols-4">
+          {statsLoading || !stats ? (
+            <p className="col-span-4 p-2 text-xs text-zinc-600">Loading stats…</p>
+          ) : (
+            <>
+              <StatCard label="Total PnL"   value={stats.net_pnl} />
+              <StatCard label="Win Rate"    value={stats.win_rate} suffix="%" />
+              <StatCard label="Best Trade"  value={stats.best_trade} />
+              <StatCard label="Worst Trade" value={stats.worst_trade} />
+            </>
+          )}
+        </div>
+      )}
 
       {/* Trade list — from usePortfolio */}
-      <div className="max-h-60 overflow-y-auto space-y-px pr-px">
+      <div className="min-h-0 flex-1 space-y-px overflow-y-auto pr-px">
         {rows.map((row) => {
           const pnl = row.realised_pnl === "—" ? null : parseFloat(row.realised_pnl.replace(/[^0-9.-]/g, ""));
           const pos = pnl !== null && pnl >= 0;

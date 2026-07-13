@@ -5,7 +5,7 @@ import { ChartProvider, useChartContext } from "../chartcontext";
 import TradeLayout from "@/app/chart/layout/TradeLayout";
 import TradingPanel from "@/app/components/trading/panel";
 import TradeButtons from "@/app/components/trading/tradebuttons";
-import { TopBar } from "@/app/chart/layout/TopBar";
+import { ChartQuoteStrip, TopBar } from "@/app/chart/layout/TopBar";
 import { ChartRenderer } from "@/app/chart/chartrender/ChartRenderer";
 import { ChartThemeModal } from "@/app/chart/chartrender/overlays/ThemeSettings";
 import { defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
@@ -116,6 +116,10 @@ function ChartPageInner() {
           {isBacktesting ? "Press play to start replay…" : "Loading chart…"}
         </p>
       )}
+
+      <div style={{ position: "absolute", top: 8, left: 10, zIndex: 12 }}>
+        <ChartQuoteStrip />
+      </div>
 
       {themeModalOpen && (
         <ChartThemeModal

@@ -1,0 +1,5 @@
+.stack { display: flex; min-width: 0; flex-direction: column; }
+.cluster { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; }
+.grid { display: grid; min-width: 0; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--grid-min, 16rem)), 1fr)); }
+.page { min-height: 100vh; overflow-x: hidden; background: var(--ui-page-gradient); color: var(--ui-text); }
+.xs { gap: var(--space-1); } .sm { gap: var(--space-2); } .md { gap: var(--space-4); } .lg { gap: var(--space-6); } .xl { gap: var(--space-8); }

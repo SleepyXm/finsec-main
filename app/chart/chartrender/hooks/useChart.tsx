@@ -11,7 +11,7 @@ import { useCandleHighlight } from "@/app/chart/chartrender/overlays/CandleHighl
 import { useScriptIndicators } from "@/app/indicators/hooks/useIndicator";
 import type { AppliedIndicator } from "@/app/indicators/language/types";
 import { PositionTags } from "@/app/chart/chartrender/overlays/PositionOverlay";
-import { ACCENT, DANGER, SUCCESS } from "@/app/components/UI/UI";
+import { ACCENT, DANGER, SUCCESS } from "@/app/ui";
 
 type ChartPlugins = {
   data?: any[];
@@ -420,7 +420,7 @@ export function useChart(
         <div
           style={{
             position: "absolute",
-            top: 10,
+            top: 42,
             left: 10,
             zIndex: 10,
           }}

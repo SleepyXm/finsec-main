@@ -10,7 +10,7 @@ import {
   traderCornerStyle,
   traderInactiveButtonClassName,
   traderWhiteButtonClassName,
-} from "../components/UI/UI";
+} from "@/app/ui";
 import { useUser } from "../provider/userprovider";
 
 type PlanPresentation = {

@@ -1,6 +1,6 @@
 import type { BacktestAnalysis } from "@/app/backtest/analysis";
 import type { BacktestCandle } from "@/app/types/backend";
-import { cornerStyle, panelStyle, theme } from "@/app/components/UI/UI";
+import { cornerStyle, panelStyle, theme } from "@/app/ui";
 
 interface Props {
   analysis: BacktestAnalysis;

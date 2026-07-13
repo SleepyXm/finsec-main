@@ -3,7 +3,7 @@
 import type React from "react";
 import { ColorPicker } from "@/app/chart/chartrender/overlays/ColorPicker";
 import { Row } from "@/app/chart/chartrender/overlays/ThemeSettings";
-import { DANGER, theme } from "@/app/components/UI/UI";
+import { DANGER, theme } from "@/app/ui";
 
 export type DrawTool =
   | "select" | "trendline" | "hline" | "rect"

@@ -3,18 +3,18 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import type React from "react";
 import { Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
-import { theme } from "@/app/components/UI/UI";
+import { theme } from "@/app/ui";
 import { LeftBarSection } from "./LeftBarSection";
 import { ChartAreaSection } from "./ChartAreaSection";
 import { BottomPanelSection } from "./BottomPanelSection";
 import { RightPanelSection, RightTab } from "./RightPanelSection";
 import type { DrawTool } from "./LeftBarSection";
 
-const TOP_BAR_H   = 40;
+const TOP_BAR_H   = 30;
 const LEFT_BAR_W  = 48;
 const BOTTOM_MIN_H    = 64;
 const BOTTOM_MAX_H    = 500;
-const BOTTOM_DEFAULT_H = 360;
+const BOTTOM_DEFAULT_H = 188;
 
 const selectedBlurBg     = "rgba(238,242,247,0.085)";
 const selectedBlurBorder = "rgba(238,242,247,0.26)";
@@ -36,7 +36,7 @@ export default function TradeLayout({
   const [drawingMode, setDrawingMode] = useState(false);
   const [shapes,      setShapes]      = useState<Shape[]>([]);
   const [drawTool,    setDrawTool]    = useState<DrawTool>("trendline");
-  const [drawColor,   setDrawColor]   = useState(theme.dark.accent);
+  const [drawColor,   setDrawColor]   = useState<string>(theme.dark.accent);
   const [drawLW,      setDrawLW]      = useState(2);
   const [drawVisible, setDrawVisible] = useState(true);
 
@@ -85,7 +85,7 @@ export default function TradeLayout({
   return (
     <div style={{
       display: "flex", flexDirection: "column",
-      width: "100vw", height: "100vh", overflow: "hidden",
+      width: "100vw", height: "calc(100dvh - 56px)", overflow: "hidden",
       background: theme.dark.bg, color: theme.dark.text, fontFamily: "inherit",
     }}>
       {/* ── top bar ───────────────────────────────────────────────────────── */}
@@ -107,7 +107,7 @@ export default function TradeLayout({
           title="Toggle panel"
           style={{
             marginLeft: "auto", marginRight: 8,
-            width: 28, height: 28,
+            width: 22, height: 22,
             display: "flex", alignItems: "center", justifyContent: "center",
             background: rightOpen ? selectedBlurBg : "transparent",
             border: `1px solid ${rightOpen ? selectedBlurBorder : theme.dark.borderSoft}`,
@@ -120,7 +120,7 @@ export default function TradeLayout({
             transition: "background 0.16s ease, color 0.16s ease, border-color 0.16s ease",
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
             <rect x="1" y="1" width="12" height="12" rx="1" stroke="currentColor" strokeWidth="1.2" />
             <line x1="9" y1="1" x2="9" y2="13" stroke="currentColor" strokeWidth="1.2" />
           </svg>

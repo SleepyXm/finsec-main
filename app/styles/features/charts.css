@@ -120,35 +120,6 @@
   text-transform: uppercase;
 }
 
-/* Hide snapshot dots/circles completely. */
-.snapshot-point,
-.snapshot-point::before,
-.snapshot-point::after,
-.snapshot-entry,
-.snapshot-exit {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-}
-
-.snapshot-label {
-  position: absolute;
-  z-index: 3;
-  left: 14px;
-  bottom: 12px;
-  padding: 5px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  background: rgba(15, 23, 42, 0.48);
-  backdrop-filter: blur(10px);
-  color: rgba(255, 255, 255, 0.78);
-  font-family: var(--font-code);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-
 /* ═══════════════════════════════════════════════════════════
    STRATEGY GENERATOR
    ACCENT = #8FAADC = rgb(143, 170, 220)

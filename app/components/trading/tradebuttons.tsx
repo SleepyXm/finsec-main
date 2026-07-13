@@ -1,7 +1,10 @@
-﻿import { QuantityStepper } from "@/app/components/UI/webui";
+import { QuantityStepper } from "@/app/ui/client";
 
 interface TradeButtonsProps {
-  data: any;
+  data?: {
+    close?: number | null;
+    buy_price?: number | null;
+  } | null;
   onTrade: (action: "buy" | "sell", quantity: number) => void;
   quantity: number;
   onQuantityChange: (quantity: number) => void;

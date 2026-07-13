@@ -12,7 +12,7 @@ import {
   ghostButtonStyle,
   panelStyle,
   theme,
-} from "@/app/components/UI/UI";
+} from "@/app/ui";
 import { ReactNode } from "react";
  
 // ── Tokens ───────────────────────────────────────────────────

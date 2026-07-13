@@ -1,0 +1,15 @@
+.corner {
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  opacity: var(--corner-opacity, 0.36);
+  background:
+    linear-gradient(to right, var(--ui-corner) 1px, transparent 1px) 0 0 / 14px 14px no-repeat,
+    linear-gradient(to bottom, var(--ui-corner) 1px, transparent 1px) 0 0 / 14px 14px no-repeat,
+    linear-gradient(to left, var(--ui-corner) 1px, transparent 1px) 100% 0 / 14px 14px no-repeat,
+    linear-gradient(to bottom, var(--ui-corner) 1px, transparent 1px) 100% 0 / 14px 14px no-repeat,
+    linear-gradient(to right, var(--ui-corner) 1px, transparent 1px) 0 100% / 14px 14px no-repeat,
+    linear-gradient(to top, var(--ui-corner) 1px, transparent 1px) 0 100% / 14px 14px no-repeat,
+    linear-gradient(to left, var(--ui-corner) 1px, transparent 1px) 100% 100% / 14px 14px no-repeat,
+    linear-gradient(to top, var(--ui-corner) 1px, transparent 1px) 100% 100% / 14px 14px no-repeat;
+}

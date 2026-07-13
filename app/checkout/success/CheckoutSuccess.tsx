@@ -6,9 +6,9 @@ import { checkoutSuccess } from "@/app/handlers/products";
 import { validateUser } from "@/app/handlers/auth";
 import { useUser } from "@/app/provider/userprovider";
 import {
-  traderCornerStyle,
+  Surface,
   traderWhiteButtonClassName,
-} from "@/app/components/UI/UI";
+} from "@/app/ui";
 
 type ConfirmationStatus = "confirming" | "success" | "error";
 
@@ -84,8 +84,7 @@ export default function CheckoutSuccess({
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_15%_10%,rgba(143,170,220,0.10),transparent_28%),linear-gradient(180deg,#0E1117_0%,#131821_45%,#0E1117_100%)] px-6 py-28 text-[#EEF2F7]">
-      <section className="relative w-full max-w-xl border border-white/[0.09] bg-[linear-gradient(180deg,rgba(238,242,247,0.045),rgba(238,242,247,0.018))] p-8 shadow-[inset_0_1px_0_rgba(238,242,247,0.04)] md:p-12">
-        <span aria-hidden="true" style={traderCornerStyle(0.42)} />
+      <Surface as="section" variant="trader" decorated cornerOpacity={0.42} className="w-full max-w-xl p-8 md:p-12">
 
         <p className="font-mono text-xs uppercase tracking-[0.18em] text-[#8FAADC]">
           Checkout
@@ -145,7 +144,7 @@ export default function CheckoutSuccess({
             </Link>
           </div>
         )}
-      </section>
+      </Surface>
     </main>
   );
 }

@@ -1,0 +1,30 @@
+import type React from "react";
+import { theme, type Theme } from "./tokens";
+
+export const pageStyle: React.CSSProperties = {
+  background: "radial-gradient(circle at 15% 10%, rgba(143,170,220,0.10), transparent 28%), linear-gradient(180deg, #0E1117 0%, #131821 45%, #0E1117 100%)",
+  color: theme.dark.text, minHeight: "100vh", fontFamily: "var(--font-display), system-ui, sans-serif", overflowX: "hidden",
+};
+export const sectionStyle: React.CSSProperties = { position: "relative", overflow: "hidden", borderTop: "1px solid rgba(238,242,247,0.07)" };
+export const gridBgStyle: React.CSSProperties = { position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(238,242,247,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(238,242,247,0.045) 1px, transparent 1px)", backgroundSize: "72px 72px", maskImage: "linear-gradient(to bottom, black, transparent 85%)", WebkitMaskImage: "linear-gradient(to bottom, black, transparent 85%)", opacity: 0.38, pointerEvents: "none" };
+export const liquidPageStyle = pageStyle;
+export const liquidSectionStyle = sectionStyle;
+export const liquidOrbStyle = (top: string, left: string, size: number, opacity = 0.08): React.CSSProperties => ({ position: "absolute", top, left, width: size, height: size, borderRadius: "999px", background: "radial-gradient(circle, rgba(143,170,220,0.18), transparent 64%)", filter: "blur(60px)", opacity, pointerEvents: "none" });
+
+export const cardStyle = (t: Theme = theme.dark): React.CSSProperties => ({ position: "relative", background: t.surface, border: `1px solid ${t.borderSoft}`, borderRadius: 0 });
+export const panelStyle = (t: Theme = theme.dark): React.CSSProperties => ({ position: "relative", background: "linear-gradient(180deg, rgba(238,242,247,0.035), rgba(238,242,247,0.015))", border: `1px solid ${t.borderSoft}`, borderRadius: 0, backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" });
+export const glassCardStyle = panelStyle;
+export const glowCardStyle = (t: Theme = theme.dark): React.CSSProperties => ({ ...panelStyle(t), boxShadow: "none" });
+export const traderPanelStyle = (t: Theme = theme.dark): React.CSSProperties => ({ ...panelStyle(t), background: "linear-gradient(180deg, rgba(238,242,247,0.045), rgba(238,242,247,0.018))", border: `1px solid ${t.border}`, boxShadow: "inset 0 1px 0 rgba(238,242,247,0.04)" });
+export const traderInsetPanelStyle = (t: Theme = theme.dark): React.CSSProperties => ({ ...panelStyle(t), background: "rgba(14,17,23,0.42)", border: `1px solid ${t.borderSoft}` });
+export const cornerStyle = (): React.CSSProperties => ({ position: "absolute", inset: -1, pointerEvents: "none", background: "linear-gradient(to right, rgba(238,242,247,0.36) 1px, transparent 1px) 0 0 / 14px 14px no-repeat, linear-gradient(to bottom, rgba(238,242,247,0.36) 1px, transparent 1px) 0 0 / 14px 14px no-repeat, linear-gradient(to left, rgba(238,242,247,0.36) 1px, transparent 1px) 100% 0 / 14px 14px no-repeat, linear-gradient(to bottom, rgba(238,242,247,0.36) 1px, transparent 1px) 100% 0 / 14px 14px no-repeat, linear-gradient(to right, rgba(238,242,247,0.36) 1px, transparent 1px) 0 100% / 14px 14px no-repeat, linear-gradient(to top, rgba(238,242,247,0.36) 1px, transparent 1px) 0 100% / 14px 14px no-repeat, linear-gradient(to left, rgba(238,242,247,0.36) 1px, transparent 1px) 100% 100% / 14px 14px no-repeat, linear-gradient(to top, rgba(238,242,247,0.36) 1px, transparent 1px) 100% 100% / 14px 14px no-repeat" });
+export const traderCornerStyle = (opacity = 0.36): React.CSSProperties => ({ ...cornerStyle(), opacity });
+export const traderCornerOpacity = { subtle: 0.24, active: 0.42 } as const;
+
+export const buttonStyle = (t: Theme = theme.dark): React.CSSProperties => ({ background: t.accent, color: t.btnText, border: "none", borderRadius: 0, padding: "0.85rem 1.25rem", fontSize: 13, fontWeight: 600, letterSpacing: 0.4, textTransform: "uppercase", cursor: "pointer", transition: "transform 0.18s ease, opacity 0.18s ease" });
+export const ghostButtonStyle = (t: Theme = theme.dark): React.CSSProperties => ({ background: "transparent", color: t.text, border: `1px solid ${t.border}`, borderRadius: 0, padding: "0.85rem 1.25rem", fontSize: 13, fontWeight: 500, letterSpacing: 0.4, textTransform: "uppercase", cursor: "pointer", transition: "transform 0.18s ease, border-color 0.18s ease" });
+export const traderWhiteButtonStyle = (hovered = false, t: Theme = theme.dark): React.CSSProperties => ({ background: hovered ? "#DDDFE0" : "#FFFFFF", color: "#0E1117", border: `1px solid ${hovered ? t.borderStrong : t.borderSoft}`, borderRadius: 0, padding: "0.85rem 1.25rem", fontSize: 13, fontWeight: 600, letterSpacing: 0.4, textTransform: "uppercase", cursor: "pointer", transition: "background 0.16s ease, border-color 0.16s ease, transform 0.16s ease" });
+export const traderWhiteRoundedButtonStyle = (hovered = false, t: Theme = theme.dark): React.CSSProperties => ({ ...traderWhiteButtonStyle(hovered, t), borderRadius: 999 });
+export const traderInactiveButtonStyle = ({ rounded = false, t = theme.dark }: { rounded?: boolean; t?: Theme } = {}): React.CSSProperties => ({ background: t.pill, color: t.muted2, border: `1px solid ${t.borderSoft}`, borderRadius: rounded ? 999 : 0, padding: "0.85rem 1.25rem", fontSize: 13, fontWeight: 600, letterSpacing: 0.4, textTransform: "uppercase", cursor: "not-allowed", transition: "opacity 0.16s ease" });
+export const traderInactiveRoundedButtonStyle = (t: Theme = theme.dark): React.CSSProperties => traderInactiveButtonStyle({ rounded: true, t });
+export const traderBlankButtonStyle = ({ active = false, hovered = false, t = theme.dark }: { active?: boolean; hovered?: boolean; t?: Theme } = {}): React.CSSProperties => ({ background: active ? "rgba(143,170,220,0.14)" : hovered ? "rgba(238,242,247,0.075)" : "transparent", color: t.text, border: `1px solid ${active ? t.accentBorder : hovered ? t.borderStrong : t.borderSoft}`, borderRadius: 0, padding: "0.85rem 1.25rem", cursor: "pointer", transition: "background 0.16s ease, border-color 0.16s ease, opacity 0.16s ease" });

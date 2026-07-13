@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { theme, cornerStyle } from "@/app/components/UI/UI";
+import { theme, cornerStyle } from "@/app/ui";
 
 const selectedBlurBg     = "rgba(238,242,247,0.085)";
 const selectedBlurBorder = "rgba(238,242,247,0.26)";
@@ -43,7 +43,14 @@ export function BottomPanelSection({
       </div>
 
       {bottomOpen && (
-        <div style={{ flex: 1, overflowY: "auto", padding: "8px 12px" }}>
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "hidden",
+            padding: "8px 12px",
+          }}
+        >
           {bottomPanel ?? (
             <div style={{
               position: "relative", padding: 14,

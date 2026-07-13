@@ -13,7 +13,7 @@ import {
   cornerStyle,
   panelStyle,
   theme,
-} from "@/app/components/UI/UI";
+} from "@/app/ui";
 
 interface Props {
   onResume: (backtest: BacktestResponse) => void;

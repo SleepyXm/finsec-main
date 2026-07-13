@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { cornerStyle, panelStyle, theme } from "@/app/components/UI/UI";
+import { cornerStyle, panelStyle, theme } from "@/app/ui";
 import { Btn, Card, tokens } from "@/app/dashboard/components/dashboard";
 import { useJournal } from "@/app/hooks/usePortfolio";
 import { buildCalendarFromJournal } from "../constants/journal";

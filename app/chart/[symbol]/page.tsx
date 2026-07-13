@@ -2,10 +2,12 @@
 import ChartPage from "./ChartPage";
 
 export async function generateMetadata(
-  { params }: { params: { symbol: string } }
+  { params }: { params: Promise<{ symbol: string }> }
 ): Promise<Metadata> {
+  const { symbol } = await params;
+
   return {
-    title: `FinSec - ${params.symbol}`,
+    title: `FinSec - ${decodeURIComponent(symbol)}`,
   };
 }
 

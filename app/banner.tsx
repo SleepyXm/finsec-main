@@ -8,7 +8,7 @@ import {
   buttonStyle,
   ghostButtonStyle,
   traderWhiteButtonStyle,
-} from "@/app/components/UI/UI";
+} from "@/app/ui";
 
 export function Banner() {
   const [consentGiven, setConsentGiven] = useState("");

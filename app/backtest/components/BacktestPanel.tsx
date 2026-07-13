@@ -15,7 +15,7 @@ import {
   theme,
   traderInsetPanelStyle,
   traderPanelStyle,
-} from "@/app/components/UI/UI";
+} from "@/app/ui";
 
 function displayDate(value: string) {
   const date = new Date(value);

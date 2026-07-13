@@ -12,7 +12,7 @@ import {
   traderInsetPanelStyle,
   traderPanelStyle,
   cornerStyle,
-} from "@/app/components/UI/UI";
+} from "@/app/ui";
 
 const ASSET_CARD_WIDTH = 280;
 const ASSET_CARD_GAP = 12;

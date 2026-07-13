@@ -2,7 +2,7 @@
  
 import { motion } from "framer-motion";
 import MarketOverview from "./components/intradaymarket/marketoverview";
-import { pageStyle } from "./components/UI/UI";
+import { pageStyle } from "@/app/ui";
  
 export default function Home() {
   return (
