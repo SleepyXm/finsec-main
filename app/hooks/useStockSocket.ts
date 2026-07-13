@@ -19,6 +19,42 @@ export function useStockSocket(
   const currentPageRef = useRef(1);
   const receivedPagesRef = useRef<Set<number>>(new Set());
   const totalPagesRef = useRef(1);
+  const loadingPageRef = useRef<number | null>(null);
+
+  const loadPage = useCallback((page: number) => {
+    const ws = wsRef.current;
+
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn("[loadPage] socket not open");
+      return false;
+    }
+    if (loadingPageRef.current !== null) {
+      console.warn("[loadPage] already loading page:", loadingPageRef.current);
+      return false;
+    }
+    if (receivedPagesRef.current.has(page)) {
+      console.warn("[loadPage] already have page:", page);
+      return false;
+    }
+    if (page < 1 || page > totalPagesRef.current) {
+      console.warn("[loadPage] page outside available range:", page);
+      return false;
+    }
+
+    currentPageRef.current = page;
+    loadingPageRef.current = page;
+    setLoadingMore(true);
+
+    try {
+      ws.send(JSON.stringify({ type: "load_page", page }));
+      return true;
+    } catch (error) {
+      loadingPageRef.current = null;
+      setLoadingMore(false);
+      console.error("[loadPage] failed to request page:", page, error);
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     if (!ticker) return;
@@ -38,6 +74,7 @@ export function useStockSocket(
     currentPageRef.current = 1;
     receivedPagesRef.current = new Set();
     totalPagesRef.current = 1;
+    loadingPageRef.current = null;
     setHistoricalData([]);
     setTick(null);
     setLoadingMore(false);
@@ -63,6 +100,10 @@ export function useStockSocket(
 
           if (receivedPagesRef.current.has(page)) {
             console.warn("[ws] duplicate page, skipping:", page);
+            if (loadingPageRef.current === page) {
+              loadingPageRef.current = null;
+              setLoadingMore(false);
+            }
             return;
           }
           receivedPagesRef.current.add(page);
@@ -73,7 +114,10 @@ export function useStockSocket(
             msg.data.forEach((candle) => byTime.set(candle.time, candle));
             return [...byTime.values()].sort((a, b) => a.time - b.time);
           });
+
+          loadingPageRef.current = null;
           setLoadingMore(false);
+
           return;
         }
 
@@ -87,7 +131,11 @@ export function useStockSocket(
         setTick(priceTick);
       },
       () => {
-        if (connectionId === connectionIdRef.current) setConnected(false);
+        if (connectionId === connectionIdRef.current) {
+          loadingPageRef.current = null;
+          setLoadingMore(false);
+          setConnected(false);
+        }
       },
     );
 
@@ -103,48 +151,19 @@ export function useStockSocket(
       ws.close();
       wsRef.current = null;
     };
-  }, [ticker, interval]);
-
-  const loadPage = useCallback((page: number) => {
-    const ws = wsRef.current;
-    console.log("[loadPage] page:", page, "| ws state:", ws?.readyState, "| loadingMore:", loadingMore);
-    console.log("[loadPage] received so far:", [...receivedPagesRef.current], "| total:", totalPagesRef.current);
-
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.warn("[loadPage] socket not open");
-      return;
-    }
-    if (loadingMore) {
-      console.warn("[loadPage] already loading");
-      return;
-    }
-    if (receivedPagesRef.current.has(page)) {
-      console.warn("[loadPage] already have page:", page);
-      return;
-    }
-    if (page > totalPagesRef.current) {
-      console.warn("[loadPage] page exceeds total:", page, ">", totalPagesRef.current);
-      return;
-    }
-
-    currentPageRef.current = page;
-    setLoadingMore(true);
-    const payload = JSON.stringify({ type: "load_page", page });
-    console.log("[loadPage] sending:", payload);
-    ws.send(payload);
-  }, [loadingMore]);
+  }, [ticker, interval, loadPage]);
 
   const loadPreviousPage = useCallback(() => {
-  const loaded = receivedPagesRef.current;
-  const maxPage = loaded.size ? Math.max(...loaded) : 1; // highest page = oldest loaded
-  const nextPage = maxPage + 1; // next older page
-  
-  if (nextPage > totalPagesRef.current) {
-    console.warn("[loadPreviousPage] no more pages");
-    return;
-  }
-  loadPage(nextPage);
-}, [loadPage]);
+    const loaded = receivedPagesRef.current;
+    const maxPage = loaded.size ? Math.max(...loaded) : 1;
+    const nextPage = maxPage + 1;
+
+    if (nextPage > totalPagesRef.current) {
+      console.warn("[loadPreviousPage] no more pages");
+      return;
+    }
+    loadPage(nextPage);
+  }, [loadPage]);
 
   const filteredPositions = positions.filter(p => p.symbol === ticker);
   const livePnLMap = computeLivePnL(filteredPositions, tick?.close ?? null);
