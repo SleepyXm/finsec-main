@@ -4,13 +4,27 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE2
 
 export function useChartData<T extends { time: string | number }>(ticker: string, interval: string, historicalData: T[] | null) {
   const [data, setData] = useState<T[] | null>(null);
+  const seriesKey = `${ticker}:${interval}`;
+  const seriesKeyRef = useRef(seriesKey);
 
   useEffect(() => {
-    setData(null); // clear immediately on ticker/interval change
-    if (historicalData && historicalData.length > 0) {
-      setData(historicalData);
+    if (seriesKeyRef.current !== seriesKey) {
+      seriesKeyRef.current = seriesKey;
+      setData(null);
+      return;
     }
-  }, [ticker, interval, historicalData]);
+
+    if (!historicalData?.length) return;
+
+    setData((current) => {
+      const byTime = new Map<string | number, T>();
+      historicalData.forEach((candle) => byTime.set(candle.time, candle));
+      // Current data is applied last so an in-memory live update wins over an
+      // overlapping historical candle delivered during a domino page shift.
+      current?.forEach((candle) => byTime.set(candle.time, candle));
+      return [...byTime.values()].sort((a, b) => Number(a.time) - Number(b.time));
+    });
+  }, [seriesKey, historicalData]);
 
   const updateLastCandle = (tick: { time: number; open: number; high: number; low: number; close: number }) => {
     setData(prev => {

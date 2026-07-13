@@ -29,6 +29,7 @@ _background_tasks: set[asyncio.Task] = set()
 _last_bounds: dict[str, dict] = {}
 
 PAGE_SIZE = 500
+PAGE_CACHE_TTL = 7 * 24 * 60 * 60
 
 # ── Chart cache ──────────────────────────────────────────────────────────────
 
@@ -71,9 +72,15 @@ async def write_all_pages_bg(
         print(f"[write_all_pages_bg] df_to_chart done, {total_rows} rows")
 
         async with r.pipeline(transaction=False) as pipe:
-            pipe.set(f"chart:{ticker}:{interval}",         flat_payload, ex=600)
-            pipe.set(f"chart:{ticker}:{interval}:meta:tp", str(total_pages), ex=600)
-            pipe.set(f"chart:{ticker}:{interval}:page:1",  flat_payload, ex=600)
+            # The flat key and metadata are already available. Do not rewrite
+            # them here because a live tick may have updated page 1 while the
+            # older pages were being serialised.
+            pipe.set(
+                f"chart:{ticker}:{interval}:page:1",
+                flat_payload,
+                ex=PAGE_CACHE_TTL,
+                nx=True,
+            )
 
             for page_num in range(2, total_pages + 1):
                 end   = total_rows - (page_num - 1) * PAGE_SIZE
@@ -87,7 +94,7 @@ async def write_all_pages_bg(
                         "total_rows":  total_rows,
                         "data":        rows[start:end],
                     }),
-                    ex=600,
+                    ex=PAGE_CACHE_TTL,
                 )
 
             await pipe.execute()
@@ -135,6 +142,115 @@ async def build_and_cache_chart(ticker: str, interval: str) -> tuple[str, int]:
     asyncio.create_task(write_all_pages_bg(ticker, interval, df, total_pages, flat_payload))
 
     return flat_payload, total_pages
+
+
+def page_candle(candle: dict) -> dict:
+    return {
+        "time": int(candle["time"]),
+        "open": round(float(candle["open"]), 2),
+        "high": round(float(candle["high"]), 2),
+        "low": round(float(candle["low"]), 2),
+        "close": round(float(candle["close"]), 2),
+    }
+
+
+async def append_candle_to_page_one(ticker: str, interval: str, candle: dict):
+    """
+    Keep page 1 as the newest page.
+
+    Updating the current candle and appending to a non-full page are O(1).
+    When page 1 is full, every existing page moves back by one and a fresh
+    page 1 is created. That domino rollover happens only once per 500 candles.
+    """
+    cache_key = f"chart:{ticker}:{interval}"
+    page_one_key = f"{cache_key}:page:1"
+
+    if cache_key not in _chart_locks:
+        _chart_locks[cache_key] = asyncio.Lock()
+
+    async with _chart_locks[cache_key]:
+        page_one_raw = await r.get(page_one_key)
+        if not page_one_raw:
+            # The flat key is page 1 and is written before the background page
+            # fan-out completes, so it is a safe fallback during that brief race.
+            page_one_raw = await r.get(cache_key)
+        if not page_one_raw:
+            return
+
+        page_one = json.loads(page_one_raw)
+        rows = page_one.get("data", [])
+        next_candle = page_candle(candle)
+        total_pages = int(page_one.get("total_pages", 1))
+        total_rows = int(page_one.get("total_rows", len(rows)))
+
+        if rows and next_candle["time"] == rows[-1]["time"]:
+            rows[-1] = next_candle
+            page_one["data"] = rows
+            payload = json.dumps(page_one)
+            async with r.pipeline(transaction=False) as pipe:
+                pipe.set(cache_key, payload, ex=600)
+                pipe.set(page_one_key, payload, ex=PAGE_CACHE_TTL)
+                await pipe.execute()
+            return
+
+        if rows and next_candle["time"] < rows[-1]["time"]:
+            return
+
+        total_rows += 1
+
+        if len(rows) < PAGE_SIZE:
+            rows.append(next_candle)
+            page_one.update({
+                "page": 1,
+                "total_pages": total_pages,
+                "total_rows": total_rows,
+                "data": rows,
+            })
+            payload = json.dumps(page_one)
+            async with r.pipeline(transaction=False) as pipe:
+                pipe.set(cache_key, payload, ex=600)
+                pipe.set(page_one_key, payload, ex=PAGE_CACHE_TTL)
+                pipe.set(f"{cache_key}:meta:tp", str(total_pages), ex=600)
+                await pipe.execute()
+            return
+
+        # Page 1 is full. Read the old pages once, then write them back in
+        # reverse order with their page numbers incremented. The reverse write
+        # prevents any destination from being overwritten before it is copied.
+        page_keys = [f"{cache_key}:page:{page}" for page in range(1, total_pages + 1)]
+        old_pages = await r.mget(page_keys)
+        if any(old_page is None for old_page in old_pages):
+            # Initial page fan-out is still running. The next live tick will
+            # retry after all domino sources are present.
+            return
+        new_total_pages = total_pages + 1
+
+        async with r.pipeline(transaction=True) as pipe:
+            for old_page_number in range(total_pages, 0, -1):
+                old_payload = old_pages[old_page_number - 1]
+                if not old_payload:
+                    continue
+                moved_page = json.loads(old_payload)
+                moved_page["page"] = old_page_number + 1
+                moved_page["total_pages"] = new_total_pages
+                moved_page["total_rows"] = total_rows
+                pipe.set(
+                    f"{cache_key}:page:{old_page_number + 1}",
+                    json.dumps(moved_page),
+                    ex=PAGE_CACHE_TTL,
+                )
+
+            new_page_one = json.dumps({
+                "type": "historical",
+                "page": 1,
+                "total_pages": new_total_pages,
+                "total_rows": total_rows,
+                "data": [next_candle],
+            })
+            pipe.set(cache_key, new_page_one, ex=600)
+            pipe.set(page_one_key, new_page_one, ex=PAGE_CACHE_TTL)
+            pipe.set(f"{cache_key}:meta:tp", str(new_total_pages), ex=600)
+            await pipe.execute()
 
 
 _fetch_state: dict[str, dict] = {}
@@ -189,6 +305,11 @@ async def broadcast_stock_data(ticker: str, interval: str):
                 payload = json.dumps(candle)
                 await r.publish(channel, payload)
                 await r.set(last_key, payload, ex=300)
+                # Simulated ticks share the current candle timestamp and are
+                # already replayed from last:price on reconnect. Persist only
+                # real snapshots into page 1 to keep this path inexpensive.
+                if candle.get("source") == "real":
+                    await append_candle_to_page_one(ticker, interval, candle)
         except Exception as e:
             await r.publish(channel, json.dumps({"error": str(e)}))
         await asyncio.sleep(sleep_s)

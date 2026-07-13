@@ -55,7 +55,10 @@ export function useStockSocket(
 
         if ("type" in msg && msg.type === "historical") {
           const page = msg.page ?? 1;
-          totalPagesRef.current = msg.total_pages ?? 1;
+          totalPagesRef.current = Math.max(
+            totalPagesRef.current,
+            msg.total_pages ?? 1,
+          );
           console.log("[ws] received historical page:", page, "| candles:", msg.data.length, "| total pages:", totalPagesRef.current);
 
           if (receivedPagesRef.current.has(page)) {
@@ -64,9 +67,12 @@ export function useStockSocket(
           }
           receivedPagesRef.current.add(page);
 
-          setHistoricalData(prev =>
-            [...prev, ...msg.data].sort((a, b) => a.time - b.time)
-          );
+          setHistoricalData((previous) => {
+            const byTime = new Map<number, StockTick>();
+            previous.forEach((candle) => byTime.set(candle.time, candle));
+            msg.data.forEach((candle) => byTime.set(candle.time, candle));
+            return [...byTime.values()].sort((a, b) => a.time - b.time);
+          });
           setLoadingMore(false);
           return;
         }
