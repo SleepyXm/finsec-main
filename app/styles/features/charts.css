@@ -125,6 +125,17 @@
    ACCENT = #8FAADC = rgb(143, 170, 220)
 ═══════════════════════════════════════════════════════════ */
 
+/* Lightweight Charts normally assigns these cursors on mouseenter. Keep
+   them initialized when an axis mounts underneath a stationary pointer. */
+.finsec-chart-surface .tv-lightweight-charts table > tr:last-child > td:nth-child(2) {
+  cursor: ew-resize !important;
+}
+
+.finsec-chart-surface .tv-lightweight-charts table > tr:not(:last-child) > td:first-child:not([colspan]) > div,
+.finsec-chart-surface .tv-lightweight-charts table > tr:not(:last-child) > td:nth-child(3) > div {
+  cursor: ns-resize !important;
+}
+
 /* ── Phase 1: capture box ────────────────────────────────────
    Full height minus the time axis (~26px at bottom).
    Width expands left → right, stops before y-axis (~62%).

@@ -6,6 +6,7 @@ import { Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
 import { theme } from "@/app/ui";
 import { LeftBarSection } from "./LeftBarSection";
 import { ChartAreaSection } from "./ChartAreaSection";
+import type { ExtraChartSettings } from "./ChartAreaSection";
 import { BottomPanelSection } from "./BottomPanelSection";
 import { RightPanelSection, RightTab } from "./RightPanelSection";
 import type { DrawTool } from "./LeftBarSection";
@@ -24,6 +25,7 @@ interface TradeLayoutProps {
   leftBar?:     React.ReactNode;
   bottomPanel?: React.ReactNode;
   primaryChart: React.ReactNode;
+  extraChartSettings?: ExtraChartSettings;
 }
 
 export default function TradeLayout({
@@ -31,6 +33,7 @@ export default function TradeLayout({
   leftBar,
   bottomPanel,
   primaryChart,
+  extraChartSettings,
 }: TradeLayoutProps) {
   // ── drawing ──────────────────────────────────────────────────────────────
   const [drawingMode, setDrawingMode] = useState(false);
@@ -149,6 +152,7 @@ export default function TradeLayout({
               drawLW={drawLW}           drawVisible={drawVisible}
               drawingMode={drawingMode} shapes={shapes}
               setShapes={setShapes}
+              extraChartSettings={extraChartSettings}
             />
           </div>
 

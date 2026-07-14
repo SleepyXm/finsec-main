@@ -77,14 +77,26 @@ function normalizeCandles(candles: any[]) {
   }));
 }
 
-export function ChartProvider({ children, symbol }: { children: ReactNode; symbol?: string }) {
+export function ChartProvider({
+  children,
+  symbol,
+  intervalOverride,
+  isCandleOverride,
+}: {
+  children: ReactNode;
+  symbol?: string;
+  intervalOverride?: Interval;
+  isCandleOverride?: boolean;
+}) {
   const params = useParams();
   const router = useRouter();
   const symbolParam = symbol ?? (typeof params.symbol === "string" ? decodeURIComponent(params.symbol) : "");
   const shortname = symbolParam.toUpperCase();
 
-  const [interval, setInterval] = useState<Interval>("5m");
-  const [isCandle, setIsCandle] = useState(true);
+  const [localInterval, setInterval] = useState<Interval>(intervalOverride ?? "5m");
+  const [localIsCandle, setIsCandle] = useState(isCandleOverride ?? true);
+  const interval = intervalOverride ?? localInterval;
+  const isCandle = isCandleOverride ?? localIsCandle;
   const [isCreatingStrategy, setIsCreatingStrategy] = useState(false);
   const [annotations, setAnnotations] = useState<any[]>([]);
   const [isIndicatorPanelOpen, setIsIndicatorPanelOpen] = useState(false);

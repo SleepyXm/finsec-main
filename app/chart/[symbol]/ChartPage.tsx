@@ -19,7 +19,7 @@ import {
 function ChartPageInner() {
   const {
     shortname, tick, connected, error,
-    chartData, isCandle, isCreatingStrategy,
+    chartData, interval, isCandle, setIsCandle, isCreatingStrategy,
     handleAnnotation, positions, livePnLMap,
     accountUnrealisedPnL, placeTrade, closeTrade,
     updatePosition, loadPreviousPage, appliedIndicators,
@@ -33,8 +33,11 @@ function ChartPageInner() {
   useEffect(() => {
     getPreferences().then((data) => {
       if (data?.color_scheme?.colours) setThemeOverrides(data.color_scheme.colours);
+      if (data?.color_scheme?.chart) {
+        setIsCandle(data.color_scheme.chart === "candlestick");
+      }
     });
-  }, []);
+  }, [setIsCandle]);
 
   const activeTheme = { ...defaultChartTheme, ...themeOverrides };
   const isBacktesting = backtest.session !== null;
@@ -144,6 +147,12 @@ function ChartPageInner() {
         />
       }
       primaryChart={primaryChart}
+      extraChartSettings={{
+        theme: activeTheme,
+        interval,
+        isCandle,
+        appliedIndicators,
+      }}
     />
   );
 }

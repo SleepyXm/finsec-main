@@ -1,16 +1,49 @@
 "use client";
 
+import { useState } from "react";
 import type React from "react";
 import DrawingCanvas, { Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
 import { ChartProvider, useChartContext } from "../chartcontext";
 import { ChartRenderer } from "@/app/chart/chartrender/ChartRenderer";
 import { defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
+import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
+import type { AppliedIndicator } from "@/app/indicators/language/types";
+import type { Interval } from "@/app/types/charts";
+import TradeButtons from "@/app/components/trading/tradebuttons";
+import { ChartQuoteStrip } from "./TopBar";
 import type { DrawTool } from "./LeftBarSection";
 
 // ── extra chart (one per additional symbol) ──────────────────────────────────
 
-function ExtraChartInner({ onRemove }: { onRemove: () => void }) {
-  const { chartData, isCandle, positions, livePnLMap, updatePosition, appliedIndicators } = useChartContext();
+export interface ExtraChartSettings {
+  theme: ChartTheme;
+  interval: Interval;
+  isCandle: boolean;
+  appliedIndicators: AppliedIndicator[];
+}
+
+function ExtraChartInner({
+  onRemove,
+  settings,
+}: {
+  onRemove: () => void;
+  settings: ExtraChartSettings;
+}) {
+  const {
+    shortname,
+    tick,
+    connected,
+    error,
+    chartData,
+    isCandle,
+    positions,
+    livePnLMap,
+    placeTrade,
+    closeTrade,
+    updatePosition,
+    loadPreviousPage,
+  } = useChartContext();
+  const [quantity, setQuantity] = useState(1);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", borderLeft: "1px solid #1e2130" }}>
@@ -32,15 +65,37 @@ function ExtraChartInner({ onRemove }: { onRemove: () => void }) {
           type={isCandle ? "candlestick" : "line"}
           data={chartData}
           trades={[]}
+          renderTradeUI={
+            <>
+              {!connected && (
+                <p className="mb-1 text-xs text-yellow-500">Connecting to feed…</p>
+              )}
+              {error && (
+                <p className="mb-2 text-sm text-red-500">{error}</p>
+              )}
+              <TradeButtons
+                data={tick}
+                onTrade={(action) => placeTrade(action, tick, shortname, quantity)}
+                quantity={quantity}
+                onQuantityChange={setQuantity}
+              />
+            </>
+          }
           positions={positions}
           livePnLMap={livePnLMap}
           updatePosition={updatePosition}
-          appliedIndicators={appliedIndicators}
-          theme={defaultChartTheme}
+          onClosePosition={(id) => closeTrade(id, tick?.close ?? 0)}
+          onScrollLeft={loadPreviousPage}
+          appliedIndicators={settings.appliedIndicators}
+          theme={settings.theme}
         />
       ) : (
         <p style={{ color: "#6b7280", padding: 16, fontSize: 12 }}>Loading…</p>
       )}
+
+      <div style={{ position: "absolute", top: 8, left: 10, zIndex: 12 }}>
+        <ChartQuoteStrip />
+      </div>
     </div>
   );
 }
@@ -58,11 +113,13 @@ interface ChartAreaSectionProps {
   drawingMode:    boolean;
   shapes:         Shape[];
   setShapes:      React.Dispatch<React.SetStateAction<Shape[]>>;
+  extraChartSettings?: ExtraChartSettings;
 }
 
 export function ChartAreaSection({
   primaryChart, extraSymbols, onRemoveChart,
   drawTool, drawColor, drawLW, drawVisible, drawingMode, shapes, setShapes,
+  extraChartSettings,
 }: ChartAreaSectionProps) {
   const total = 1 + extraSymbols.length;
   const pct   = `${100 / total}%`;
@@ -82,8 +139,20 @@ export function ChartAreaSection({
       {/* extras */}
       {extraSymbols.map((symbol, i) => (
         <div key={`${symbol}-${i}`} style={{ width: pct, height: "100%", flexShrink: 0 }}>
-          <ChartProvider symbol={symbol}>
-            <ExtraChartInner onRemove={() => onRemoveChart(i)} />
+          <ChartProvider
+            symbol={symbol}
+            intervalOverride={extraChartSettings?.interval}
+            isCandleOverride={extraChartSettings?.isCandle}
+          >
+            <ExtraChartInner
+              onRemove={() => onRemoveChart(i)}
+              settings={extraChartSettings ?? {
+                theme: defaultChartTheme,
+                interval: "5m",
+                isCandle: true,
+                appliedIndicators: [],
+              }}
+            />
           </ChartProvider>
         </div>
       ))}

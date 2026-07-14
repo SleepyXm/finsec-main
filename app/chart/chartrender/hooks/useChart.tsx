@@ -358,41 +358,36 @@ export function useChart(
     if (!chartRef.current || !plugins.onScrollLeft) return;
 
     let timeout: ReturnType<typeof setTimeout>;
-    let fired = false;
+    let requestedForCurrentData = false;
 
     const handler = (range: any) => {
-      if (!range) return;
+      clearTimeout(timeout);
 
-      if (range.from < 10) {
-        if (fired) return;
-
-        clearTimeout(timeout);
-
-        timeout = setTimeout(() => {
-          fired = true;
-          plugins.onScrollLeft?.();
-
-          setTimeout(() => {
-            fired = false;
-          }, 2000);
-        }, 200);
-
+      if (!range || range.from >= 0) {
+        requestedForCurrentData = false;
         return;
       }
 
-      clearTimeout(timeout);
-      fired = false;
+      if (requestedForCurrentData) return;
+
+      timeout = setTimeout(() => {
+        requestedForCurrentData = true;
+        plugins.onScrollLeft?.();
+      }, 120);
     };
 
-    chartRef.current.timeScale().subscribeVisibleLogicalRangeChange(handler);
+    const timeScale = chartRef.current.timeScale();
+    timeScale.subscribeVisibleLogicalRangeChange(handler);
+
+    // Re-check after every historical data expansion. If the newly prepended
+    // page still does not cover the visible range, request the next older one.
+    handler(timeScale.getVisibleLogicalRange());
 
     return () => {
       clearTimeout(timeout);
-      chartRef.current
-        ?.timeScale()
-        .unsubscribeVisibleLogicalRangeChange(handler);
+      timeScale.unsubscribeVisibleLogicalRangeChange(handler);
     };
-  }, [plugins.onScrollLeft, chartKey]);
+  }, [plugins.onScrollLeft, chartKey, data.length]);
 
   useScriptIndicators(
     chartRef,
@@ -414,7 +409,11 @@ export function useChart(
 
   const chartElement = (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+      <div
+        ref={containerRef}
+        className="finsec-chart-surface"
+        style={{ width: "100%", height: "100%" }}
+      />
 
       {plugins.renderTradeUI && (
         <div
