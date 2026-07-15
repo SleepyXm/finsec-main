@@ -64,7 +64,7 @@ def page(number, total_pages, total_rows, times):
     })
 
 
-def test_page_one_updates_appends_then_rolls_back_as_a_domino(monkeypatch):
+def test_page_one_updates_appends_then_cascades_overflow(monkeypatch):
     cache_key = "chart:TEST:1m"
     redis = FakeRedis({
         cache_key: page(1, 2, 5, [20, 21]),
@@ -89,14 +89,42 @@ def test_page_one_updates_appends_then_rolls_back_as_a_domino(monkeypatch):
 
     asyncio.run(websocket.append_candle_to_page_one("TEST", "1m", candle(23)))
 
-    new_page_one = json.loads(redis.values[f"{cache_key}:page:1"])
-    moved_page_two = json.loads(redis.values[f"{cache_key}:page:2"])
-    moved_page_three = json.loads(redis.values[f"{cache_key}:page:3"])
+    page_one = json.loads(redis.values[f"{cache_key}:page:1"])
+    page_two = json.loads(redis.values[f"{cache_key}:page:2"])
+    page_three = json.loads(redis.values[f"{cache_key}:page:3"])
 
-    assert [row["time"] for row in new_page_one["data"]] == [23]
-    assert [row["time"] for row in moved_page_two["data"]] == [20, 21, 22]
-    assert [row["time"] for row in moved_page_three["data"]] == [10, 11, 12]
-    assert [new_page_one["page"], moved_page_two["page"], moved_page_three["page"]] == [1, 2, 3]
-    assert all(payload["total_pages"] == 3 for payload in (new_page_one, moved_page_two, moved_page_three))
+    assert [row["time"] for row in page_one["data"]] == [21, 22, 23]
+    assert [row["time"] for row in page_two["data"]] == [11, 12, 20]
+    assert [row["time"] for row in page_three["data"]] == [10]
+    assert [page_one["page"], page_two["page"], page_three["page"]] == [1, 2, 3]
+    assert all(payload["total_pages"] == 3 for payload in (page_one, page_two, page_three))
+    assert all(payload["total_rows"] == 7 for payload in (page_one, page_two, page_three))
+    assert json.loads(redis.values[cache_key]) == page_one
     assert redis.values[f"{cache_key}:meta:tp"] == "3"
     assert redis.transactions[-1] is True
+
+
+def test_rollover_stops_at_the_first_page_with_capacity(monkeypatch):
+    cache_key = "chart:TEST:1m"
+    redis = FakeRedis({
+        cache_key: page(1, 2, 5, [20, 21, 22]),
+        f"{cache_key}:page:1": page(1, 2, 5, [20, 21, 22]),
+        f"{cache_key}:page:2": page(2, 2, 5, [10, 11]),
+        f"{cache_key}:meta:tp": "2",
+    })
+
+    monkeypatch.setattr(websocket, "r", redis)
+    monkeypatch.setattr(websocket, "PAGE_SIZE", 3)
+    websocket._chart_locks.clear()
+
+    asyncio.run(websocket.append_candle_to_page_one("TEST", "1m", candle(23)))
+
+    page_one = json.loads(redis.values[f"{cache_key}:page:1"])
+    page_two = json.loads(redis.values[f"{cache_key}:page:2"])
+
+    assert [row["time"] for row in page_one["data"]] == [21, 22, 23]
+    assert [row["time"] for row in page_two["data"]] == [10, 11, 20]
+    assert page_one["total_pages"] == 2
+    assert page_two["total_pages"] == 2
+    assert redis.values[f"{cache_key}:meta:tp"] == "2"
+    assert f"{cache_key}:page:3" not in redis.values
