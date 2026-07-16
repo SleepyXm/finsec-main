@@ -6,6 +6,7 @@ import { AssetSearchBar, AssetListItem } from "@/app/assetsearch/assetsearchcomp
 import { useAssetSearch } from "@/app/hooks/utility";
 import { theme, cornerStyle } from "@/app/ui";
 import BacktestPanel from "@/app/backtest/components/BacktestPanel";
+import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import StrategyPanel from "./StrategyPanel";
 
 export type RightTab =
@@ -33,12 +34,14 @@ interface RightPanelSectionProps {
   activeRightTab:   RightTab;
   setActiveRightTab:React.Dispatch<React.SetStateAction<RightTab>>;
   onAddChart:       (symbol: string) => void;
+  chartTheme:       ChartTheme;
 }
 
 export function RightPanelSection({
   rightOpen, setRightOpen,
   activeRightTab, setActiveRightTab,
   onAddChart,
+  chartTheme,
 }: RightPanelSectionProps) {
   const [hoveredTab, setHoveredTab] = useState<RightTab | null>(null);
 
@@ -90,7 +93,7 @@ export function RightPanelSection({
 
       {/* tab content */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        <TabContent activeTab={activeRightTab} onAddChart={onAddChart} />
+        <TabContent activeTab={activeRightTab} onAddChart={onAddChart} chartTheme={chartTheme} />
       </div>
     </div>
   );
@@ -98,10 +101,18 @@ export function RightPanelSection({
 
 // ── tab content router ────────────────────────────────────────────────────────
 
-function TabContent({ activeTab, onAddChart }: { activeTab: RightTab; onAddChart: (s: string) => void }) {
+function TabContent({
+  activeTab,
+  onAddChart,
+  chartTheme,
+}: {
+  activeTab: RightTab;
+  onAddChart: (s: string) => void;
+  chartTheme: ChartTheme;
+}) {
   switch (activeTab) {
     case "add-chart":  return <AddChartTab  onAddChart={onAddChart} />;
-    case "strategy":   return <StrategyPanel />;
+    case "strategy":   return <StrategyPanel chartTheme={chartTheme} />;
     case "backtest":   return <BacktestPanel />;
     case "indicators": return <IndicatorsTab />;
     default:           return <PlaceholderTab label={activeTab} />;

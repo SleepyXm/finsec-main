@@ -1,18 +1,11 @@
 import { request } from "./auth";
-
-export type AnnotationCandle = {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-};
+import type { Candle, RawData } from "@/app/types/charts";
 
 export type AnnotationDraft = {
   label: string;
   timeStart: number;
   timeEnd: number;
-  candles: AnnotationCandle[];
+  candles: Candle[];
 };
 
 export type AnnotationPayload = {
@@ -20,7 +13,7 @@ export type AnnotationPayload = {
   label: string;
   timeStart: number;
   timeEnd: number;
-  candles: Array<Omit<AnnotationCandle, "time">>;
+  candles: Array<Pick<RawData, "open" | "high" | "low" | "close">>;
 };
 
 export type SavedStrategy = {
@@ -35,12 +28,23 @@ export type SavedStrategy = {
 export type StrategySnapshot = {
   symbol: string;
   annotated_at: string;
-  candles: AnnotationCandle[];
+  candles: Candle[];
 };
 
 export type StrategyDetails = Omit<SavedStrategy, "preview"> & {
   snapshots: StrategySnapshot[];
 };
+
+function normaliseStrategySnapshot(snapshot: StrategySnapshot): StrategySnapshot {
+  return {
+    ...snapshot,
+    candles: snapshot.candles.map((candle) => ({
+      ...candle,
+      volume: candle.volume ?? null,
+      buy_price: candle.buy_price ?? null,
+    })),
+  };
+}
 
 export function buildAnnotationPayload(
   annotation: AnnotationDraft,
@@ -85,14 +89,22 @@ export function saveUserAnnotation(payload: AnnotationPayload) {
   );
 }
 
-export function listUserStrategies() {
-  return request<SavedStrategy[]>("/api/user-annotations", { method: "GET" });
+export async function listUserStrategies() {
+  const strategies = await request<SavedStrategy[]>("/api/user-annotations", { method: "GET" });
+  return strategies.map((strategy) => ({
+    ...strategy,
+    preview: normaliseStrategySnapshot(strategy.preview),
+  }));
 }
 
-export function getUserStrategy(id: string) {
-  return request<StrategyDetails>(`/api/user-annotations/${encodeURIComponent(id)}`, {
+export async function getUserStrategy(id: string) {
+  const strategy = await request<StrategyDetails>(`/api/user-annotations/${encodeURIComponent(id)}`, {
     method: "GET",
   });
+  return {
+    ...strategy,
+    snapshots: strategy.snapshots.map(normaliseStrategySnapshot),
+  };
 }
 
 export function deleteUserStrategy(id: string) {

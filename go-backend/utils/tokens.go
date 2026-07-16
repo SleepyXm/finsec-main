@@ -11,12 +11,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type Claims struct {
-	Sub  string `json:"sub"`
-	Type string `json:"type,omitempty"`
-	jwt.RegisteredClaims
-}
-
 // --- JWT ---
 
 func CreateAccessToken(userID string) (string, error) {

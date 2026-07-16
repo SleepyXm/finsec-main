@@ -185,18 +185,6 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 		}
 		defer rows.Close()
 
-		type tradeRow struct {
-			id          string
-			symbol      string
-			side        string
-			quantity    float64
-			entryPrice  float64
-			exitPrice   sql.NullFloat64
-			realisedPnl sql.NullFloat64
-			openedAt    time.Time
-			closedAt    sql.NullTime
-		}
-
 		var rawTrades []tradeRow
 
 		for rows.Next() {

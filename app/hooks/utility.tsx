@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchAssets } from '../types/assets';
 import { Asset } from '../types/assets';
-import { RawData } from '../types/charts';
 
 export function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);

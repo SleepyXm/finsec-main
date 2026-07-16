@@ -12,12 +12,13 @@ import {
 } from "@/app/handlers/annotations";
 import { useUser } from "@/app/provider/userprovider";
 import { cornerStyle, theme } from "@/app/ui";
-import { StrategyPreviewChart } from "./StrategyPreviewChart";
+import { CandleStickChart } from "@/app/chart/chartrender/charts/CandleStickChart";
+import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { StrategySnapshotsPanel } from "./StrategySnapshotsPanel";
 
 const idleBackground = "rgba(238,242,247,0.025)";
 
-export default function StrategyPanel() {
+export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }) {
   const {
     isCreatingStrategy,
     setIsCreatingStrategy,
@@ -112,6 +113,7 @@ export default function StrategyPanel() {
         onDeleteSnapshot={(index) => void deleteSnapshot(index)}
         deleting={deleting}
         error={loadError}
+        chartTheme={chartTheme}
       />
     );
   }
@@ -194,7 +196,7 @@ export default function StrategyPanel() {
               >
                 <div style={cornerStyle()} />
                 <div style={{ height: 96, borderBottom: `1px solid ${theme.dark.borderSoft}` }}>
-                  <StrategyPreviewChart candles={strategy.preview.candles} />
+                  <CandleStickChart data={strategy.preview.candles} minimal theme={chartTheme} />
                 </div>
                 <div style={{ padding: "8px 9px 9px" }}>
                   <div style={{ color: theme.dark.text, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

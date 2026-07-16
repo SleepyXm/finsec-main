@@ -1,10 +1,10 @@
 import type { BacktestAnalysis } from "@/app/backtest/analysis";
-import type { BacktestCandle } from "@/app/types/backend";
+import type { RawData } from "@/app/types/charts";
 import { cornerStyle, panelStyle, theme } from "@/app/ui";
 
 interface Props {
   analysis: BacktestAnalysis;
-  currentCandle: BacktestCandle | null;
+  currentCandle: RawData | null;
   openPositions: number;
 }
 

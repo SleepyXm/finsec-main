@@ -1,5 +1,6 @@
 
-import { OHLCVBar, SeriesPoint, computeATR, math, nz, crossover, crossunder } from "./primitives"
+import { SeriesPoint, computeATR, math, nz, crossover, crossunder } from "./primitives"
+import type { RawData } from "@/app/types/charts"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -103,7 +104,7 @@ export function computeKMeans(
 // Stateful sequential pass — must run bar by bar left to right
 
 export function computeSuperTrend(
-  data: OHLCVBar[],
+  data: RawData[],
   config: Partial<SuperTrendConfig> = {}
 ): SuperTrendPoint[] {
   const cfg = { ...SUPERTREND_DEFAULTS, ...config }

@@ -1,4 +1,4 @@
-import type { OHLCVBar } from "@/app/indicators/primitives"
+import type { RawData } from "@/app/types/charts"
 import {
   type RuntimeTuple,
   type RuntimeValue,
@@ -116,7 +116,7 @@ function cumulative(values: number[]) {
   return values.map((value) => (total += value))
 }
 
-export function trueRange(bars: OHLCVBar[]) {
+export function trueRange(bars: RawData[]) {
   return bars.map((bar, index) => {
     if (index === 0) return bar.high - bar.low
     const previousClose = bars[index - 1].close
@@ -124,7 +124,7 @@ export function trueRange(bars: OHLCVBar[]) {
   })
 }
 
-function atr(bars: OHLCVBar[], period: number) {
+function atr(bars: RawData[], period: number) {
   return rma(trueRange(bars), period)
 }
 
@@ -237,7 +237,7 @@ function mfi(source: number[], volume: number[], period: number) {
   })
 }
 
-function wpr(bars: OHLCVBar[], period: number) {
+function wpr(bars: RawData[], period: number) {
   const highs = rolling(bars.map((bar) => bar.high), period, (window) => Math.max(...window))
   const lows = rolling(bars.map((bar) => bar.low), period, (window) => Math.min(...window))
   return bars.map((bar, index) => {
@@ -275,7 +275,7 @@ export function isTaFunction(name: string) {
 export function executeTaFunction(
   name: string,
   args: RuntimeValue[],
-  bars: OHLCVBar[],
+  bars: RawData[],
   length: number,
 ): RuntimeValue {
   const source = (index = 0) => toNumericSeries(args[index], length)

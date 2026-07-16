@@ -6,28 +6,11 @@ import (
 	"net/http"
 	"time"
 
-	"finsec-backend/structs"
 	"finsec-backend/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
-
-type snapshot struct {
-	SessionID       string                  `json:"session_id"`
-	Ticker          string                  `json:"ticker"`
-	Interval        string                  `json:"interval"`
-	DateFrom        time.Time               `json:"date_from"`
-	DateTo          time.Time               `json:"date_to"`
-	StartingBalance float64                 `json:"starting_balance"`
-	CurrentCandle   int                     `json:"current_candle"`
-	Positions       json.RawMessage         `json:"positions"`
-	CreatedAt       time.Time               `json:"created_at"`
-	UpdatedAt       time.Time               `json:"updated_at"`
-	ExpiresAt       time.Time               `json:"expires_at"`
-	CandleCount     int                     `json:"candle_count,omitempty"`
-	Candles         []structs.BacktestCandle `json:"candles,omitempty"`
-}
 
 func loadSnapshot(db *sql.DB, userID string, sessionID string) (snapshot, error) {
 	var item snapshot
@@ -114,11 +97,6 @@ func GetBacktestSession(db *sql.DB) gin.HandlerFunc {
 		item.CandleCount = len(item.Candles)
 		c.JSON(http.StatusOK, item)
 	}
-}
-
-type snapshotUpdate struct {
-	CurrentCandle *int            `json:"current_candle"`
-	Positions     json.RawMessage `json:"positions"`
 }
 
 func UpdateBacktestSession(db *sql.DB) gin.HandlerFunc {

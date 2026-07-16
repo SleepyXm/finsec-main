@@ -1,15 +1,10 @@
+import type { RawData } from "./charts";
+
 const WS_BASE = process.env.NEXT_PUBLIC_WS_API_BASE2;
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE;
 
-export type StockTick = {
+export type StockTick = RawData & {
   ticker: string;
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-  buy_price: number;
   error?: string;
 };
 

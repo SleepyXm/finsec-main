@@ -1,4 +1,5 @@
-import type { BacktestCandle, BacktestPosition } from "@/app/types/backend";
+import type { BacktestPosition } from "@/app/types/backend";
+import type { RawData } from "@/app/types/charts";
 
 export interface BacktestAnalysis {
   balance: number;
@@ -27,7 +28,7 @@ function closedPnl(position: BacktestPosition) {
 
 export function deriveBacktestAnalysis(
   startingBalance: number,
-  candles: BacktestCandle[],
+  candles: RawData[],
   cursor: number,
   positions: BacktestPosition[],
 ): BacktestAnalysis {

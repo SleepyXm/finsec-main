@@ -6,7 +6,7 @@ import {
   Time,
 } from "lightweight-charts"
 import { SuperTrendPoint } from "../supertrend"
-import { OHLCVBar } from "../primitives"
+import type { RawData } from "@/app/types/charts"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -159,7 +159,7 @@ export class SuperTrendFillPlugin {
     return [this._paneView]
   }
 
-  setData(points: SuperTrendPoint[], bars: OHLCVBar[]): void {
+  setData(points: SuperTrendPoint[], bars: RawData[]): void {
     const barMap = new Map(bars.map(b => [b.time, b]))
     this.zones = points.map(p => {
       const bar = barMap.get(p.time)

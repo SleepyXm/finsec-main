@@ -1,4 +1,5 @@
-import { OHLCVBar, computeATR, nz } from "./primitives"
+import { computeATR, nz } from "./primitives"
+import type { RawData } from "@/app/types/charts"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,7 +32,7 @@ export const LIQUIDITY_VOID_DEFAULTS: LiquidityVoidConfig = {
 // ── Compute ───────────────────────────────────────────────────────────────────
 
 export function computeLiquidityVoids(
-  data: OHLCVBar[],
+  data: RawData[],
   config: Partial<LiquidityVoidConfig> = {}
 ): LiquidityVoidZone[] {
   const cfg = { ...LIQUIDITY_VOID_DEFAULTS, ...config }

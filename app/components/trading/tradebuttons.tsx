@@ -1,10 +1,8 @@
 import { QuantityStepper } from "@/app/ui/client";
+import type { RawData } from "@/app/types/charts";
 
 interface TradeButtonsProps {
-  data?: {
-    close?: number | null;
-    buy_price?: number | null;
-  } | null;
+  data?: Pick<RawData, "close" | "buy_price"> | null;
   onTrade: (action: "buy" | "sell", quantity: number) => void;
   quantity: number;
   onQuantityChange: (quantity: number) => void;

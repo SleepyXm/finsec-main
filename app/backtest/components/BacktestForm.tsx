@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { runBacktest } from "../services/backtest";
-import { BacktestSession, BacktestCandle } from "@/app/types/backend";
+import type { BacktestSession } from "@/app/types/backend";
+import type { RawData } from "@/app/types/charts";
 import {
   Label,
   MonoLabel,
@@ -14,7 +15,7 @@ import {
 const INTERVALS = ["1m", "5m", "15m", "30m", "1h", "1d"];
 
 interface Props {
-  onSessionStart: (session: BacktestSession, candles: BacktestCandle[]) => void;
+  onSessionStart: (session: BacktestSession, candles: RawData[]) => void;
   defaultTicker?: string;
   defaultInterval?: string;
 }

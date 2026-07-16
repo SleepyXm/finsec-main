@@ -20,25 +20,38 @@ async function backtestRequest<T>(path: string, init?: RequestInit): Promise<T> 
   return response.json();
 }
 
-export function runBacktest(
+function normaliseBacktestResponse(response: BacktestResponse): BacktestResponse {
+  return {
+    ...response,
+    candles: response.candles.map((candle) => ({
+      ...candle,
+      volume: candle.volume ?? null,
+      buy_price: candle.buy_price ?? null,
+    })),
+  };
+}
+
+export async function runBacktest(
   ticker: string,
   interval: string,
   date_from: string,
   date_to: string,
   starting_balance: number,
 ) {
-  return backtestRequest<BacktestResponse>("/api/backtest/run", {
+  const response = await backtestRequest<BacktestResponse>("/api/backtest/run", {
     method: "POST",
     body: JSON.stringify({ ticker, interval, date_from, date_to, starting_balance }),
   });
+  return normaliseBacktestResponse(response);
 }
 
 export function listBacktests() {
   return backtestRequest<BacktestSummary[]>("/api/backtest/sessions");
 }
 
-export function getBacktestSession(sessionId: string) {
-  return backtestRequest<BacktestResponse>(`/api/backtest/session/${sessionId}`);
+export async function getBacktestSession(sessionId: string) {
+  const response = await backtestRequest<BacktestResponse>(`/api/backtest/session/${sessionId}`);
+  return normaliseBacktestResponse(response);
 }
 
 export function saveBacktestSession(

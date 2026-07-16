@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { createSeriesMarkers, LineSeries, type SeriesMarker } from "lightweight-charts"
-import { OHLCVBar, SeriesPoint, computeSMA, computeEMA } from "@/app/indicators/primitives"
+import { SeriesPoint, computeSMA, computeEMA } from "@/app/indicators/primitives"
+import type { RawData } from "@/app/types/charts"
 import { computeSuperTrend, SuperTrendConfig } from "@/app/indicators/supertrend"
 import { computeLiquidityVoids, LiquidityVoidConfig } from "@/app/indicators/liquidityvoids"
 import { LiquidityVoidPlugin } from "@/app/indicators/plugins/liquidityvoidplugin"
@@ -33,7 +34,7 @@ export type IndicatorConfig = {
 
 // ── Registries ────────────────────────────────────────────────────────────────
 
-type SimpleCompute = (data: OHLCVBar[], period: number) => SeriesPoint[]
+type SimpleCompute = (data: RawData[], period: number) => SeriesPoint[]
 type SimpleSeriesKey = "sma" | "ema"
 
 const SERIES_COMPUTE: Record<SimpleSeriesKey, SimpleCompute> = {
@@ -53,7 +54,7 @@ const DEFAULT_STYLES: Partial<Record<string, SeriesStyle>> = {
 export function useIndicators(
   chartRef:  React.MutableRefObject<any>,
   seriesRef: React.MutableRefObject<any>,
-  data:      OHLCVBar[],
+  data:      RawData[],
   config:    IndicatorConfig
 ) {
   const seriesMap    = useRef<Map<string, any>>(new Map())
@@ -219,7 +220,7 @@ export function useIndicators(
 export function useScriptIndicators(
   chartRef: React.MutableRefObject<any>,
   priceSeriesRef: React.MutableRefObject<any>,
-  data: OHLCVBar[],
+  data: RawData[],
   indicators: AppliedIndicator[],
   chartVersion: number,
 ) {

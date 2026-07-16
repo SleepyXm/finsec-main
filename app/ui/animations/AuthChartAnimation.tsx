@@ -15,14 +15,7 @@ import {
   materializeCandle,
   normalizeTime,
 } from "./authChartData";
-
-type Candle = {
-  time: UTCTimestamp;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-};
+import type { Candle } from "@/app/types/charts";
 
 type SnapshotSignal = {
   mode: "entry" | "exit";
@@ -116,7 +109,10 @@ export function AuthChartAnimation() {
       tapeIndex = logicalIndex % tape.length;
     }
 
-    series.setData(renderedCandles);
+    series.setData(renderedCandles.map((candle) => ({
+      ...candle,
+      time: candle.time as UTCTimestamp,
+    })));
     chart.timeScale().setVisibleLogicalRange({
       from: -2,
       to: 34,
@@ -137,7 +133,7 @@ export function AuthChartAnimation() {
       active.high = Math.max(active.high, tickValue);
       active.low = Math.min(active.low, tickValue);
 
-      series.update(active);
+      series.update({ ...active, time: active.time as UTCTimestamp });
 
       tickIndex += 1;
 
@@ -159,7 +155,7 @@ export function AuthChartAnimation() {
           (startTime + logicalIndex * 60) as UTCTimestamp,
         );
 
-        series.update(active);
+        series.update({ ...active, time: active.time as UTCTimestamp });
         chart.timeScale().scrollToPosition(4, false);
       }
     }, 180);

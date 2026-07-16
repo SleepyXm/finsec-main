@@ -4,7 +4,7 @@ import type {
   IndicatorBox,
   IndicatorExecutionResult,
 } from "@/app/indicators/language/types"
-import type { OHLCVBar } from "@/app/indicators/primitives"
+import type { RawData } from "@/app/types/charts"
 import {
   isBooleanSeries,
   isPlotHandle,
@@ -65,7 +65,7 @@ export class IndicatorCustomization {
   readonly signals: IndicatorExecutionResult["signals"] = []
 
   constructor(
-    private bars: OHLCVBar[],
+    private bars: RawData[],
     private overlay: boolean,
   ) {}
 

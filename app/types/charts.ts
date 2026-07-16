@@ -1,12 +1,14 @@
 export type RawData = {
-  time: string;
+  time: number;
   open: number;
   high: number;
   low: number;
-  volume: number;
   close: number;
-  buy_price: number;
-}
+  volume: number | null;
+  buy_price: number | null;
+};
+
+export type Candle = RawData;
 
 
 export type Interval = 

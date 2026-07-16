@@ -14,27 +14,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type candle struct {
-	Open  float64 `json:"open"`
-	High  float64 `json:"high"`
-	Low   float64 `json:"low"`
-	Close float64 `json:"close"`
-}
-
-type payload struct {
-	Symbol    string   `json:"symbol"`
-	Label     string   `json:"label"`
-	TimeStart int64    `json:"timeStart"`
-	TimeEnd   int64    `json:"timeEnd"`
-	Candles   []candle `json:"candles"`
-}
-
-type summary struct {
-	Label    string `json:"label"`
-	File     string `json:"file"`
-	RowCount int    `json:"row_count"`
-}
-
 var labelAliases = map[string]string{
 	"fvg":            "fvg",
 	"fair_value_gap": "fvg",

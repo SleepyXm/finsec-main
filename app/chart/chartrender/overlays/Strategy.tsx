@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import type { AnnotationCandle, AnnotationDraft } from '@/app/handlers/annotations';
+import type { AnnotationDraft } from '@/app/handlers/annotations';
+import type { Candle } from '@/app/types/charts';
 
 const LABELS = [
   {value: 'bearish_fvg', label: "Bearish Fair Value Gap"},
@@ -28,7 +29,7 @@ type PendingAnnotation = Omit<AnnotationDraft, 'label'> & {
 export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSelection, clearSelection }: {
   chartRef: React.MutableRefObject<any>;
   seriesRef: React.MutableRefObject<any>;
-  data: AnnotationCandle[];
+  data: Candle[];
   onAnnotation?: (annotation: AnnotationDraft) => void;
   setSelection: (startX: number, endX: number) => void;
   clearSelection: () => void;
@@ -36,7 +37,7 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [pendingAnnotation, setPendingAnnotation] = useState<PendingAnnotation | null>(null);
-  const [selectedCandles, setSelectedCandles] = useState<AnnotationCandle[]>([]);
+  const [selectedCandles, setSelectedCandles] = useState<Candle[]>([]);
   const hasMoved = useRef(false);
 
   const snapToCandle = (x: number): number => {

@@ -1,11 +1,4 @@
-export interface BacktestCandle {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  buy_price: number;
-}
+import type { RawData } from "./charts";
 
 export interface BacktestPosition {
   id: string;
@@ -40,7 +33,7 @@ export interface BacktestSession {
 }
 
 export interface BacktestResponse extends BacktestSession {
-  candles: BacktestCandle[];
+  candles: RawData[];
 }
 
 export interface BacktestSummary {

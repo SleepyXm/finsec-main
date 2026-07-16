@@ -8,21 +8,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type Config struct {
-	DatabaseURL              string
-	SecretKey                string
-	Algorithm                string
-	AccessTokenExpireMinutes int
-	RefreshTokenExpireDays   int
-	EncryptionKey            string
-	DevServer                string
-	DevServerBackend         string
-	ResendAPIKey             string
-	RedisAddr                string
-	PythonUrl                string
-	InternalSecret           string
-}
-
 var Cfg Config
 
 func Load() {

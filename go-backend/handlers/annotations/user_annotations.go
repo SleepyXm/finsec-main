@@ -17,38 +17,6 @@ import (
 
 var errSnapshotNotFound = errors.New("snapshot not found")
 
-type previewCandle struct {
-	Time  int64   `json:"time"`
-	Open  float64 `json:"open"`
-	High  float64 `json:"high"`
-	Low   float64 `json:"low"`
-	Close float64 `json:"close"`
-}
-
-type strategyPreview struct {
-	Symbol      string          `json:"symbol"`
-	AnnotatedAt string          `json:"annotated_at"`
-	Candles     []previewCandle `json:"candles"`
-}
-
-type savedStrategy struct {
-	ID            string          `json:"id"`
-	Title         string          `json:"title"`
-	SnapshotCount int             `json:"snapshot_count"`
-	CreatedAt     time.Time       `json:"created_at"`
-	UpdatedAt     time.Time       `json:"updated_at"`
-	Preview       strategyPreview `json:"preview"`
-}
-
-type strategyDetails struct {
-	ID            string            `json:"id"`
-	Title         string            `json:"title"`
-	SnapshotCount int               `json:"snapshot_count"`
-	CreatedAt     time.Time         `json:"created_at"`
-	UpdatedAt     time.Time         `json:"updated_at"`
-	Snapshots     []strategyPreview `json:"snapshots"`
-}
-
 func userAnnotationRoot() string {
 	if root := os.Getenv("USER_ANNOTATIONS_DIR"); root != "" {
 		return root

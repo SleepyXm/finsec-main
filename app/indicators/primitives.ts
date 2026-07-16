@@ -1,13 +1,4 @@
-// ── Base Types ────────────────────────────────────────────────────────────────
-
-export type OHLCVBar = {
-  time: number
-  open: number
-  high: number
-  low: number
-  close: number
-  volume?: number
-}
+import type { RawData } from "@/app/types/charts"
 
 export type SeriesPoint = {
   time: number
@@ -19,14 +10,14 @@ export type SeriesPoint = {
 // These are the building blocks everything else references
 
 export const src = {
-  close:  (b: OHLCVBar) => b.close,
-  open:   (b: OHLCVBar) => b.open,
-  high:   (b: OHLCVBar) => b.high,
-  low:    (b: OHLCVBar) => b.low,
-  hl2:    (b: OHLCVBar) => (b.high + b.low) / 2,
-  hlc3:   (b: OHLCVBar) => (b.high + b.low + b.close) / 3,
-  ohlc4:  (b: OHLCVBar) => (b.open + b.high + b.low + b.close) / 4,
-  hlcc4:  (b: OHLCVBar) => (b.high + b.low + b.close + b.close) / 4,
+  close:  (b: RawData) => b.close,
+  open:   (b: RawData) => b.open,
+  high:   (b: RawData) => b.high,
+  low:    (b: RawData) => b.low,
+  hl2:    (b: RawData) => (b.high + b.low) / 2,
+  hlc3:   (b: RawData) => (b.high + b.low + b.close) / 3,
+  ohlc4:  (b: RawData) => (b.open + b.high + b.low + b.close) / 4,
+  hlcc4:  (b: RawData) => (b.high + b.low + b.close + b.close) / 4,
 }
 
 export type PriceSource = keyof typeof src
@@ -84,7 +75,7 @@ export const math = {
 // These are primitives — other indicators compose from these
 
 export function computeSMA(
-  data: OHLCVBar[],
+  data: RawData[],
   period: number,
   source: PriceSource = "close"
 ): SeriesPoint[] {
@@ -99,7 +90,7 @@ export function computeSMA(
 }
 
 export function computeEMA(
-  data: OHLCVBar[],
+  data: RawData[],
   period: number,
   source: PriceSource = "close"
 ): SeriesPoint[] {
@@ -114,7 +105,7 @@ export function computeEMA(
   return result
 }
 
-export function computeATR(data: OHLCVBar[], period: number): SeriesPoint[] {
+export function computeATR(data: RawData[], period: number): SeriesPoint[] {
   // True Range first
   const tr: number[] = data.map((b, i) => {
     if (i === 0) return b.high - b.low
@@ -133,7 +124,7 @@ export function computeATR(data: OHLCVBar[], period: number): SeriesPoint[] {
 }
 
 export function computeRSI(
-  data: OHLCVBar[],
+  data: RawData[],
   period: number,
   source: PriceSource = "close"
 ): SeriesPoint[] {
@@ -158,7 +149,7 @@ export function computeRSI(
 }
 
 export function computeBollingerBands(
-  data: OHLCVBar[],
+  data: RawData[],
   period: number,
   multiplier: number = 2,
   source: PriceSource = "close"
@@ -182,7 +173,7 @@ export function computeBollingerBands(
 }
 
 export function computeMACD(
-  data: OHLCVBar[],
+  data: RawData[],
   fastPeriod: number = 12,
   slowPeriod: number = 26,
   signalPeriod: number = 9,

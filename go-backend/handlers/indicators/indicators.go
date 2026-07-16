@@ -6,18 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
-
-type savedIndicator struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
 
 func indicatorRoot() string {
 	if root := os.Getenv("USER_INDICATORS_DIR"); root != "" {
@@ -29,10 +21,7 @@ func indicatorRoot() string {
 
 func Save(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var body struct {
-			Name   string `json:"name"`
-			Source string `json:"source"`
-		}
+		var body saveIndicatorRequest
 		if err := c.ShouldBindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid indicator"})
 			return

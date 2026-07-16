@@ -8,12 +8,13 @@ import {
   defaultChartTheme,
 } from "@/app/chart/chartrender/themes/themes";
 import type { AppliedIndicator } from "@/app/indicators/language/types";
+import type { RawData } from "@/app/types/charts";
 
 type ChartKind = "candlestick" | "line";
 
 type ChartRendererProps = {
   type: ChartKind;
-  data: any[];
+  data: RawData[];
 
   colors?: any;
   renderTradeUI?: React.ReactNode;
@@ -28,6 +29,7 @@ type ChartRendererProps = {
   onAnnotation?: (annotation: any) => void;
   onScrollLeft?: () => void;
   appliedIndicators?: AppliedIndicator[];
+  minimal?: boolean;
 
   theme?: ChartTheme;
 };
@@ -46,6 +48,7 @@ export function ChartRenderer({
   onClosePosition,
   updatePosition,
   appliedIndicators = [],
+  minimal = false,
   theme = defaultChartTheme,
 }: ChartRendererProps) {
   const getPositionLabel = useCallback(
@@ -72,10 +75,12 @@ export function ChartRenderer({
       return {
         upColor: theme.bullCandle,
         downColor: theme.bearCandle,
-        borderUpColor: (theme as any).borderUpColor ?? theme.bullCandle,
-        borderDownColor: (theme as any).borderDownColor ?? theme.bearCandle,
+        borderUpColor: theme.borderUpColor ?? theme.bullCandle,
+        borderDownColor: theme.borderDownColor ?? theme.bearCandle,
         wickUpColor: theme.wickUpColor,
         wickDownColor: theme.wickDownColor,
+        priceLineVisible: !minimal,
+        lastValueVisible: !minimal,
       };
     }
 
@@ -84,39 +89,50 @@ export function ChartRenderer({
       topColor: colors.areaTopColor ?? "rgba(41,98,255,0.35)",
       bottomColor: colors.areaBottomColor ?? "rgba(41,98,255,0.05)",
     };
-  }, [type, theme, colors]);
+  }, [type, theme, colors, minimal]);
 
   const chartOptions = useMemo(() => {
     return {
       crosshair: {
-        vertLine: { color: theme.crosshair },
-        horzLine: { color: theme.crosshair },
+        vertLine: { color: theme.crosshair, visible: !minimal },
+        horzLine: { color: theme.crosshair, visible: !minimal },
       },
+      timeScale: minimal
+        ? { visible: false, borderVisible: false, rightOffset: 0 }
+        : undefined,
+      extra: minimal
+        ? {
+            rightPriceScale: { visible: false, borderVisible: false },
+            handleScroll: false,
+            handleScale: false,
+          }
+        : undefined,
     };
-  }, [theme]);
+  }, [minimal, theme]);
 
   const { chartElement } = useChart(
-  seriesConstructor,
-  seriesOptions,
-  chartOptions,
-  {
-    data,
-    trades,
-    positions,
-    livePnLMap,
-    renderTradeUI,
-    getPositionLabel,
-    isCreatingStrategy,
-    onAnnotation,
-    onScrollLeft,
-    onClosePosition,
-    updatePosition,
-    enableStrategyOverlay: type === "candlestick",
-    enableIndicators: type === "candlestick",
-    appliedIndicators,
-  },
-  theme
-);
+    seriesConstructor,
+    seriesOptions,
+    chartOptions,
+    {
+      data,
+      trades,
+      positions,
+      livePnLMap,
+      renderTradeUI,
+      getPositionLabel,
+      isCreatingStrategy,
+      onAnnotation,
+      onScrollLeft,
+      onClosePosition,
+      updatePosition,
+      enableStrategyOverlay: type === "candlestick",
+      enableIndicators: type === "candlestick",
+      appliedIndicators,
+      fitContent: minimal,
+    },
+    theme
+  );
 
   return chartElement;
 }

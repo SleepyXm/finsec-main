@@ -1,14 +1,7 @@
 import type { UTCTimestamp } from "lightweight-charts";
+import type { Candle } from "@/app/types/charts";
 
-type Candle = {
-  time: UTCTimestamp;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-};
-
-type TapeCandle = {
+type TapeStep = {
   closeDelta: number;
   highExtra: number;
   lowExtra: number;
@@ -22,7 +15,7 @@ type SnapshotSignal = {
   exit: { x: number; y: number };
 };
 
-export function createLoopTape(length: number, seed: number): TapeCandle[] {
+export function createLoopTape(length: number, seed: number): TapeStep[] {
   const random = createSeededRandom(seed);
   const bias = randomBetween(random, -0.08, 0.08);
 
@@ -74,7 +67,7 @@ function createTicks(
 }
 
 export function materializeCandle(
-  template: TapeCandle,
+  template: TapeStep,
   open: number,
   time: UTCTimestamp,
 ): Candle {
@@ -88,11 +81,13 @@ export function materializeCandle(
     high: Math.max(high, open, close),
     low: Math.min(low, open, close),
     close,
+    volume: null,
+    buy_price: null,
   };
 }
 
 export function makeActiveCandle(
-  template: TapeCandle,
+  template: TapeStep,
   open: number,
   time: UTCTimestamp,
 ): Candle {
@@ -102,6 +97,8 @@ export function makeActiveCandle(
     high: open,
     low: open,
     close: open + template.ticks[0],
+    volume: null,
+    buy_price: null,
   };
 }
 
@@ -166,4 +163,3 @@ function randomBetween(random: () => number, min: number, max: number) {
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
-

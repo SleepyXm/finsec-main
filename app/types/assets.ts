@@ -1,4 +1,4 @@
-import { RawData } from "./charts";
+import type { RawData } from "./charts";
 
 const BACKEND_URL = "http://localhost:8000/api";
 
@@ -11,15 +11,9 @@ export interface Asset {
     [key: string]: any;
 }
 
-export interface MarketOverviewItem {
+export type MarketOverviewItem = RawData & {
   ticker: string;
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
+};
 export interface SearchData {
   ticker: string,
   name: string,
@@ -36,7 +30,7 @@ export async function fetchIntraday(
   symbol: string,
   interval = "1m",
   period = "1d"
-): Promise<RawData[]> {
+): Promise<Array<{ time: string | number; value: number }>> {
   const res = await fetch(
     `${BACKEND_URL}/stockdata/intraday?ticker_symbol=${symbol}&interval=${interval}&period=${period}`
   );
@@ -48,5 +42,10 @@ export async function fetchIntraday(
 export async function fetchMarketOverview(): Promise<MarketOverviewItem[]> {
   const res = await fetch(`${BACKEND_URL}/market/overview`);
   if (!res.ok) throw new Error(`Market overview failed: ${res.status}`);
-  return res.json();
+  const items = await res.json() as MarketOverviewItem[];
+  return items.map((item) => ({
+    ...item,
+    volume: item.volume ?? null,
+    buy_price: item.buy_price ?? null,
+  }));
 }

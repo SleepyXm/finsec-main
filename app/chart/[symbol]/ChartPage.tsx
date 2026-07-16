@@ -88,7 +88,7 @@ function ChartPageInner() {
                     );
                     return;
                   }
-                  placeTrade(action, tick, shortname, quantity);
+                  if (tick) placeTrade(action, tick, shortname, quantity);
                 }}
                 quantity={isBacktesting ? backtest.quantity : quantity}
                 onQuantityChange={isBacktesting ? backtest.setQuantity : setQuantity}
@@ -153,6 +153,7 @@ function ChartPageInner() {
         />
       }
       primaryChart={primaryChart}
+      chartTheme={activeTheme}
       extraChartSettings={{
         theme: activeTheme,
         interval,

@@ -1,4 +1,4 @@
-import type { OHLCVBar } from "@/app/indicators/primitives"
+import type { RawData } from "@/app/types/charts"
 
 export type FinScriptType =
   | "number"
@@ -236,6 +236,6 @@ export type IndicatorExecutionResult = {
 
 export type IndicatorExecutionRequest = {
   compiled: CompiledIndicator
-  bars: OHLCVBar[]
+  bars: RawData[]
   inputs?: Record<string, number | boolean | string>
 }

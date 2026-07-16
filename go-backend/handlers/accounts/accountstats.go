@@ -208,12 +208,6 @@ func GetPnLCurve(db *sql.DB) gin.HandlerFunc {
 		}
 		defer rows.Close()
 
-		type point struct {
-			Date       string  `json:"date"`
-			DailyPnl   float64 `json:"daily_pnl"`
-			Cumulative float64 `json:"cumulative"`
-		}
-
 		var points []point
 		var cumulative float64
 		for rows.Next() {
@@ -315,18 +309,6 @@ func GetPositionHistory(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 		defer rows.Close()
-
-		type tradeRow struct {
-			id          string
-			symbol      string
-			side        string
-			quantity    float64
-			entryPrice  float64
-			exitPrice   sql.NullFloat64
-			realisedPnl sql.NullFloat64
-			openedAt    time.Time
-			closedAt    sql.NullTime
-		}
 
 		var trades []tradeRow
 		for rows.Next() {

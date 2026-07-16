@@ -3,19 +3,19 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import type {
-  BacktestCandle,
   BacktestPosition,
   BacktestSession,
 } from "@/app/types/backend";
+import type { RawData } from "@/app/types/charts";
 import { deriveBacktestAnalysis, type BacktestAnalysis } from "../analysis";
 import { saveBacktestSession } from "../services/backtest";
 
 interface BacktestContextValue {
   session: BacktestSession | null;
-  startSession: (session: BacktestSession, candles: BacktestCandle[]) => void;
+  startSession: (session: BacktestSession, candles: RawData[]) => void;
   resetSession: () => void;
   resetReplay: () => void;
-  candles: BacktestCandle[];
+  candles: RawData[];
   cursor: number;
   setCursor: React.Dispatch<React.SetStateAction<number>>;
   playing: boolean;
@@ -27,14 +27,14 @@ interface BacktestContextValue {
   livePnLMap: Record<string, number>;
   placeTrade: (
     action: "buy" | "sell",
-    candle: BacktestCandle,
+    candle: RawData,
     ticker: string,
     quantity: number,
   ) => void;
   closeTrade: (tradeId: string, exitPrice: number) => void;
   error: string | null;
-  visibleCandles: BacktestCandle[];
-  currentCandle: BacktestCandle | null;
+  visibleCandles: RawData[];
+  currentCandle: RawData | null;
   analysis: BacktestAnalysis | null;
 }
 
@@ -42,7 +42,7 @@ const BacktestContext = createContext<BacktestContextValue | null>(null);
 
 export function BacktestProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<BacktestSession | null>(null);
-  const [candles, setCandles] = useState<BacktestCandle[]>([]);
+  const [candles, setCandles] = useState<RawData[]>([]);
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -88,7 +88,7 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
     };
   }, [session]);
 
-  function startSession(next: BacktestSession, nextCandles: BacktestCandle[]) {
+  function startSession(next: BacktestSession, nextCandles: RawData[]) {
     setSession(next);
     setCandles(nextCandles);
     setCursor(next.current_candle ?? 0);
@@ -115,7 +115,7 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
 
   function placeTrade(
     action: "buy" | "sell",
-    candle: BacktestCandle,
+    candle: RawData,
     ticker: string,
     tradeQuantity: number,
   ) {

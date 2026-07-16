@@ -32,6 +32,7 @@ type ChartPlugins = {
   getPositionLabel?: (position: any) => string;
   onClosePosition?: (id: string) => void;
   updatePosition?: (id: string, patch: any) => void | Promise<void>;
+  fitContent?: boolean;
 };
 
 export function resolveBackground(bg: ChartBackground) {
@@ -184,7 +185,18 @@ export function useChart(
   useEffect(() => {
     if (!seriesRef.current) return;
 
-    if (!chartRef.current || !containerRef.current || data.length < 2) {
+    if (!chartRef.current || !containerRef.current) {
+      seriesRef.current.setData(data);
+      return;
+    }
+
+    if (plugins.fitContent) {
+      seriesRef.current.setData(data);
+      chartRef.current.timeScale().fitContent();
+      return;
+    }
+
+    if (data.length < 2) {
       seriesRef.current.setData(data);
       return;
     }
@@ -215,7 +227,7 @@ export function useChart(
     }
 
     seriesRef.current.setData([...data, ...whitespace]);
-  }, [data, chartKey]);
+  }, [data, chartKey, plugins.fitContent]);
 
   useEffect(() => {
     if (!seriesRef.current) return;

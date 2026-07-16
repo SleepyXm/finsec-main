@@ -75,7 +75,9 @@ function ExtraChartInner({
               )}
               <TradeButtons
                 data={tick}
-                onTrade={(action) => placeTrade(action, tick, shortname, quantity)}
+                onTrade={(action) => {
+                  if (tick) placeTrade(action, tick, shortname, quantity);
+                }}
                 quantity={quantity}
                 onQuantityChange={setQuantity}
               />

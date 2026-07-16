@@ -1,18 +1,6 @@
 // app/indicators/types.ts
 
-import { RawData } from "@/app/types/charts"
-
-// ── Market input ──────────────────────────────────────────────────────────────
-// This is the canonical candle shape indicators operate on.
-
-export type Bar = {
-  time: number
-  open: number
-  high: number
-  low: number
-  close: number
-  volume?: number
-}
+import type { RawData } from "@/app/types/charts"
 
 // ── Basic plotted output ──────────────────────────────────────────────────────
 // Any line-like indicator eventually becomes this.
@@ -63,7 +51,7 @@ export type BarContext = {
 // ── Source helpers ────────────────────────────────────────────────────────────
 // Direct single-bar source access.
 
-export const source: Record<SourceName, (bar: Bar) => number> = {
+export const source: Record<SourceName, (bar: RawData) => number> = {
   open: (bar) => bar.open,
   high: (bar) => bar.high,
   low: (bar) => bar.low,
@@ -85,7 +73,7 @@ export const source: Record<SourceName, (bar: Bar) => number> = {
 // close[1]   -> ctx.close(1)
 // hl2[2]     -> ctx.hl2(2)
 
-export function createBarContext(bars: Bar[], index: number): BarContext {
+export function createBarContext(bars: RawData[], index: number): BarContext {
   const get = (offset = 0) => bars[index - offset]
 
   return {
@@ -119,18 +107,4 @@ export function createBarContext(bars: Bar[], index: number): BarContext {
     index,
     length: bars.length,
   }
-}
-
-// ── Normalization ─────────────────────────────────────────────────────────────
-// Converts your app chart data into indicator bars.
-
-export function normalizeBars(raw: RawData[]): Bar[] {
-  return raw.map((r) => ({
-    time: Date.parse(r.time),
-    open: r.open,
-    high: r.high,
-    low: r.low,
-    close: r.close,
-    volume: r.volume,
-  }))
 }

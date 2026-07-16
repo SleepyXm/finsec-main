@@ -10,6 +10,7 @@ import type { ExtraChartSettings } from "./ChartAreaSection";
 import { BottomPanelSection } from "./BottomPanelSection";
 import { RightPanelSection, RightTab } from "./RightPanelSection";
 import type { DrawTool } from "./LeftBarSection";
+import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 
 const TOP_BAR_H   = 30;
 const LEFT_BAR_W  = 48;
@@ -26,6 +27,7 @@ interface TradeLayoutProps {
   bottomPanel?: React.ReactNode;
   primaryChart: React.ReactNode;
   extraChartSettings?: ExtraChartSettings;
+  chartTheme: ChartTheme;
 }
 
 export default function TradeLayout({
@@ -34,6 +36,7 @@ export default function TradeLayout({
   bottomPanel,
   primaryChart,
   extraChartSettings,
+  chartTheme,
 }: TradeLayoutProps) {
   // ── drawing ──────────────────────────────────────────────────────────────
   const [drawingMode, setDrawingMode] = useState(false);
@@ -169,6 +172,7 @@ export default function TradeLayout({
           rightOpen={rightOpen}         setRightOpen={setRightOpen}
           activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab}
           onAddChart={handleAddChart}
+          chartTheme={chartTheme}
         />
       </div>
     </div>

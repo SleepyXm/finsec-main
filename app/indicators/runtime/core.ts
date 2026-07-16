@@ -7,7 +7,7 @@ import type {
   IndicatorExecutionResult,
   Statement,
 } from "@/app/indicators/language/types"
-import type { OHLCVBar } from "@/app/indicators/primitives"
+import type { RawData } from "@/app/types/charts"
 import { executeMathFunction, isMathFunction } from "./builtins/math"
 import { executeTaFunction, isTaFunction } from "./builtins/ta"
 import { IndicatorCustomization } from "./customization"
@@ -287,7 +287,7 @@ function isDeferredOutput(statement: Statement, customization: IndicatorCustomiz
 function createCompleteEvaluator(
   variables: Scope,
   sources: Record<string, number[]>,
-  bars: OHLCVBar[],
+  bars: RawData[],
   customization: IndicatorCustomization,
 ) {
   const length = bars.length

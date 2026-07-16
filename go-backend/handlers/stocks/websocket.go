@@ -26,11 +26,6 @@ var chartGroup singleflight.Group
 
 var pools sync.Map // key: "ticker:interval" -> *WorkerPool
 
-type primeResult struct {
-	data       string
-	totalPages int
-}
-
 func extractPageKey(ticker, interval string, msg []byte) string {
 	idx := bytes.Index(msg, []byte(`"page":`))
 	if idx == -1 {

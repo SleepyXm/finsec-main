@@ -8,6 +8,8 @@ import { useStockSocket } from "@/app/hooks/useStockSocket";
 import { usePositions } from "@/app/hooks/usePositions";
 import { useTrades } from "../hooks/useTrades";
 import type { AppliedIndicator } from "@/app/indicators/language/types";
+import type { Candle, RawData } from "@/app/types/charts";
+import type { StockTick } from "@/app/types/websocket";
 import {
   buildAnnotationPayload,
   saveUserAnnotation,
@@ -43,15 +45,20 @@ interface ChartContextValue {
   setIndicatorEnabled: (id: string, enabled: boolean) => void;
 
   // live data
-  tick: any;
+  tick: StockTick | null;
   connected: boolean;
-  chartData: any[];
+  chartData: Candle[];
 
   // positions + trades
   positions: any[];
   livePnLMap: Record<string, number>;
   accountUnrealisedPnL: number;
-  placeTrade: (action: "buy" | "sell", tick: any, symbol: string, quantity: number) => void;
+  placeTrade: (
+    action: "buy" | "sell",
+    tick: Pick<RawData, "buy_price" | "close">,
+    symbol: string,
+    quantity: number,
+  ) => void;
   closeTrade: (id: string, price: number) => void;
   updatePosition: (id: string, patch: any) => Promise<any>;
   handlePositionClosed: (id: string) => void;
@@ -135,12 +142,14 @@ export function ChartProvider({
       high: tick.high,
       low: tick.low,
       close: tick.close,
+      volume: tick.volume,
+      buy_price: tick.buy_price,
     });
   }, [tick]);
 
   const chartData = isCandle
     ? data
-    : data?.map((item: any) => ({ ...item, value: item.close }));
+    : data?.map((item) => ({ ...item, value: item.close }));
 
   const handleAnnotation = async (annotation: AnnotationDraft) => {
     setIsCreatingStrategy(false);

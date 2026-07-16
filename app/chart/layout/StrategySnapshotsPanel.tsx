@@ -1,6 +1,7 @@
 import type { StrategyDetails } from "@/app/handlers/annotations";
+import { CandleStickChart } from "@/app/chart/chartrender/charts/CandleStickChart";
+import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { cornerStyle, theme } from "@/app/ui";
-import { StrategyPreviewChart } from "./StrategyPreviewChart";
 
 const idleBackground = "rgba(238,242,247,0.025)";
 
@@ -11,6 +12,7 @@ export function StrategySnapshotsPanel({
   onDeleteSnapshot,
   deleting,
   error,
+  chartTheme,
 }: {
   strategy: StrategyDetails;
   onBack: () => void;
@@ -18,6 +20,7 @@ export function StrategySnapshotsPanel({
   onDeleteSnapshot: (index: number) => void;
   deleting: boolean;
   error: string | null;
+  chartTheme: ChartTheme;
 }) {
   return (
     <div style={{ padding: 12 }}>
@@ -84,7 +87,7 @@ export function StrategySnapshotsPanel({
           >
             <div style={cornerStyle()} />
             <div style={{ height: 96, borderBottom: `1px solid ${theme.dark.borderSoft}` }}>
-              <StrategyPreviewChart candles={snapshot.candles} />
+              <CandleStickChart data={snapshot.candles} minimal theme={chartTheme} />
             </div>
             <div style={{ padding: "8px 9px 9px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
