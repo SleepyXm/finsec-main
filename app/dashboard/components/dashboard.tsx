@@ -6,13 +6,7 @@
 
 "use client";
 
-import {
-  buttonStyle,
-  cornerStyle,
-  ghostButtonStyle,
-  panelStyle,
-  theme,
-} from "@/app/ui";
+import { buttonStyle, cornerStyle, ghostButtonStyle, panelStyle, theme } from "@/app/ui";
 import { ReactNode } from "react";
  
 // ── Tokens ───────────────────────────────────────────────────

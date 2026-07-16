@@ -1,8 +1,5 @@
 import { useState } from "react";
-import {
-  TraderBlankButton,
-  traderCornerOpacity,
-} from "@/app/ui";
+import { TraderBlankButton, traderCornerOpacity } from "@/app/ui";
 
 export const LOGO_MAP: Record<string, string> = {
   "ES=F":     "/logos/sp500.png",

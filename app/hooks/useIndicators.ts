@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  deleteIndicator,
-  getIndicatorSource,
-  listIndicators,
-  saveIndicator,
-  type SavedIndicator,
-} from "@/app/handlers/indicators";
-import { compileFinScript, type CompileResult } from "@/app/indicators/language/compiler";
+import { deleteIndicator, getIndicatorSource, listIndicators, saveIndicator, SavedIndicator } from "@/app/handlers/indicators";
+import { compileFinScript, CompileResult } from "@/app/indicators/language/compiler";
 import { useUser } from "@/app/provider/userprovider";
 
 export function useSavedIndicators() {

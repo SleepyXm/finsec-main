@@ -1,8 +1,4 @@
-import {
-  isNumericSeries,
-  type RuntimeValue,
-  toNumericSeries,
-} from "@/app/indicators/runtime/valueTypes"
+import { isNumericSeries, RuntimeValue, toNumericSeries } from "@/app/indicators/runtime/valueTypes";
 
 type UnaryMath = (value: number) => number
 

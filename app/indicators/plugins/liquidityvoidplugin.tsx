@@ -1,10 +1,4 @@
-import {
-  IPanePrimitivePaneView,
-  IPrimitivePaneRenderer,
-  PrimitivePaneViewZOrder,
-  PaneAttachedParameter,
-  Time,
-} from "lightweight-charts"
+import { IPanePrimitivePaneView, IPrimitivePaneRenderer, PrimitivePaneViewZOrder, PaneAttachedParameter, Time } from "lightweight-charts";
 import { LiquidityVoidZone } from "../liquidityvoids"
 
 // ── Renderer ──────────────────────────────────────────────────────────────────

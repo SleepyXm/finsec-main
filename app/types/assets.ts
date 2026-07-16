@@ -1,4 +1,4 @@
-import type { RawData } from "./charts";
+import { RawData } from "./charts";
 
 const BACKEND_URL = "http://localhost:8000/api";
 

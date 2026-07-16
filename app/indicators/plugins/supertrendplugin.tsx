@@ -1,12 +1,6 @@
-import {
-  IPanePrimitivePaneView,
-  IPrimitivePaneRenderer,
-  PrimitivePaneViewZOrder,
-  PaneAttachedParameter,
-  Time,
-} from "lightweight-charts"
+import { IPanePrimitivePaneView, IPrimitivePaneRenderer, PrimitivePaneViewZOrder, PaneAttachedParameter, Time } from "lightweight-charts";
 import { SuperTrendPoint } from "../supertrend"
-import type { RawData } from "@/app/types/charts"
+import { RawData } from "@/app/types/charts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

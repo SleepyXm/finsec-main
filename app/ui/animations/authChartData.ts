@@ -1,5 +1,5 @@
-import type { UTCTimestamp } from "lightweight-charts";
-import type { Candle } from "@/app/types/charts";
+import { UTCTimestamp } from "lightweight-charts";
+import { Candle } from "@/app/types/charts";
 
 type TapeStep = {
   closeDelta: number;

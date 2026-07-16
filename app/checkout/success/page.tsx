@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import { Metadata } from "next";
 import CheckoutSuccess from "./CheckoutSuccess";
 
 export const metadata: Metadata = {

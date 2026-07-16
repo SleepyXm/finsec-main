@@ -1,16 +1,16 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import type React from "react";
+import React from "react";
 import { Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
 import { theme } from "@/app/ui";
 import { LeftBarSection } from "./LeftBarSection";
 import { ChartAreaSection } from "./ChartAreaSection";
-import type { ExtraChartSettings } from "./ChartAreaSection";
+import { ExtraChartSettings } from "./ChartAreaSection";
 import { BottomPanelSection } from "./BottomPanelSection";
 import { RightPanelSection, RightTab } from "./RightPanelSection";
-import type { DrawTool } from "./LeftBarSection";
-import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
+import { DrawTool } from "./LeftBarSection";
+import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 
 const TOP_BAR_H   = 30;
 const LEFT_BAR_W  = 48;

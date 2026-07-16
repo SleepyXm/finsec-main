@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Theme } from "../tokens";
+import { Theme } from "../tokens";
 
 export function DigitReel({ digit }: { digit: number }) {
   const height = 24;

@@ -1,5 +1,5 @@
 import { request } from "./auth";
-import type { Candle, RawData } from "@/app/types/charts";
+import { Candle, RawData } from "@/app/types/charts";
 
 export type AnnotationDraft = {
   label: string;

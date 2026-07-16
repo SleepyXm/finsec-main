@@ -4,10 +4,10 @@
 
 import dynamic from "next/dynamic"
 import { useEffect, useRef } from "react"
-import type { Monaco, OnMount } from "@monaco-editor/react"
+import { Monaco, OnMount } from "@monaco-editor/react";
 import { DEFAULT_INDICATOR_SCRIPT } from "./defaults"
 import { configureFinScriptMonaco } from "./monacoLanguage"
-import type { FinScriptDiagnostic } from "@/app/indicators/language/types"
+import { FinScriptDiagnostic } from "@/app/indicators/language/types";
 
 const MonacoEditor = dynamic(
   () => import("@monaco-editor/react"),

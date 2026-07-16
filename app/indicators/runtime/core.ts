@@ -1,25 +1,10 @@
 import { LANGUAGE_DEFINITIONS } from "@/app/indicators/language/definitions"
-import type {
-  CallExpression,
-  Expression,
-  FunctionDeclarationStatement,
-  IndicatorExecutionRequest,
-  IndicatorExecutionResult,
-  Statement,
-} from "@/app/indicators/language/types"
-import type { RawData } from "@/app/types/charts"
+import { CallExpression, Expression, FunctionDeclarationStatement, IndicatorExecutionRequest, IndicatorExecutionResult, Statement } from "@/app/indicators/language/types";
+import { RawData } from "@/app/types/charts";
 import { executeMathFunction, isMathFunction } from "./builtins/math"
 import { executeTaFunction, isTaFunction } from "./builtins/ta"
 import { IndicatorCustomization } from "./customization"
-import {
-  isBooleanSeries,
-  isNumericSeries,
-  isSeries,
-  isTuple,
-  type RuntimeValue,
-  toBooleanSeries,
-  toNumericSeries,
-} from "./valueTypes"
+import { isBooleanSeries, isNumericSeries, isSeries, isTuple, RuntimeValue, toBooleanSeries, toNumericSeries } from "./valueTypes";
 
 type Scope = Map<string, RuntimeValue>
 

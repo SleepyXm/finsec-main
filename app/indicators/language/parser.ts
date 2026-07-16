@@ -1,14 +1,6 @@
 import { diagnostic } from "./diagnostics"
-import type { Token, TokenKind } from "./tokens"
-import type {
-  BinaryExpression,
-  CallArgument,
-  Expression,
-  FinScriptDiagnostic,
-  FinScriptProgram,
-  SourceLocation,
-  Statement,
-} from "./types"
+import { Token, TokenKind } from "./tokens";
+import { BinaryExpression, CallArgument, Expression, FinScriptDiagnostic, FinScriptProgram, SourceLocation, Statement } from "./types";
 
 export type ParseResult = {
   program: FinScriptProgram

@@ -1,9 +1,6 @@
 import { ChartRenderer } from "@/app/chart/chartrender/ChartRenderer";
-import {
-  defaultChartTheme,
-  type ChartTheme,
-} from "@/app/chart/chartrender/themes/themes";
-import type { Candle } from "@/app/types/charts";
+import { defaultChartTheme, ChartTheme } from "@/app/chart/chartrender/themes/themes";
+import { Candle } from "@/app/types/charts";
 
 export function CandleStickChart({
   data,

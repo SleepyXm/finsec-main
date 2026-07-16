@@ -1,6 +1,6 @@
 
 import { SeriesPoint, computeATR, math, nz, crossover, crossunder } from "./primitives"
-import type { RawData } from "@/app/types/charts"
+import { RawData } from "@/app/types/charts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

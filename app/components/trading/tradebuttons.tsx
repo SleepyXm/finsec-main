@@ -1,5 +1,5 @@
 import { QuantityStepper } from "@/app/ui/client";
-import type { RawData } from "@/app/types/charts";
+import { RawData } from "@/app/types/charts";
 
 interface TradeButtonsProps {
   data?: Pick<RawData, "close" | "buy_price"> | null;

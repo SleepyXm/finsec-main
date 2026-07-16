@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react"
 import { IndicatorEditor } from "./Editor"
 import { DEFAULT_INDICATOR_SCRIPT } from "./defaults"
 import { compileFinScript } from "@/app/indicators/language/compiler"
-import type { FinScriptDiagnostic, InputDescriptor } from "@/app/indicators/language/types"
+import { FinScriptDiagnostic, InputDescriptor } from "@/app/indicators/language/types";
 import { FINSCRIPT_EXAMPLES } from "@/app/indicators/language/examples"
 import { useChartContext } from "@/app/chart/chartcontext"
 import { useSavedIndicators } from "@/app/hooks/useIndicators"

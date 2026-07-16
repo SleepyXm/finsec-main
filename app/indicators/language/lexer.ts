@@ -1,6 +1,6 @@
 import { diagnostic } from "./diagnostics"
-import type { Token, TokenKind } from "./tokens"
-import type { FinScriptDiagnostic } from "./types"
+import { Token, TokenKind } from "./tokens";
+import { FinScriptDiagnostic } from "./types";
 
 export type LexResult = {
   tokens: Token[]

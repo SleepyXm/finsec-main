@@ -1,24 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, MutableRefObject, PointerEvent } from "react";
+import { CSSProperties, MutableRefObject, PointerEvent } from "react";
 import { DraggablePriceLine, EntryPriceLine } from "./PositionOverlayLine";
 import styles from "./PositionOverlay.module.css";
-import type {
-  Draft,
-  EditableLine,
-  PositionPatch,
-  PositionWithExtras,
-} from "./positionOverlayTypes";
-import {
-  buildPatch,
-  cx,
-  draftFromPosition,
-  draftMatches,
-  formatPrice,
-  getDefaultLinePrice,
-  normalisePrice,
-} from "./positionOverlayUtils";
+import { Draft, EditableLine, PositionPatch, PositionWithExtras } from "./positionOverlayTypes";
+import { buildPatch, cx, draftFromPosition, draftMatches, formatPrice, getDefaultLinePrice, normalisePrice } from "./positionOverlayUtils";
 
 type YStyle = CSSProperties & { "--po-y": string };
 

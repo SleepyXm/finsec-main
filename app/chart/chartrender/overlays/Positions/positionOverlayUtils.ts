@@ -1,4 +1,4 @@
-import type { Draft, EditableLine, PositionPatch, PositionWithExtras } from "./positionOverlayTypes";
+import { Draft, EditableLine, PositionPatch, PositionWithExtras } from "./positionOverlayTypes";
 
 export function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");

@@ -1,5 +1,5 @@
-import type React from "react";
-import { theme, type Theme } from "./tokens";
+import React from "react";
+import { theme, Theme } from "./tokens";
 
 export const pageStyle: React.CSSProperties = {
   background: "radial-gradient(circle at 15% 10%, rgba(143,170,220,0.10), transparent 28%), linear-gradient(180deg, #0E1117 0%, #131821 45%, #0E1117 100%)",

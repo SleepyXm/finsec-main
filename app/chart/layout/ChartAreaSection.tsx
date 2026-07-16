@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import type React from "react";
+import React from "react";
 import DrawingCanvas, { Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
 import { ChartProvider, useChartContext } from "../chartcontext";
 import { ChartRenderer } from "@/app/chart/chartrender/ChartRenderer";
 import { defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
-import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
-import type { AppliedIndicator } from "@/app/indicators/language/types";
-import type { Interval } from "@/app/types/charts";
+import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
+import { AppliedIndicator } from "@/app/indicators/language/types";
+import { Interval } from "@/app/types/charts";
 import TradeButtons from "@/app/components/trading/tradebuttons";
 import { ChartQuoteStrip } from "./TopBar";
-import type { DrawTool } from "./LeftBarSection";
+import { DrawTool } from "./LeftBarSection";
 
 // ── extra chart (one per additional symbol) ──────────────────────────────────
 

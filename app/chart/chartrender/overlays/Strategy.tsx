@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import type { AnnotationDraft } from '@/app/handlers/annotations';
-import type { Candle } from '@/app/types/charts';
+import { AnnotationDraft } from '@/app/handlers/annotations';
+import { Candle } from '@/app/types/charts';
 
 const LABELS = [
   {value: 'bearish_fvg', label: "Bearish Fair Value Gap"},

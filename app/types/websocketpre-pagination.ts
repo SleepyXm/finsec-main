@@ -1,4 +1,4 @@
-import type { RawData } from "./charts";
+import { RawData } from "./charts";
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_API_BASE2;
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE;

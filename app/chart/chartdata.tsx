@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import type { Candle } from '@/app/types/charts';
+import { Candle } from '@/app/types/charts';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE2
 

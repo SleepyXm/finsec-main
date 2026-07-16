@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type CSSProperties } from "react";
+import { useState, useEffect, CSSProperties } from "react";
 import { useUser } from "../provider/userprovider";
 import { logout } from "../handlers/auth";
 import { useRouter } from "next/navigation";

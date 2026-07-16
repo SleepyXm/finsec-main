@@ -1,6 +1,6 @@
 "use client";
 
-import type React from "react";
+import React from "react";
 import { ColorPicker } from "@/app/chart/chartrender/overlays/ColorPicker";
 import { Row } from "@/app/chart/chartrender/overlays/ThemeSettings";
 import { DANGER, theme } from "@/app/ui";

@@ -1,22 +1,9 @@
-import type {
-  CallExpression,
-  Expression,
-  IndicatorExecutionRequest,
-  IndicatorExecutionResult,
-} from "@/app/indicators/language/types"
+import { CallExpression, Expression, IndicatorExecutionRequest, IndicatorExecutionResult } from "@/app/indicators/language/types";
 import { executeMathFunction, isMathFunction } from "./builtins/math"
 import { executeTaFunction, isTaFunction } from "./builtins/ta"
 import { IndicatorCustomization } from "./customization"
 import { executeCoreIndicator } from "./core"
-import {
-  isBooleanSeries,
-  isNumericSeries,
-  isSeries,
-  isTuple,
-  type RuntimeValue,
-  toBooleanSeries,
-  toNumericSeries,
-} from "./valueTypes"
+import { isBooleanSeries, isNumericSeries, isSeries, isTuple, RuntimeValue, toBooleanSeries, toNumericSeries } from "./valueTypes";
 
 const argument = (call: CallExpression, name: string, index: number) =>
   call.args.find((entry) => entry.name === name)?.value

@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import { ButtonHTMLAttributes } from "react";
 import { cx } from "../classnames";
 import { Corner } from "./Corner";
 import styles from "./Button.module.css";

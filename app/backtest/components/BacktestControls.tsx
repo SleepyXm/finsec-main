@@ -1,16 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type React from "react";
-import type { BacktestSession } from "@/app/types/backend";
-import {
-  MonoLabel,
-  TraderBlankButton,
-  Button,
-  cornerStyle,
-  panelStyle,
-  theme,
-} from "@/app/ui";
+import React from "react";
+import { BacktestSession } from "@/app/types/backend";
+import { MonoLabel, TraderBlankButton, Button, cornerStyle, panelStyle, theme } from "@/app/ui";
 
 interface Props {
   session: BacktestSession;

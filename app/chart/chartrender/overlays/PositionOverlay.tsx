@@ -1,10 +1,10 @@
 "use client";
 
 import { useRef } from "react";
-import type { MutableRefObject } from "react";
+import { MutableRefObject } from "react";
 import { PositionTag } from "./Positions/PositionOverlayTag";
 import styles from "./Positions/PositionOverlay.module.css";
-import type { PositionTagsProps, PositionWithExtras } from "./Positions/positionOverlayTypes";
+import { PositionTagsProps, PositionWithExtras } from "./Positions/positionOverlayTypes";
 
 function getTag(position: PositionWithExtras, livePnLMap: Record<string, number>, seriesRef: MutableRefObject<any>) {
   const id = position.trade_id;

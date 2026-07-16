@@ -1,4 +1,4 @@
-import type { RawData } from "./charts";
+import { RawData } from "./charts";
 
 export interface BacktestPosition {
   id: string;

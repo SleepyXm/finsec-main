@@ -1,13 +1,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type React from "react";
-import type {
-  BacktestPosition,
-  BacktestSession,
-} from "@/app/types/backend";
-import type { RawData } from "@/app/types/charts";
-import { deriveBacktestAnalysis, type BacktestAnalysis } from "../analysis";
+import React from "react";
+import { BacktestPosition, BacktestSession } from "@/app/types/backend";
+import { RawData } from "@/app/types/charts";
+import { deriveBacktestAnalysis, BacktestAnalysis } from "../analysis";
 import { saveBacktestSession } from "../services/backtest";
 
 interface BacktestContextValue {

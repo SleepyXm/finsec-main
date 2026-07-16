@@ -1,5 +1,5 @@
-import type { BacktestPosition } from "@/app/types/backend";
-import type { RawData } from "@/app/types/charts";
+import { BacktestPosition } from "@/app/types/backend";
+import { RawData } from "@/app/types/charts";
 
 export interface BacktestAnalysis {
   balance: number;

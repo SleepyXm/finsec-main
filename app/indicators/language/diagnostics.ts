@@ -1,4 +1,4 @@
-import type { FinScriptDiagnostic, SourceLocation } from "./types"
+import { FinScriptDiagnostic, SourceLocation } from "./types";
 
 export function diagnostic(
   code: string,

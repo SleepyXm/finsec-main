@@ -1,6 +1,6 @@
 "use client";
 
-import type React from "react";
+import React from "react";
 import { theme, cornerStyle } from "@/app/ui";
 
 const selectedBlurBg     = "rgba(238,242,247,0.085)";

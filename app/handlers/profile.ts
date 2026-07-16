@@ -1,5 +1,5 @@
 import { request } from "./auth";
-import type { ChartTheme } from "../chart/chartrender/themes/themes";
+import { ChartTheme } from "../chart/chartrender/themes/themes";
 
 type ChartPreferences = {
   color_scheme?: {

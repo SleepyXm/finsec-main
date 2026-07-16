@@ -1,14 +1,7 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import {
-  theme,
-  panelStyle,
-  cornerStyle,
-  buttonStyle,
-  ghostButtonStyle,
-  traderWhiteButtonStyle,
-} from "@/app/ui";
+import { theme, panelStyle, cornerStyle, buttonStyle, ghostButtonStyle, traderWhiteButtonStyle } from "@/app/ui";
 
 export function Banner() {
   const [consentGiven, setConsentGiven] = useState("");

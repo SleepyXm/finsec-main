@@ -1,4 +1,4 @@
-import type { CSSProperties, HTMLAttributes } from "react";
+import { CSSProperties, HTMLAttributes } from "react";
 import { cx } from "../classnames";
 import styles from "./Layout.module.css";
 

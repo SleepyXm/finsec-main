@@ -1,5 +1,5 @@
 // app/auth/page.tsx
-import type { Metadata } from "next";
+import { Metadata } from "next";
 import Auth from "./AuthPage"; // your existing component
 
 export const metadata: Metadata = {

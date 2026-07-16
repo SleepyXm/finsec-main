@@ -1,21 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  CandlestickSeries,
-  createChart,
-  type IChartApi,
-  type ISeriesApi,
-  type UTCTimestamp,
-} from "lightweight-charts";
-import {
-  createLoopTape,
-  createSnapshotSignal,
-  makeActiveCandle,
-  materializeCandle,
-  normalizeTime,
-} from "./authChartData";
-import type { Candle } from "@/app/types/charts";
+import { CandlestickSeries, createChart, IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
+import { createLoopTape, createSnapshotSignal, makeActiveCandle, materializeCandle, normalizeTime } from "./authChartData";
+import { Candle } from "@/app/types/charts";
 
 type SnapshotSignal = {
   mode: "entry" | "exit";

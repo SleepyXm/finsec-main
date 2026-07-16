@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react"
-import { createSeriesMarkers, LineSeries, type SeriesMarker } from "lightweight-charts"
+import { createSeriesMarkers, LineSeries, SeriesMarker } from "lightweight-charts";
 import { SeriesPoint, computeSMA, computeEMA } from "@/app/indicators/primitives"
-import type { RawData } from "@/app/types/charts"
+import { RawData } from "@/app/types/charts";
 import { computeSuperTrend, SuperTrendConfig } from "@/app/indicators/supertrend"
 import { computeLiquidityVoids, LiquidityVoidConfig } from "@/app/indicators/liquidityvoids"
 import { LiquidityVoidPlugin } from "@/app/indicators/plugins/liquidityvoidplugin"
 import { SuperTrendFillPlugin } from "@/app/indicators/plugins/supertrendplugin"
-import type { AppliedIndicator } from "@/app/indicators/language/types"
+import { AppliedIndicator } from "@/app/indicators/language/types";
 import { executeIndicator } from "@/app/indicators/runtime/executor"
 import { FinScriptPrimitivePlugin } from "@/app/indicators/plugins/finscriptplugin"
 

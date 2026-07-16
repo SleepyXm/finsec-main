@@ -1,6 +1,6 @@
 "use client";
 
-import type React from "react";
+import React from "react";
 import { useChartContext } from "../chartcontext";
 import { Interval } from "@/app/types/charts";
 

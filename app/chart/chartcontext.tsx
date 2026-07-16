@@ -7,14 +7,10 @@ import { useChartData } from "./chartdata";
 import { useStockSocket } from "@/app/hooks/useStockSocket";
 import { usePositions } from "@/app/hooks/usePositions";
 import { useTrades } from "../hooks/useTrades";
-import type { AppliedIndicator } from "@/app/indicators/language/types";
-import type { Candle, RawData } from "@/app/types/charts";
-import type { StockTick } from "@/app/types/websocket";
-import {
-  buildAnnotationPayload,
-  saveUserAnnotation,
-  type AnnotationDraft,
-} from "@/app/handlers/annotations";
+import { AppliedIndicator } from "@/app/indicators/language/types";
+import { Candle, RawData } from "@/app/types/charts";
+import { StockTick } from "@/app/types/websocket";
+import { buildAnnotationPayload, saveUserAnnotation, AnnotationDraft } from "@/app/handlers/annotations";
 
 const intervals: Interval[] = ["1m", "5m", "15m", "1h", "1d", "1wk", "1mo"];
 

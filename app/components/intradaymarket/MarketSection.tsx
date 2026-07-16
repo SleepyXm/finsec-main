@@ -1,18 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  LinechartIntraday,
-  type IntradayLinePoint,
-} from "@/app/chart/chartrender/charts/LinechartIntraday";
+import { LinechartIntraday, IntradayLinePoint } from "@/app/chart/chartrender/charts/LinechartIntraday";
 import { fetchIntraday } from "@/app/types/assets";
 import { AssetPill } from "@/app/components/intradaymarket/components/UI";
-import {
-  theme,
-  traderBlankButtonStyle,
-  traderCornerStyle,
-  traderInsetPanelStyle,
-  traderPanelStyle,
-  cornerStyle,
-} from "@/app/ui";
+import { theme, traderBlankButtonStyle, traderCornerStyle, traderInsetPanelStyle, traderPanelStyle, cornerStyle } from "@/app/ui";
 
 const ASSET_CARD_WIDTH = 280;
 const ASSET_CARD_GAP = 12;

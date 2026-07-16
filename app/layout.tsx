@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import { Metadata } from "next";
 import { Geist, Geist_Mono, Manrope, Familjen_Grotesk } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "./provider/userprovider";

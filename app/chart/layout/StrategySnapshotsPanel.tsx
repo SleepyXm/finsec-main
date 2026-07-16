@@ -1,6 +1,6 @@
-import type { StrategyDetails } from "@/app/handlers/annotations";
+import { StrategyDetails } from "@/app/handlers/annotations";
 import { CandleStickChart } from "@/app/chart/chartrender/charts/CandleStickChart";
-import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
+import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { cornerStyle, theme } from "@/app/ui";
 
 const idleBackground = "rgba(238,242,247,0.025)";

@@ -1,19 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { BacktestResponse, BacktestSummary } from "@/app/types/backend";
-import {
-  deleteBacktestSession,
-  getBacktestSession,
-  listBacktests,
-} from "../services/backtest";
-import {
-  MonoLabel,
-  TraderBlankButton,
-  cornerStyle,
-  panelStyle,
-  theme,
-} from "@/app/ui";
+import { BacktestResponse, BacktestSummary } from "@/app/types/backend";
+import { deleteBacktestSession, getBacktestSession, listBacktests } from "../services/backtest";
+import { MonoLabel, TraderBlankButton, cornerStyle, panelStyle, theme } from "@/app/ui";
 
 interface Props {
   onResume: (backtest: BacktestResponse) => void;

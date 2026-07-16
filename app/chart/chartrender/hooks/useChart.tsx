@@ -1,15 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
-import {
-  defaultChartTheme,
-  ChartBackground,
-  ChartTheme,
-} from "../themes/themes";
+import { defaultChartTheme, ChartBackground, ChartTheme } from "../themes/themes";
 import { PriceLines } from "@/app/components/trading/price";
 import { StrategyOverlay } from "../overlays/Strategy";
 import { useCandleHighlight } from "@/app/chart/chartrender/overlays/CandleHighlight";
 import { useScriptIndicators } from "@/app/indicators/hooks/useIndicator";
-import type { AppliedIndicator } from "@/app/indicators/language/types";
+import { AppliedIndicator } from "@/app/indicators/language/types";
 import { PositionTags } from "@/app/chart/chartrender/overlays/PositionOverlay";
 import { ACCENT, DANGER, SUCCESS } from "@/app/ui";
 

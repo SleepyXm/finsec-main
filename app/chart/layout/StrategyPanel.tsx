@@ -2,18 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useChartContext } from "../chartcontext";
-import {
-  deleteUserStrategy,
-  deleteUserStrategySnapshot,
-  getUserStrategy,
-  listUserStrategies,
-  type SavedStrategy,
-  type StrategyDetails,
-} from "@/app/handlers/annotations";
+import { deleteUserStrategy, deleteUserStrategySnapshot, getUserStrategy, listUserStrategies, SavedStrategy, StrategyDetails } from "@/app/handlers/annotations";
 import { useUser } from "@/app/provider/userprovider";
 import { cornerStyle, theme } from "@/app/ui";
 import { CandleStickChart } from "@/app/chart/chartrender/charts/CandleStickChart";
-import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
+import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { StrategySnapshotsPanel } from "./StrategySnapshotsPanel";
 
 const idleBackground = "rgba(238,242,247,0.025)";

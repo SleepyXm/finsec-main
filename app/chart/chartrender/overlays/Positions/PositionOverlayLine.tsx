@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { CSSProperties, MutableRefObject, PointerEvent } from "react";
+import { CSSProperties, MutableRefObject, PointerEvent } from "react";
 import styles from "./PositionOverlay.module.css";
-import type { EditableLine } from "./positionOverlayTypes";
+import { EditableLine } from "./positionOverlayTypes";
 import { cx, formatPrice, normalisePrice } from "./positionOverlayUtils";
 
 type YStyle = CSSProperties & { "--po-y": string };

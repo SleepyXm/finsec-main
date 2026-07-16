@@ -1,16 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  createCheckoutSession,
-  getProducts,
-  type ProductProps,
-} from "../handlers/products";
-import {
-  traderCornerStyle,
-  traderInactiveButtonClassName,
-  traderWhiteButtonClassName,
-} from "@/app/ui";
+import { createCheckoutSession, getProducts, ProductProps } from "../handlers/products";
+import { traderCornerStyle, traderInactiveButtonClassName, traderWhiteButtonClassName } from "@/app/ui";
 import { useUser } from "../provider/userprovider";
 
 type PlanPresentation = {

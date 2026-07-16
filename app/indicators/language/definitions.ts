@@ -1,4 +1,4 @@
-import type { FinScriptType } from "./types"
+import { FinScriptType } from "./types";
 
 export type ParameterDefinition = {
   name: string

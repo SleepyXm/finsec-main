@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from "react";
+import { HTMLAttributes } from "react";
 import { cx } from "../classnames";
 import { Corner } from "./Corner";
 import styles from "./Surface.module.css";

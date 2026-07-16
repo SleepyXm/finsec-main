@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { CSSProperties } from "react";
 import styles from "./Corner.module.css";
 
 export function Corner({ opacity = 0.36 }: { opacity?: number }) {

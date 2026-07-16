@@ -5,10 +5,7 @@ import { useEffect, useState } from "react";
 import { checkoutSuccess } from "@/app/handlers/products";
 import { validateUser } from "@/app/handlers/auth";
 import { useUser } from "@/app/provider/userprovider";
-import {
-  Surface,
-  traderWhiteButtonClassName,
-} from "@/app/ui";
+import { Surface, traderWhiteButtonClassName } from "@/app/ui";
 
 type ConfirmationStatus = "confirming" | "success" | "error";
 

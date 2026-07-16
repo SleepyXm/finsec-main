@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { IndicatorBox, IndicatorFill } from "@/app/indicators/language/types"
-import type {
-  IPanePrimitivePaneView,
-  IPrimitivePaneRenderer,
-  PaneAttachedParameter,
-  PrimitivePaneViewZOrder,
-  Time,
-} from "lightweight-charts"
+import { IndicatorBox, IndicatorFill } from "@/app/indicators/language/types";
+import { IPanePrimitivePaneView, IPrimitivePaneRenderer, PaneAttachedParameter, PrimitivePaneViewZOrder, Time } from "lightweight-charts";
 
 class FinScriptPrimitiveRenderer implements IPrimitivePaneRenderer {
   constructor(private plugin: FinScriptPrimitivePlugin) {}

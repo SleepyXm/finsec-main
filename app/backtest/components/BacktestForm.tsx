@@ -1,16 +1,8 @@
 import { useState } from "react";
 import { runBacktest } from "../services/backtest";
-import type { BacktestSession } from "@/app/types/backend";
-import type { RawData } from "@/app/types/charts";
-import {
-  Label,
-  MonoLabel,
-  TraderBlankButton,
-  buttonStyle,
-  cornerStyle,
-  theme,
-  traderInsetPanelStyle,
-} from "@/app/ui";
+import { BacktestSession } from "@/app/types/backend";
+import { RawData } from "@/app/types/charts";
+import { Label, MonoLabel, TraderBlankButton, buttonStyle, cornerStyle, theme, traderInsetPanelStyle } from "@/app/ui";
 
 const INTERVALS = ["1m", "5m", "15m", "30m", "1h", "1d"];
 

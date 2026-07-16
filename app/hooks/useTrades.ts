@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Trade } from "../types/trades";
 import { postTrade, deleteTrade, openTradeSocket } from "../types/trades";
-import type { RawData } from "../types/charts";
+import { RawData } from "../types/charts";
 
 type TradePriceData = Pick<RawData, "buy_price" | "close">;
 

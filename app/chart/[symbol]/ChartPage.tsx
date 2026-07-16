@@ -9,12 +9,9 @@ import { ChartQuoteStrip, TopBar } from "@/app/chart/layout/TopBar";
 import { ChartRenderer } from "@/app/chart/chartrender/ChartRenderer";
 import { ChartThemeModal } from "@/app/chart/chartrender/overlays/ThemeSettings";
 import { defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
-import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
+import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { getPreferences, savePreferences } from "@/app/handlers/profile";
-import {
-  BacktestProvider,
-  useBacktestContext,
-} from "@/app/backtest/components/BacktestContext";
+import { BacktestProvider, useBacktestContext } from "@/app/backtest/components/BacktestContext";
 
 function ChartPageInner() {
   const {

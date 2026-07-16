@@ -1,13 +1,7 @@
 import { checkFinScript } from "./checker"
 import { lexFinScript } from "./lexer"
 import { parseFinScript } from "./parser"
-import type {
-  CallExpression,
-  CompiledIndicator,
-  FinScriptDiagnostic,
-  InputDescriptor,
-  LiteralExpression,
-} from "./types"
+import { CallExpression, CompiledIndicator, FinScriptDiagnostic, InputDescriptor, LiteralExpression } from "./types";
 
 export type CompileResult =
   | { ok: true; compiled: CompiledIndicator; diagnostics: FinScriptDiagnostic[] }

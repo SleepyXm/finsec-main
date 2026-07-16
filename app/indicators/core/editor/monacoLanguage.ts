@@ -1,5 +1,5 @@
-import type { Monaco } from "@monaco-editor/react"
-import type { editor, Position } from "monaco-editor"
+import { Monaco } from "@monaco-editor/react";
+import { editor, Position } from "monaco-editor";
 import { LANGUAGE_DEFINITIONS } from "@/app/indicators/language/definitions"
 
 let configured = false

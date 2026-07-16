@@ -6,7 +6,7 @@ import { AssetSearchBar, AssetListItem } from "@/app/assetsearch/assetsearchcomp
 import { useAssetSearch } from "@/app/hooks/utility";
 import { theme, cornerStyle } from "@/app/ui";
 import BacktestPanel from "@/app/backtest/components/BacktestPanel";
-import type { ChartTheme } from "@/app/chart/chartrender/themes/themes";
+import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import StrategyPanel from "./StrategyPanel";
 
 export type RightTab =

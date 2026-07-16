@@ -1,14 +1,6 @@
 import { LANGUAGE_DEFINITIONS } from "./definitions"
 import { diagnostic } from "./diagnostics"
-import type {
-  CallExpression,
-  Expression,
-  FinScriptDiagnostic,
-  FinScriptProgram,
-  FinScriptType,
-  FunctionDeclarationStatement,
-  Statement,
-} from "./types"
+import { CallExpression, Expression, FinScriptDiagnostic, FinScriptProgram, FinScriptType, FunctionDeclarationStatement, Statement } from "./types";
 
 export type CheckResult = {
   diagnostics: FinScriptDiagnostic[]

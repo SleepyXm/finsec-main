@@ -1,17 +1,6 @@
-import type {
-  CallExpression,
-  Expression,
-  IndicatorBox,
-  IndicatorExecutionResult,
-} from "@/app/indicators/language/types"
-import type { RawData } from "@/app/types/charts"
-import {
-  isBooleanSeries,
-  isPlotHandle,
-  type RuntimeBoxHandle,
-  type RuntimeValue,
-  toNumericSeries,
-} from "./valueTypes"
+import { CallExpression, Expression, IndicatorBox, IndicatorExecutionResult } from "@/app/indicators/language/types";
+import { RawData } from "@/app/types/charts";
+import { isBooleanSeries, isPlotHandle, RuntimeBoxHandle, RuntimeValue, toNumericSeries } from "./valueTypes";
 
 const CONSTANTS: Record<string, string> = {
   "color.blue": "#2962FF",

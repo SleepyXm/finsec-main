@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo } from "react";
 import { AreaSeries } from "lightweight-charts";
 import { useChart } from "../hooks/useChart";
-import { intradayChartTheme, type ChartTheme } from "../themes/themes";
+import { intradayChartTheme, ChartTheme } from "../themes/themes";
 
 export const LinechartIntraday: React.FC<{
   data: any[];

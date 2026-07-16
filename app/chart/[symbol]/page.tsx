@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+﻿import { Metadata } from "next";
 import ChartPage from "./ChartPage";
 
 export async function generateMetadata(

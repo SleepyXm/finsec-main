@@ -3,12 +3,9 @@
 import React, { useCallback, useMemo } from "react";
 import { AreaSeries, CandlestickSeries } from "lightweight-charts";
 import { useChart } from "@/app/chart/chartrender/hooks/useChart";
-import {
-  ChartTheme,
-  defaultChartTheme,
-} from "@/app/chart/chartrender/themes/themes";
-import type { AppliedIndicator } from "@/app/indicators/language/types";
-import type { RawData } from "@/app/types/charts";
+import { ChartTheme, defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
+import { AppliedIndicator } from "@/app/indicators/language/types";
+import { RawData } from "@/app/types/charts";
 
 type ChartKind = "candlestick" | "line";
 

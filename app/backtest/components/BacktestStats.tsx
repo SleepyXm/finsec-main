@@ -1,5 +1,5 @@
-import type { BacktestAnalysis } from "@/app/backtest/analysis";
-import type { RawData } from "@/app/types/charts";
+import { BacktestAnalysis } from "@/app/backtest/analysis";
+import { RawData } from "@/app/types/charts";
 import { cornerStyle, panelStyle, theme } from "@/app/ui";
 
 interface Props {

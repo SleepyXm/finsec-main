@@ -8,14 +8,7 @@ import { useBacktestContext } from "./BacktestContext";
 import OpenPositions from "@/app/components/trading/positions";
 import { useChartContext } from "@/app/chart/chartcontext";
 import { PnLChart } from "@/app/chart/chartrender/charts/PnLChart";
-import {
-  TraderBlankButton,
-  cornerStyle,
-  MonoLabel,
-  theme,
-  traderInsetPanelStyle,
-  traderPanelStyle,
-} from "@/app/ui";
+import { TraderBlankButton, cornerStyle, MonoLabel, theme, traderInsetPanelStyle, traderPanelStyle } from "@/app/ui";
 
 function displayDate(value: string) {
   const date = new Date(value);

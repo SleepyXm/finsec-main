@@ -1,6 +1,6 @@
 import Image from "next/image";
-import type React from "react";
-import { theme, type Theme, WHITE } from "../tokens";
+import React from "react";
+import { theme, Theme, WHITE } from "../tokens";
 import { traderBlankButtonStyle } from "../styles";
 import { Corner } from "./Corner";
 import styles from "./LegacyPrimitives.module.css";

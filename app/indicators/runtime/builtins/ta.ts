@@ -1,11 +1,5 @@
-import type { RawData } from "@/app/types/charts"
-import {
-  type RuntimeTuple,
-  type RuntimeValue,
-  toBooleanSeries,
-  toNumericSeries,
-  toPeriod,
-} from "@/app/indicators/runtime/valueTypes"
+import { RawData } from "@/app/types/charts";
+import { RuntimeTuple, RuntimeValue, toBooleanSeries, toNumericSeries, toPeriod } from "@/app/indicators/runtime/valueTypes";
 
 const naSeries = (length: number) => new Array<number>(length).fill(Number.NaN)
 

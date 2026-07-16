@@ -1,8 +1,4 @@
-import type {
-  BacktestPosition,
-  BacktestResponse,
-  BacktestSummary,
-} from "@/app/types/backend";
+import { BacktestPosition, BacktestResponse, BacktestSummary } from "@/app/types/backend";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE2;
 

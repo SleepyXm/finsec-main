@@ -1,4 +1,4 @@
-import type { SourceLocation } from "./types"
+import { SourceLocation } from "./types";
 
 export type TokenKind =
   | "identifier"

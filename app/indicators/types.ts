@@ -1,4 +1,4 @@
-import type { RawData } from "@/app/types/charts"
+import { RawData } from "@/app/types/charts";
 
 export function createBarContext(bars: RawData[]) {
   return {
