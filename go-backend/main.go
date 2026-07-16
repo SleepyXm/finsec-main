@@ -105,6 +105,8 @@ func main() {
 	routes.RegisterStockRoutes(api.Group("/"), utils.RDB)
 	routes.RegisterTradeRoutes(api.Group("/"), db, utils.RDB, pool)
 	routes.RegisterBacktestRoutes(api.Group("/"), db)
+	routes.RegisterAnnotationRoutes(api.Group("/"), db)
+	routes.RegisterIndicatorRoutes(api.Group("/"), db)
 	routes.RegisterProfileRoutes(api.Group("/"), db)
 	routes.RegisterAccounteRoutes(api.Group("/account"), db)
 	routes.RegisterProductRoutes(api.Group("/products"), db)

@@ -27,7 +27,7 @@ export async function request<T = unknown>(path: string, options: RequestInit, i
   }
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || `Request failed with status ${res.status}`);
+  if (!res.ok) throw new Error(data.detail || data.error || `Request failed with status ${res.status}`);
   return data as T;
 }
 

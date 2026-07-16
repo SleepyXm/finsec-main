@@ -2,48 +2,106 @@
 
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { IndicatorEditor } from "./Editor"
 import { DEFAULT_INDICATOR_SCRIPT } from "./defaults"
 import { compileFinScript } from "@/app/indicators/language/compiler"
 import type { FinScriptDiagnostic, InputDescriptor } from "@/app/indicators/language/types"
 import { FINSCRIPT_EXAMPLES } from "@/app/indicators/language/examples"
 import { useChartContext } from "@/app/chart/chartcontext"
+import { useSavedIndicators } from "@/app/hooks/useIndicators"
+
+const DEFAULT_RESULT = compileFinScript(DEFAULT_INDICATOR_SCRIPT)
+const DEFAULT_INPUTS = DEFAULT_RESULT.ok
+  ? Object.fromEntries(DEFAULT_RESULT.compiled.inputs.map((input) => [input.id, input.defaultValue]))
+  : {}
 
 export function IndicatorPanel() {
   const { applyIndicator, removeIndicator, appliedIndicators } = useChartContext()
+  const savedIndicators = useSavedIndicators()
   const [script, setScript] = useState(DEFAULT_INDICATOR_SCRIPT)
-  const [tab, setTab] = useState<"editor" | "export">("editor")
-  const [diagnostics, setDiagnostics] = useState<FinScriptDiagnostic[]>([])
-  const [status, setStatus] = useState<"idle" | "applied" | "error">("idle")
-  const [inputDefinitions, setInputDefinitions] = useState<InputDescriptor[]>([])
-  const [inputValues, setInputValues] = useState<Record<string, number | boolean | string>>({})
-  const preview = appliedIndicators.find((entry) => entry.id === "editor-preview")
+  const [diagnostics, setDiagnostics] = useState<FinScriptDiagnostic[]>(DEFAULT_RESULT.diagnostics)
+  const [status, setStatus] = useState<"idle" | "applied" | "saved" | "error">(DEFAULT_RESULT.ok ? "applied" : "error")
+  const [inputDefinitions, setInputDefinitions] = useState<InputDescriptor[]>(DEFAULT_RESULT.ok ? DEFAULT_RESULT.compiled.inputs : [])
+  const [inputValues, setInputValues] = useState<Record<string, number | boolean | string>>(DEFAULT_INPUTS)
+  const [selectedSavedIndicatorId, setSelectedSavedIndicatorId] = useState<string | null>(null)
+  const activeIndicatorId = selectedSavedIndicatorId ?? "editor-preview"
+  const activeIndicator = appliedIndicators.find((entry) => entry.id === activeIndicatorId)
+  const selectedSavedIndicator = savedIndicators.items.find((entry) => entry.id === selectedSavedIndicatorId)
 
-  const handleApply = () => {
-    const result = compileFinScript(script)
+  const applySource = useCallback((
+    source: string,
+    id: string,
+    values: Record<string, number | boolean | string> = {},
+  ) => {
+    const result = compileFinScript(source)
     setDiagnostics(result.diagnostics)
 
     if (!result.ok) {
+      setInputDefinitions([])
+      setInputValues({})
       setStatus("error")
       return
     }
 
     const nextInputs = Object.fromEntries(result.compiled.inputs.map((input) => [
       input.id,
-      inputValues[input.id] ?? input.defaultValue,
+      values[input.id] ?? input.defaultValue,
     ]))
     setInputDefinitions(result.compiled.inputs)
     setInputValues(nextInputs)
 
     applyIndicator({
-      id: "editor-preview",
-      source: script,
+      id,
+      source,
       compiled: result.compiled,
       inputs: nextInputs,
       enabled: true,
     })
     setStatus("applied")
+  }, [applyIndicator])
+
+  useEffect(() => {
+    if (!DEFAULT_RESULT.ok) return
+    applyIndicator({
+      id: "editor-preview",
+      source: DEFAULT_INDICATOR_SCRIPT,
+      compiled: DEFAULT_RESULT.compiled,
+      inputs: DEFAULT_INPUTS,
+      enabled: true,
+    })
+  }, [applyIndicator])
+
+  const handleSave = async () => {
+    try {
+      const result = await savedIndicators.saveSource(script)
+      setDiagnostics(result.diagnostics)
+      setStatus(result.ok ? "saved" : "error")
+    } catch {
+      setStatus("error")
+    }
+  }
+
+  const handleLoadSaved = async (id: string) => {
+    try {
+      const saved = await savedIndicators.loadSaved(id)
+      setScript(saved.source)
+      applySource(saved.source, saved.id)
+    } catch {
+      setStatus("error")
+    }
+  }
+
+  const handleDeleteSaved = async () => {
+    if (!selectedSavedIndicator) return
+    try {
+      await savedIndicators.deleteSaved(selectedSavedIndicator.id)
+      removeIndicator(selectedSavedIndicator.id)
+      setSelectedSavedIndicatorId(null)
+      setStatus("idle")
+    } catch {
+      setStatus("error")
+    }
   }
 
   return (
@@ -60,41 +118,40 @@ export function IndicatorPanel() {
     >
       <div
         style={{
-          height: 42,
+          minHeight: 42,
           display: "flex",
           alignItems: "center",
           gap: 8,
-          padding: "0 12px",
+          padding: "8px 12px",
           borderBottom: "1px solid #1e2130",
         }}
       >
-        <TabButton
-          label="Editor"
-          active={tab === "editor"}
-          onClick={() => setTab("editor")}
-        />
-
-        <TabButton
-          label="Export"
-          active={tab === "export"}
-          onClick={() => setTab("export")}
-        />
-
         <select
-          aria-label="Load example indicator"
+          aria-label="Choose indicator source"
           defaultValue=""
+          disabled={savedIndicators.busyId !== null}
           onChange={(event) => {
-            const example = FINSCRIPT_EXAMPLES.find((entry) => entry.id === event.target.value)
-            if (!example) return
-            setScript(example.source)
-            setDiagnostics([])
-            setStatus("idle")
-            setInputDefinitions([])
-            setInputValues({})
+            const selection = event.currentTarget.value
             event.target.value = ""
+
+            if (selection.startsWith("example:")) {
+              const example = FINSCRIPT_EXAMPLES.find((entry) => entry.id === selection.slice(8))
+              if (!example) return
+              setSelectedSavedIndicatorId(null)
+              setScript(example.source)
+              applySource(example.source, "editor-preview")
+              return
+            }
+
+            if (selection.startsWith("saved:")) {
+              const id = selection.slice(6)
+              setSelectedSavedIndicatorId(id)
+              void handleLoadSaved(id)
+            }
           }}
           style={{
-            maxWidth: 165,
+            minWidth: 0,
+            width: 140,
             border: "1px solid #31384a",
             background: "#11151d",
             color: "#94a3b8",
@@ -103,26 +160,38 @@ export function IndicatorPanel() {
             fontSize: 11,
           }}
         >
-          <option value="" disabled>Load example…</option>
-          {FINSCRIPT_EXAMPLES.map((example) => (
-            <option key={example.id} value={example.id}>{example.title}</option>
-          ))}
+          <option value="" disabled>Choose indicator…</option>
+          <optgroup label="Examples">
+            {FINSCRIPT_EXAMPLES.map((example) => (
+              <option key={example.id} value={`example:${example.id}`}>{example.title}</option>
+            ))}
+          </optgroup>
+          {savedIndicators.items.length > 0 && (
+            <optgroup label="Saved">
+              {savedIndicators.items.map((item) => (
+                <option key={item.id} value={`saved:${item.id}`}>{item.name}</option>
+              ))}
+            </optgroup>
+          )}
         </select>
 
-        <div style={{ flex: 1 }} />
-
-        {preview && (
+        {activeIndicator && (
           <button
             type="button"
-            onClick={() => removeIndicator("editor-preview")}
-            style={actionButtonStyle("secondary")}
+            onClick={() => removeIndicator(activeIndicatorId)}
+            style={actionButtonStyle()}
           >
             Remove
           </button>
         )}
 
-        <button type="button" onClick={handleApply} style={actionButtonStyle("primary")}>
-          Apply
+        <button
+          type="button"
+          disabled={savedIndicators.busyId !== null}
+          onClick={handleSave}
+          style={{ ...actionButtonStyle(), opacity: savedIndicators.busyId !== null ? 0.45 : 1 }}
+        >
+          Save
         </button>
       </div>
 
@@ -141,8 +210,9 @@ export function IndicatorPanel() {
               input={input}
               value={inputValues[input.id] ?? input.defaultValue}
               onChange={(value) => {
-                setInputValues((current) => ({ ...current, [input.id]: value }))
-                setStatus("idle")
+                const nextValues = { ...inputValues, [input.id]: value }
+                setInputValues(nextValues)
+                applySource(script, activeIndicatorId, nextValues)
               }}
             />
           ))}
@@ -150,41 +220,17 @@ export function IndicatorPanel() {
       )}
 
       <div style={{ flex: 1, minHeight: 0, padding: 12 }}>
-        {tab === "editor" && (
-          <IndicatorEditor
-            value={script}
-            onChange={(value) => {
-              setScript(value)
-              setStatus("idle")
-              setInputDefinitions([])
-              setInputValues({})
-            }}
-            diagnostics={diagnostics}
-          />
-        )}
-
-        {tab === "export" && (
-          <textarea
-            value={script}
-            readOnly
-            style={{
-              width: "100%",
-              height: "100%",
-              resize: "none",
-              background: "#0f1117",
-              color: "#e2e8f0",
-              border: "1px solid #1e2130",
-              borderRadius: 4,
-              padding: 10,
-              fontFamily: "monospace",
-              fontSize: 11,
-              lineHeight: 1.5,
-            }}
-          />
-        )}
+        <IndicatorEditor
+          value={script}
+          onChange={(value) => {
+            setScript(value)
+            applySource(value, activeIndicatorId, inputValues)
+          }}
+          diagnostics={diagnostics}
+        />
       </div>
 
-      {(status !== "idle" || diagnostics.length > 0) && (
+      {(status !== "idle" || diagnostics.length > 0 || savedIndicators.error || selectedSavedIndicator) && (
         <div style={{
           flexShrink: 0,
           maxHeight: 120,
@@ -193,8 +239,37 @@ export function IndicatorPanel() {
           borderTop: "1px solid #1e2130",
           fontSize: 11,
         }}>
+          {selectedSavedIndicator && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+              <span style={{ flex: 1, minWidth: 0, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {selectedSavedIndicator.name}
+              </span>
+              <button
+                type="button"
+                disabled={savedIndicators.busyId !== null}
+                onClick={() => void handleDeleteSaved()}
+                style={{
+                  border: 0,
+                  background: "transparent",
+                  color: "#fb7185",
+                  padding: 0,
+                  fontSize: 10,
+                  cursor: savedIndicators.busyId === null ? "pointer" : "wait",
+                  opacity: savedIndicators.busyId === null ? 1 : 0.45,
+                }}
+              >
+                Delete saved
+              </button>
+            </div>
+          )}
           {status === "applied" && diagnostics.length === 0 && (
             <div style={{ color: "#34d399" }}>Applied to the chart.</div>
+          )}
+          {status === "saved" && diagnostics.length === 0 && (
+            <div style={{ color: "#34d399" }}>Saved to your indicators.</div>
+          )}
+          {savedIndicators.error && (
+            <div style={{ color: "#fb7185", marginBottom: 3 }}>{savedIndicators.error}</div>
           )}
           {diagnostics.map((entry, index) => (
             <div key={`${entry.code}-${entry.start}-${index}`} style={{
@@ -263,41 +338,14 @@ function IndicatorInput({
   )
 }
 
-function actionButtonStyle(kind: "primary" | "secondary"): React.CSSProperties {
+function actionButtonStyle(): React.CSSProperties {
   return {
-    border: `1px solid ${kind === "primary" ? "#2563eb" : "#31384a"}`,
-    background: kind === "primary" ? "#2563eb" : "transparent",
-    color: kind === "primary" ? "#fff" : "#94a3b8",
+    border: "1px solid #31384a",
+    background: "transparent",
+    color: "#94a3b8",
     borderRadius: 4,
     padding: "5px 9px",
     cursor: "pointer",
     fontSize: 11,
   }
-}
-
-function TabButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        border: "none",
-        background: active ? "#1e2130" : "transparent",
-        color: active ? "#e2e8f0" : "#6b7280",
-        borderRadius: 4,
-        padding: "5px 8px",
-        cursor: "pointer",
-        fontSize: 11,
-      }}
-    >
-      {label}
-    </button>
-  )
 }

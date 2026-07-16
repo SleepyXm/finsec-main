@@ -3,6 +3,7 @@
 import { useChartContext } from "../chartcontext";
 import { useRouter } from "next/navigation";
 import { Interval } from "@/app/types/charts";
+import { useUser } from "@/app/provider/userprovider";
 
 function Select({ value, onChange, children, style }: {
   value: string;
@@ -57,6 +58,7 @@ export function TopBar() {
     setIsIndicatorPanelOpen,
     connected,
   } = useChartContext();
+  const { user, resolved } = useUser();
 
   const router = useRouter();
 
@@ -139,6 +141,7 @@ export function TopBar() {
           active={isCreatingStrategy}
           onClick={() => setIsCreatingStrategy(!isCreatingStrategy)}
           activeColor="#7c3aed"
+          disabled={resolved && !user}
         />
         </div>
         <ActionBtn
@@ -219,24 +222,27 @@ function ChartTypeBtn({ label, active, onClick }: { label: string; active: boole
 }
 
 function ActionBtn({
-  label, onClick, active = false, activeColor = "#1e2130"
+  label, onClick, active = false, activeColor = "#1e2130", disabled = false,
 }: {
   label: string;
   onClick: () => void;
   active?: boolean;
   activeColor?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         padding: "3px 10px",
         borderRadius: 3,
         border: `1px solid ${active ? activeColor : "#1e2130"}`,
         background: active ? activeColor : "transparent",
         color: active ? "#fff" : "#6b7280",
+        opacity: disabled ? 0.45 : 1,
         fontSize: 11,
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
         fontFamily: "inherit",
         letterSpacing: "0.03em",
       }}

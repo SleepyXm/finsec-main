@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import type { AnnotationCandle, AnnotationDraft } from '@/app/handlers/annotations';
 
 const LABELS = [
   {value: 'bearish_fvg', label: "Bearish Fair Value Gap"},
@@ -15,18 +16,27 @@ const LABELS = [
   { value: 'accumulation', label: 'Accumulation' },
 ];
 
+type PendingAnnotation = Omit<AnnotationDraft, 'label'> & {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  priceHigh: number;
+  priceLow: number;
+};
+
 export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSelection, clearSelection }: {
   chartRef: React.MutableRefObject<any>;
   seriesRef: React.MutableRefObject<any>;
-  data: any[];
-  onAnnotation?: (annotation: any) => void;
+  data: AnnotationCandle[];
+  onAnnotation?: (annotation: AnnotationDraft) => void;
   setSelection: (startX: number, endX: number) => void;
   clearSelection: () => void;
 }) {
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const [pendingAnnotation, setPendingAnnotation] = useState<any | null>(null);
-  const [selectedCandles, setSelectedCandles] = useState<any[]>([]);
+  const [pendingAnnotation, setPendingAnnotation] = useState<PendingAnnotation | null>(null);
+  const [selectedCandles, setSelectedCandles] = useState<AnnotationCandle[]>([]);
   const hasMoved = useRef(false);
 
   const snapToCandle = (x: number): number => {
@@ -52,7 +62,7 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
     if (!chartRef.current || !data) return [];
     const timeStart = chartRef.current.timeScale().coordinateToTime(rect.x);
     const timeEnd = chartRef.current.timeScale().coordinateToTime(rect.x + rect.w);
-    return data.filter((c: any) => c.time >= timeStart && c.time <= timeEnd);
+    return data.filter((candle) => candle.time >= Number(timeStart) && candle.time <= Number(timeEnd));
   };
 
   const handleDrawStart = (e: React.MouseEvent) => {
@@ -93,19 +103,17 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
     const toPrice = (py: number) => seriesRef.current?.coordinateToPrice(py);
     const toTime = (px: number) => chartRef.current?.timeScale().coordinateToTime(px);
 
-    setPendingAnnotation(dx < 8 && dy < 8
-      ? { type: 'point', x, y, time: toTime(x), price: toPrice(y) }
-      : {
-          type: 'region',
-          x: Math.min(drawStart.x, x), y: Math.min(drawStart.y, y),
-          w: dx, h: dy,
-          timeStart: toTime(Math.min(drawStart.x, x)),
-          timeEnd: toTime(Math.max(drawStart.x, x)),
-          priceHigh: toPrice(Math.min(drawStart.y, y)),
-          priceLow: toPrice(Math.max(drawStart.y, y)),
-          candles: selectedCandles,
-        }
-    );
+    if (dx >= 8 || dy >= 8) {
+      setPendingAnnotation({
+        x: Math.min(drawStart.x, x), y: Math.min(drawStart.y, y),
+        w: dx, h: dy,
+        timeStart: Number(toTime(Math.min(drawStart.x, x))),
+        timeEnd: Number(toTime(Math.max(drawStart.x, x))),
+        priceHigh: Number(toPrice(Math.min(drawStart.y, y))),
+        priceLow: Number(toPrice(Math.max(drawStart.y, y))),
+        candles: selectedCandles,
+      });
+    }
 
     clearSelection();
     setDrawStart(null);
@@ -120,8 +128,8 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
       onMouseUp={handleDrawEnd}
     >
       {selectedCandles.length > 0 && drawRect && (() => {
-        const high = Math.max(...selectedCandles.map((c: any) => c.high));
-        const low = Math.min(...selectedCandles.map((c: any) => c.low));
+        const high = Math.max(...selectedCandles.map((candle) => candle.high));
+        const low = Math.min(...selectedCandles.map((candle) => candle.low));
         const open = selectedCandles[0].open;
         const close = selectedCandles[selectedCandles.length - 1].close;
         const change = (((close - open) / open) * 100).toFixed(2);

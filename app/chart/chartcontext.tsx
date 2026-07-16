@@ -8,6 +8,11 @@ import { useStockSocket } from "@/app/hooks/useStockSocket";
 import { usePositions } from "@/app/hooks/usePositions";
 import { useTrades } from "../hooks/useTrades";
 import type { AppliedIndicator } from "@/app/indicators/language/types";
+import {
+  buildAnnotationPayload,
+  saveUserAnnotation,
+  type AnnotationDraft,
+} from "@/app/handlers/annotations";
 
 const intervals: Interval[] = ["1m", "5m", "15m", "1h", "1d", "1wk", "1mo"];
 
@@ -25,8 +30,9 @@ interface ChartContextValue {
   // strategy
   isCreatingStrategy: boolean;
   setIsCreatingStrategy: (v: boolean) => void;
-  annotations: any[];
-  handleAnnotation: (a: any) => void;
+  annotations: AnnotationDraft[];
+  annotationError: string | null;
+  handleAnnotation: (annotation: AnnotationDraft) => Promise<void>;
 
   // indicator Editor
   isIndicatorPanelOpen: boolean
@@ -66,17 +72,6 @@ export function useChartContext() {
   return ctx;
 }
 
-function normalizeCandles(candles: any[]) {
-  const anchor = candles[0].open;
-
-  return candles.map(c => ({
-    open:  +((c.open  - anchor) / anchor * 100).toFixed(6),
-    high:  +((c.high  - anchor) / anchor * 100).toFixed(6),
-    low:   +((c.low   - anchor) / anchor * 100).toFixed(6),
-    close: +((c.close - anchor) / anchor * 100).toFixed(6),
-  }));
-}
-
 export function ChartProvider({
   children,
   symbol,
@@ -98,7 +93,8 @@ export function ChartProvider({
   const interval = intervalOverride ?? localInterval;
   const isCandle = isCandleOverride ?? localIsCandle;
   const [isCreatingStrategy, setIsCreatingStrategy] = useState(false);
-  const [annotations, setAnnotations] = useState<any[]>([]);
+  const [annotations, setAnnotations] = useState<AnnotationDraft[]>([]);
+  const [annotationError, setAnnotationError] = useState<string | null>(null);
   const [isIndicatorPanelOpen, setIsIndicatorPanelOpen] = useState(false);
   const [appliedIndicators, setAppliedIndicators] = useState<AppliedIndicator[]>([]);
   
@@ -146,27 +142,18 @@ export function ChartProvider({
     ? data
     : data?.map((item: any) => ({ ...item, value: item.close }));
 
-  const handleAnnotation = async (annotation: any) => {
-    setAnnotations(prev => [...prev, annotation]);
+  const handleAnnotation = async (annotation: AnnotationDraft) => {
     setIsCreatingStrategy(false);
-    
-
-    const payload = {
-      ...annotation,
-      symbol: shortname,
-      candles: normalizeCandles(annotation.candles),
-    };
-
-    if (annotation.candles.length < 5) {
-      console.warn("Annotation too short, skipping save");
-      return; 
+    setAnnotationError(null);
+    try {
+      if (!annotation.candles || annotation.candles.length < 5) {
+        throw new Error("Select at least five candles for a strategy snapshot.");
+      }
+      await saveUserAnnotation(buildAnnotationPayload(annotation, shortname));
+      setAnnotations((current) => [...current, annotation]);
+    } catch (cause) {
+      setAnnotationError(cause instanceof Error ? cause.message : "Failed to save strategy snapshot");
     }
-
-    await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/annotations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
   };
 
   return (
@@ -181,6 +168,7 @@ export function ChartProvider({
         isCreatingStrategy,
         setIsCreatingStrategy,
         annotations,
+        annotationError,
         handleAnnotation,
         isIndicatorPanelOpen,
         setIsIndicatorPanelOpen,

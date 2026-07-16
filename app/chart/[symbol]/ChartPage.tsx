@@ -124,6 +124,12 @@ function ChartPageInner() {
         <ChartQuoteStrip />
       </div>
 
+      {appliedIndicators.some((indicator) => indicator.enabled) && (
+        <div style={{ position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)", zIndex: 12, color: "#94a3b8", fontSize: 10, whiteSpace: "nowrap" }}>
+          {appliedIndicators.filter((indicator) => indicator.enabled).map((indicator) => indicator.compiled.metadata.title).join(" · ")}
+        </div>
+      )}
+
       {themeModalOpen && (
         <ChartThemeModal
           isCandle={isCandle}
