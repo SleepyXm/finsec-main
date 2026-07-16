@@ -1,18 +1,5 @@
 package services
 
-import "sync"
-
-// ConnRegistry tracks live WebSocket connections by routing ID.
-//
-// This replaces:
-// - registry map[string]*RedisConn
-// - registryMu
-// - lookupConn returning *RedisConn
-type ConnRegistry struct {
-	mu    sync.RWMutex
-	conns map[string]*WSConn
-}
-
 func NewConnRegistry() *ConnRegistry {
 	return &ConnRegistry{
 		conns: make(map[string]*WSConn),

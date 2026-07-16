@@ -3,12 +3,6 @@ package services
 import (
 	"log"
 	"math/rand"
-	"sync"
-)
-
-const (
-	workerHardLimit  = 250
-	workerSpawnLimit = 125
 )
 
 var (
@@ -38,19 +32,6 @@ var (
 		"knoll",
 	}
 )
-
-type Message struct {
-	Type    string
-	Payload []byte
-}
-
-type Worker struct {
-	name  string
-	conns []*WSConn
-	mu    sync.Mutex
-	count int
-	msgCh chan Message
-}
 
 func newWorkerName() string {
 	return workerAdjectives[rand.Intn(len(workerAdjectives))] + "-" + workerNouns[rand.Intn(len(workerNouns))]

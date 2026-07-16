@@ -2,21 +2,7 @@ package services
 
 import (
 	"log"
-	"sync"
-
-	"github.com/redis/go-redis/v9"
 )
-
-type WorkerPool struct {
-	workers []*Worker
-	mu      sync.Mutex
-	msgCh   chan Message
-
-	redisClient *redis.Client
-	registry    *ConnRegistry
-
-	flushSignal chan struct{}
-}
 
 func NewWorkerPool() *WorkerPool {
 	p := &WorkerPool{

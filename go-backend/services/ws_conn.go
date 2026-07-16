@@ -3,26 +3,9 @@ package services
 import (
 	"fmt"
 	"net"
-	"sync"
 
 	"github.com/gobwas/ws/wsutil"
 )
-
-// WSConn is the single WebSocket connection type used by the pool,
-// broadcast fanout, Redis confirm routing, and direct writes.
-//
-// ID is optional.
-// - Empty ID: normal pooled/broadcast WebSocket.
-// - Non-empty ID: connection can also receive targeted Redis confirmations.
-type WSConn struct {
-	ID string
-
-	conn   net.Conn
-	closed chan struct{}
-
-	closeOnce sync.Once
-	writeMu   sync.Mutex
-}
 
 // NewWSConn creates a normal WebSocket connection without a routing ID.
 func NewWSConn(conn net.Conn) *WSConn {
