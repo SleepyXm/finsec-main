@@ -6,6 +6,7 @@ import { useChart } from "@/app/chart/chartrender/hooks/useChart";
 import { ChartTheme, defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { AppliedIndicator } from "@/app/indicators/language/types";
 import { RawData } from "@/app/types/charts";
+import { useChartContext } from "@/app/chart/chartcontext";
 
 type ChartKind = "candlestick" | "line";
 
@@ -48,6 +49,8 @@ export function ChartRenderer({
   minimal = false,
   theme = defaultChartTheme,
 }: ChartRendererProps) {
+  const { validation } = useChartContext();
+
   const getPositionLabel = useCallback(
     (position: any) => {
       const id = position.trade_id;
@@ -127,6 +130,7 @@ export function ChartRenderer({
       enableIndicators: type === "candlestick",
       appliedIndicators,
       fitContent: minimal,
+      validation: minimal ? undefined : validation,
     },
     theme
   );

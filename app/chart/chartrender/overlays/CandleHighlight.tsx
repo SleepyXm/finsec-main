@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import type { ValidationState } from "@/app/chart/chartcontext";
 
 interface CandleHighlightOptions {
   chartRef: React.MutableRefObject<any>;
@@ -6,6 +7,7 @@ interface CandleHighlightOptions {
   containerRef: React.MutableRefObject<HTMLDivElement | null>;
   data: any[];
   active: boolean; // only paints when isCreatingStrategy or whatever condition
+  validation?: ValidationState;
 }
 
 export function useCandleHighlight({
@@ -14,6 +16,7 @@ export function useCandleHighlight({
   containerRef,
   data,
   active,
+  validation,
 }: CandleHighlightOptions) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const selectionRef = useRef<{ startX: number; endX: number } | null>(null);
@@ -56,10 +59,52 @@ export function useCandleHighlight({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    const timeScale = chart.timeScale();
+
+    // ── Validation candidate: dim everything outside the match window ────────
+    if (validation?.active && validation.candidate) {
+      const { candles } = validation.candidate;
+      if (candles.length) {
+        const x1 = timeScale.timeToCoordinate(candles[0].time);
+        const x2 = timeScale.timeToCoordinate(candles[candles.length - 1].time);
+
+        // half a candle of padding
+        let pad = 4;
+        if (data.length >= 2) {
+          const a = timeScale.timeToCoordinate(data[0].time);
+          const b = timeScale.timeToCoordinate(data[1].time);
+          if (a != null && b != null) pad = Math.max(2, Math.abs(b - a) * 0.4);
+        }
+
+        if (x1 != null && x2 != null) {
+          const left  = Math.min(x1, x2) - pad;
+          const right = Math.max(x1, x2) + pad;
+
+          // dim everything outside
+          ctx.fillStyle = "rgba(5,8,13,0.62)";
+          ctx.fillRect(0, 0, left, canvas.height);
+          ctx.fillRect(right, 0, canvas.width - right, canvas.height);
+
+          // subtle accent tint over the window
+          ctx.fillStyle = "rgba(143,170,220,0.1)";
+          ctx.fillRect(left, 0, right - left, canvas.height);
+
+          // border
+          ctx.strokeStyle = "rgba(143,170,220,0.76)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(left,  0); ctx.lineTo(left,  canvas.height);
+          ctx.moveTo(right, 0); ctx.lineTo(right, canvas.height);
+          ctx.stroke();
+        }
+      }
+      return; // skip annotation dim
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     if (!active) return;
 
     const selection = selectionRef.current;
-    const timeScale = chart.timeScale();
 
     // dim overlay over entire chart first
     ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
@@ -102,7 +147,24 @@ export function useCandleHighlight({
     ctx.lineWidth = 1;
     ctx.strokeRect(selLeft, 0, selRight - selLeft, canvas.height);
 
-  }, [chartRef, seriesRef, data, active]);
+  }, [chartRef, seriesRef, data, active, validation]);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    const repaint = () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(paint);
+    };
+    const timeScale = chart.timeScale();
+    timeScale.subscribeVisibleLogicalRangeChange(repaint);
+
+    return () => {
+      timeScale.unsubscribeVisibleLogicalRangeChange(repaint);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [chartRef, paint]);
 
   // called by StrategyOverlay on drag
   const setSelection = useCallback((startX: number | null, endX: number | null) => {
@@ -125,7 +187,7 @@ export function useCandleHighlight({
   useEffect(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(paint);
-  }, [active, paint]);
+  }, [active, validation, paint]);
 
   return { canvasRef, setSelection, clearSelection };
 }

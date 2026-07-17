@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { AnnotationDraft } from '@/app/handlers/annotations';
 import { Candle } from '@/app/types/charts';
+import { useChartContext } from "@/app/chart/chartcontext";
+import { cornerStyle, MonoLabel, theme, traderInsetPanelStyle, TraderBlankButton } from "@/app/ui";
 
 const LABELS = [
   {value: 'bearish_fvg', label: "Bearish Fair Value Gap"},
@@ -34,11 +36,36 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
   setSelection: (startX: number, endX: number) => void;
   clearSelection: () => void;
 }) {
+  const { annotationStrategyLabel, validation } = useChartContext();
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [pendingAnnotation, setPendingAnnotation] = useState<PendingAnnotation | null>(null);
   const [selectedCandles, setSelectedCandles] = useState<Candle[]>([]);
   const hasMoved = useRef(false);
+  const validationCandidate = validation.active ? validation.candidate : null;
+
+  // Validation mode: canvas already draws the dim + band.
+  // We only add the score badge so the user can read the numbers in context.
+  if (validationCandidate) {
+    const { result } = validationCandidate;
+    return (
+      <div style={{ position: "absolute", inset: 0, zIndex: 20, pointerEvents: "none" }}>
+        <div style={{
+          position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
+          background: "rgba(14,17,23,0.94)", border: "1px solid rgba(143,170,220,0.42)",
+          padding: "7px 10px", fontSize: 9, fontFamily: "var(--font-code), monospace",
+          color: "#eef2f7", display: "flex", alignItems: "center", gap: 10,
+          whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,0.24)",
+        }}>
+          <span style={{ color: "#8faadc", letterSpacing: "0.08em" }}>MATCH</span>
+          <span style={{ width: 1, height: 12, background: "rgba(238,242,247,0.12)" }} />
+          <span>Structure <strong style={{ color: "#eef2f7" }}>{result.scores.structure.toFixed(0)}%</strong></span>
+          <span style={{ color: "rgba(238,242,247,0.5)" }}>Length {result.scores.length.toFixed(0)}%</span>
+          <span style={{ color: "rgba(238,242,247,0.5)" }}>Size {result.scores.size.toFixed(0)}%</span>
+        </div>
+      </div>
+    );
+  }
 
   const snapToCandle = (x: number): number => {
     if (!chartRef.current || !data.length) return x;
@@ -105,7 +132,7 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
     const toTime = (px: number) => chartRef.current?.timeScale().coordinateToTime(px);
 
     if (dx >= 8 || dy >= 8) {
-      setPendingAnnotation({
+      const annotation: PendingAnnotation = {
         x: Math.min(drawStart.x, x), y: Math.min(drawStart.y, y),
         w: dx, h: dy,
         timeStart: Number(toTime(Math.min(drawStart.x, x))),
@@ -113,7 +140,12 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
         priceHigh: Number(toPrice(Math.min(drawStart.y, y))),
         priceLow: Number(toPrice(Math.max(drawStart.y, y))),
         candles: selectedCandles,
-      });
+      };
+      if (annotationStrategyLabel) {
+        onAnnotation?.({ ...annotation, label: annotationStrategyLabel });
+      } else {
+        setPendingAnnotation(annotation);
+      }
     }
 
     clearSelection();
@@ -136,20 +168,36 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
         const change = (((close - open) / open) * 100).toFixed(2);
         const isUp = close >= open;
         return (
-          <div style={{ position: 'absolute', top: 6, left: 6, background: 'rgba(15,18,30,0.92)', border: '1px solid #2a2e3a', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontFamily: 'monospace', color: 'white', display: 'flex', gap: 12, pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-            <span style={{ color: '#8a90a0' }}>{selectedCandles.length} candles</span>
-            <span style={{ color: '#22c55e' }}>H: {high.toFixed(2)}</span>
-            <span style={{ color: '#ef4444' }}>L: {low.toFixed(2)}</span>
-            <span style={{ color: '#8a90a0' }}>Range: {(high - low).toFixed(2)}</span>
-            <span style={{ color: isUp ? '#22c55e' : '#ef4444' }}>{isUp ? '+' : ''}{change}%</span>
+          <div style={{
+            ...traderInsetPanelStyle(theme.dark),
+            position: 'absolute', top: 8, left: 8, padding: '6px 9px',
+            fontSize: 9, fontFamily: 'var(--font-code), monospace', color: theme.dark.text,
+            display: 'flex', gap: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
+          }}>
+            <div style={cornerStyle()} />
+            <span style={{ color: theme.dark.accent }}>{selectedCandles.length} candles</span>
+            <span style={{ color: theme.dark.muted }}>H {high.toFixed(2)}</span>
+            <span style={{ color: theme.dark.muted }}>L {low.toFixed(2)}</span>
+            <span style={{ color: theme.dark.muted2 }}>Range {(high - low).toFixed(2)}</span>
+            <span style={{ color: isUp ? theme.dark.successText : theme.dark.errorText }}>{isUp ? '+' : ''}{change}%</span>
           </div>
         );
       })()}
 
       {pendingAnnotation && (
-        <div style={{ position: 'absolute', left: pendingAnnotation.x + 8, top: pendingAnnotation.y + 8, background: '#1a1f2e', border: '1px solid #2a2e3a', borderRadius: 6, padding: '8px', zIndex: 30, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160 }}>
+        <div style={{
+          ...traderInsetPanelStyle(theme.dark),
+          position: 'absolute', left: pendingAnnotation.x + 8, top: pendingAnnotation.y + 8,
+          padding: 9, zIndex: 30, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 190,
+        }}>
+          <div style={cornerStyle()} />
+          <MonoLabel>Strategy label</MonoLabel>
           <select
-            style={{ background: '#1a1f2e', color: 'white', border: '1px solid #2a2e3a', borderRadius: 4, padding: '4px' }}
+            style={{
+              width: '100%', background: theme.dark.bg2, color: theme.dark.text,
+              border: `1px solid ${theme.dark.borderSoft}`, padding: '7px 8px',
+              fontSize: 10, fontFamily: 'inherit', outline: 'none',
+            }}
             defaultValue=""
             onChange={(e) => {
               if (!e.target.value) return;
@@ -160,9 +208,9 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
             <option value="" disabled>Select label...</option>
             {LABELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
           </select>
-          <button onClick={() => setPendingAnnotation(null)} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 11, textAlign: 'left' }}>
+          <TraderBlankButton onClick={() => setPendingAnnotation(null)} style={{ padding: '6px 8px', fontSize: 9 }}>
             Cancel
-          </button>
+          </TraderBlankButton>
         </div>
       )}
     </div>

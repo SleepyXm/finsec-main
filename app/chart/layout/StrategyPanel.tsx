@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useChartContext } from "../chartcontext";
 import { deleteUserStrategy, deleteUserStrategySnapshot, getUserStrategy, listUserStrategies, SavedStrategy, StrategyDetails } from "@/app/handlers/annotations";
 import { useUser } from "@/app/provider/userprovider";
-import { cornerStyle, theme } from "@/app/ui";
+import { cornerStyle, MonoLabel, theme, traderInsetPanelStyle, TraderBlankButton } from "@/app/ui";
 import { CandleStickChart } from "@/app/chart/chartrender/charts/CandleStickChart";
 import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { StrategySnapshotsPanel } from "./StrategySnapshotsPanel";
@@ -14,7 +14,9 @@ const idleBackground = "rgba(238,242,247,0.025)";
 export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }) {
   const {
     isCreatingStrategy,
-    setIsCreatingStrategy,
+    annotationStrategyLabel,
+    startAnnotation,
+    stopAnnotation,
     annotations,
     annotationError,
   } = useChartContext();
@@ -25,6 +27,8 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
   const [deleting, setDeleting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const isGenericAnnotating = isCreatingStrategy && annotationStrategyLabel === null;
+  const selectedStrategyId = selectedStrategy?.id;
 
   const loadStrategies = useCallback(async () => {
     if (!user) {
@@ -46,6 +50,23 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
   useEffect(() => {
     if (resolved) void loadStrategies();
   }, [resolved, loadStrategies, annotations.length]);
+
+  useEffect(() => {
+    if (!selectedStrategyId || annotations.length === 0) return;
+
+    let cancelled = false;
+    void getUserStrategy(selectedStrategyId)
+      .then((strategy) => {
+        if (!cancelled) setSelectedStrategy(strategy);
+      })
+      .catch((cause) => {
+        if (!cancelled) setLoadError(cause instanceof Error ? cause.message : "Failed to refresh strategy snapshots");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [annotations.length, selectedStrategyId]);
 
   const openStrategy = async (strategy: SavedStrategy) => {
     setLoadingStrategyId(strategy.id);
@@ -113,45 +134,52 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
 
   return (
     <div style={{ padding: 12 }}>
-      <p style={{ color: theme.dark.muted2, fontSize: 11, marginBottom: 12, letterSpacing: "0.03em" }}>
-        Mark a candle range and save it under a strategy label
-      </p>
+      <section style={{ ...traderInsetPanelStyle(theme.dark), marginBottom: 16 }}>
+        <div style={cornerStyle()} />
+        <header style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+          padding: "9px 10px", borderBottom: `1px solid ${theme.dark.borderSoft}`,
+        }}>
+          <MonoLabel>New strategy snapshot</MonoLabel>
+          <span style={{
+            color: isGenericAnnotating ? theme.dark.accent : theme.dark.muted2,
+            fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase",
+          }}>
+            {isGenericAnnotating ? "Annotating" : "Ready"}
+          </span>
+        </header>
 
-      {!resolved ? (
-        <p style={{ color: theme.dark.muted2, fontSize: 11 }}>Checking your account…</p>
-      ) : !user ? (
-        <div style={{ color: theme.dark.muted2, fontSize: 11, padding: "10px 0" }}>
-          Sign in to create and view your strategies.
+        <div style={{ padding: 10 }}>
+          {!resolved ? (
+            <div style={{ color: theme.dark.muted2, fontSize: 10 }}>Checking your account…</div>
+          ) : !user ? (
+            <div style={{ color: theme.dark.muted2, fontSize: 10 }}>
+              Sign in to create and view your strategies.
+            </div>
+          ) : (
+            <>
+              <div style={{ color: theme.dark.muted2, fontSize: 10, marginBottom: 9 }}>
+                Draw a candle range, then choose its strategy label.
+              </div>
+              <TraderBlankButton
+                active={isGenericAnnotating}
+                onClick={() => isGenericAnnotating ? stopAnnotation() : startAnnotation()}
+                style={{ width: "100%", padding: "8px 10px", fontSize: 10, letterSpacing: "0.04em" }}
+              >
+                {isGenericAnnotating ? "Stop annotating" : "Start annotating"}
+              </TraderBlankButton>
+              {isGenericAnnotating && (
+                <div style={{ color: theme.dark.accent, fontSize: 9, marginTop: 8 }}>
+                  Select at least five candles.
+                </div>
+              )}
+            </>
+          )}
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setIsCreatingStrategy(!isCreatingStrategy)}
-          style={{
-            width: "100%",
-            padding: "10px 0",
-            background: isCreatingStrategy ? "#7c3aed" : idleBackground,
-            border: `1px solid ${isCreatingStrategy ? "#7c3aed" : theme.dark.borderSoft}`,
-            borderRadius: 0,
-            color: isCreatingStrategy ? "#fff" : theme.dark.muted,
-            fontSize: 12,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            letterSpacing: "0.03em",
-          }}
-        >
-          {isCreatingStrategy ? "Stop annotating" : "Start annotating"}
-        </button>
-      )}
-
-      {isCreatingStrategy && user && (
-        <p style={{ color: "#a78bfa", fontSize: 11, marginTop: 8 }}>
-          Drag across at least five candles, then choose a label.
-        </p>
-      )}
+      </section>
 
       {(annotationError || loadError) && (
-        <div style={{ color: theme.dark.errorText, background: theme.dark.errorBg, padding: 9, fontSize: 10, marginTop: 10 }}>
+        <div style={{ color: theme.dark.errorText, background: theme.dark.errorBg, padding: 9, fontSize: 10, marginBottom: 12 }}>
           {annotationError ?? loadError}
         </div>
       )}

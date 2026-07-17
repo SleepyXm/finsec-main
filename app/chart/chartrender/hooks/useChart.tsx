@@ -8,6 +8,7 @@ import { useScriptIndicators } from "@/app/indicators/hooks/useIndicator";
 import { AppliedIndicator } from "@/app/indicators/language/types";
 import { PositionTags } from "@/app/chart/chartrender/overlays/PositionOverlay";
 import { ACCENT, DANGER, SUCCESS } from "@/app/ui";
+import type { ValidationState } from "@/app/chart/chartcontext";
 
 type ChartPlugins = {
   data?: any[];
@@ -29,6 +30,7 @@ type ChartPlugins = {
   onClosePosition?: (id: string) => void;
   updatePosition?: (id: string, patch: any) => void | Promise<void>;
   fitContent?: boolean;
+  validation?: ValidationState;
 };
 
 export function resolveBackground(bg: ChartBackground) {
@@ -405,6 +407,26 @@ export function useChart(
     chartKey,
   );
 
+  const validationCandidate = plugins.validation?.active
+    ? plugins.validation.candidate
+    : null;
+
+  useEffect(() => {
+    if (!validationCandidate?.candles.length || !chartRef.current) return;
+
+    const candles = validationCandidate.candles;
+    const from = candles[0].time;
+    const to = candles[candles.length - 1].time;
+    const span = Math.max(1, to - from);
+    const candleSpan = span / Math.max(1, candles.length - 1);
+    const padding = Math.max(span * 0.15, candleSpan * 2);
+
+    chartRef.current.timeScale().setVisibleRange({
+      from: from - padding,
+      to: to + padding,
+    });
+  }, [validationCandidate, chartKey]);
+
   const { setSelection, clearSelection } = useCandleHighlight({
     chartRef,
     seriesRef,
@@ -413,6 +435,7 @@ export function useChart(
     active: Boolean(
       plugins.enableStrategyOverlay && plugins.isCreatingStrategy,
     ),
+    validation: plugins.validation,
   });
 
   const chartElement = (
@@ -436,7 +459,8 @@ export function useChart(
         </div>
       )}
 
-      {plugins.enableStrategyOverlay && plugins.isCreatingStrategy && (
+      {plugins.enableStrategyOverlay &&
+        (plugins.isCreatingStrategy || (plugins.validation?.active && plugins.validation.candidate !== null)) && (
         <StrategyOverlay
           chartRef={chartRef}
           seriesRef={seriesRef}
