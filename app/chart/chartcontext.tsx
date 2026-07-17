@@ -14,6 +14,7 @@ import { buildAnnotationPayload, saveUserAnnotation, AnnotationDraft } from "@/a
 import { compareWindow, type SimilarityResult } from "./SimilaritySearch/similarity";
 
 const intervals: Interval[] = ["1m", "5m", "15m", "1h", "1d", "1wk", "1mo"];
+const MAX_LENGTH_BOUNDARY_RATIO = 0.95;
 
 export type ValidationCandidate = {
   candles: Candle[];
@@ -288,7 +289,11 @@ export function ChartProvider({
         }
       }
 
-      if (bestResult && bestCandles) {
+      const lengthBoundaryReached = bestCandles !== null
+        && maxLength > minLength
+        && bestCandles.length / maxLength >= MAX_LENGTH_BOUNDARY_RATIO;
+
+      if (bestResult && bestCandles && !lengthBoundaryReached) {
         setValidation((v) => v.active ? { ...v, candidate: { candles: bestCandles!, result: bestResult! } } : v);
       } else {
         setValidation((v) => v.active ? { ...v, scanIndex: v.scanIndex - 1, scanned: v.scanned + 1 } : v);

@@ -82,7 +82,8 @@ function structureScore(
   const r = resample(refSig, len);
   const o = resample(obsSig, len);
  
-  // Pearson correlation mapped to 0–100
+  // Pearson correlation expressed directly as 0–100 similarity.
+  // Negative correlation is not structural similarity.
   const mean = (arr: number[]) => arr.reduce((s, v) => s + v, 0) / arr.length;
   const mr = mean(r);
   const mo = mean(o);
@@ -97,7 +98,7 @@ function structureScore(
   const denom = Math.sqrt(dr * do_);
   if (denom === 0) return 0;
   const corr = num / denom; // –1 … 1
-  return Math.max(0, Math.min(100, ((corr + 1) / 2) * 100));
+  return Math.max(0, Math.min(100, corr * 100));
 }
  
 // ---------------------------------------------------------------------------
