@@ -1,2 +1,0 @@
-subscriptions = {}
-fetch_tasks = {}

@@ -29,16 +29,7 @@ export interface OpenPositionsProps {
   accountUnrealisedPnL?: number;
 }
 
-export type TradeConfirm = {
-  trade_id: string;
-  symbol: string;
-  side: "long" | "short";
-  quantity: number;
-  price?: number | null;
-  entry_price: number;
-  order_type?: OrderType;
-  stop_loss?: number | null;
-  take_profit?: number | null;
+export type TradeConfirm = Omit<Trade, "id" | "status" | "opened_at"> & {
   status: "open" | "error";
   error?: string;
   queued_at?: string;

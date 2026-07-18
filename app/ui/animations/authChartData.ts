@@ -8,7 +8,7 @@ type TapeStep = {
   ticks: number[];
 };
 
-type SnapshotSignal = {
+export type SnapshotSignal = {
   mode: "entry" | "exit";
   direction: "long" | "short";
   entry: { x: number; y: number };

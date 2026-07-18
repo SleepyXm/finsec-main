@@ -6,7 +6,7 @@ import { StrategyOverlay } from "../overlays/Strategy";
 import { StrategyTeachingOverlay } from "../overlays/StrategyTeachingOverlay";
 import { buildValidationMarks, SemanticMark, SemanticMarksOverlay } from "../overlays/SemanticMarksOverlay";
 import { useCandleHighlight } from "@/app/chart/chartrender/overlays/CandleHighlight";
-import { useScriptIndicators } from "@/app/indicators/hooks/useIndicator";
+import { useScriptIndicators } from "@/app/indicators/hooks/useScriptIndicators";
 import { AppliedIndicator } from "@/app/indicators/language/types";
 import { PositionTags } from "@/app/chart/chartrender/overlays/PositionOverlay";
 import { ACCENT, DANGER, SUCCESS } from "@/app/ui";
@@ -467,8 +467,7 @@ export function useChart(
         </div>
       )}
 
-      {plugins.enableStrategyOverlay &&
-        (plugins.isCreatingStrategy || (plugins.validation?.active && plugins.validation.candidate !== null)) && (
+      {plugins.enableStrategyOverlay && plugins.isCreatingStrategy && (
         <StrategyOverlay
           chartRef={chartRef}
           seriesRef={seriesRef}

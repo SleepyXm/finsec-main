@@ -1,15 +1,12 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
-import React from "react";
-import { Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
+import React, { useRef, useState, useCallback, useEffect } from "react";
+import { type DrawTool, type Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
 import { theme } from "@/app/ui";
 import { LeftBarSection } from "./LeftBarSection";
-import { ChartAreaSection } from "./ChartAreaSection";
-import { ExtraChartSettings } from "./ChartAreaSection";
+import { ChartAreaSection, ExtraChartSettings } from "./ChartAreaSection";
 import { BottomPanelSection } from "./BottomPanelSection";
 import { RightPanelSection, RightTab } from "./RightPanelSection";
-import { DrawTool } from "./LeftBarSection";
 import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 
 const TOP_BAR_H   = 30;
@@ -22,17 +19,15 @@ const selectedBlurBg     = "rgba(238,242,247,0.085)";
 const selectedBlurBorder = "rgba(238,242,247,0.26)";
 
 interface TradeLayoutProps {
-  topBar?:      React.ReactNode;
-  leftBar?:     React.ReactNode;
-  bottomPanel?: React.ReactNode;
+  topBar:       React.ReactNode;
+  bottomPanel: React.ReactNode;
   primaryChart: React.ReactNode;
-  extraChartSettings?: ExtraChartSettings;
+  extraChartSettings: ExtraChartSettings;
   chartTheme: ChartTheme;
 }
 
 export default function TradeLayout({
   topBar,
-  leftBar,
   bottomPanel,
   primaryChart,
   extraChartSettings,
@@ -139,7 +134,6 @@ export default function TradeLayout({
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
             <LeftBarSection
-              leftBar={leftBar}
               drawingMode={drawingMode} setDrawingMode={setDrawingMode}
               drawTool={drawTool}       setDrawTool={setDrawTool}
               drawColor={drawColor}     setDrawColor={setDrawColor}

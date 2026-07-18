@@ -30,11 +30,6 @@ export function useAssetSearch() {
       const results = await fetchAssets(query);
       setAssets(results);
 
-      const entries = await Promise.all(
-        results.map(async (asset) => {
-          return [asset.symbol] as const;
-        })
-      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {

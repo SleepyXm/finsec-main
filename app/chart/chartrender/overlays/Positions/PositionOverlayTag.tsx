@@ -1,48 +1,41 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { CSSProperties, MutableRefObject, PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type PointerEvent } from "react";
+import { cx } from "@/app/ui";
 import { DraggablePriceLine, EntryPriceLine } from "./PositionOverlayLine";
 import styles from "./PositionOverlay.module.css";
-import { Draft, EditableLine, PositionPatch, PositionWithExtras } from "./positionOverlayTypes";
-import { buildPatch, cx, draftFromPosition, draftMatches, formatPrice, getDefaultLinePrice, normalisePrice } from "./positionOverlayUtils";
+import { Draft, EditableLine, PositionPatch, PositionSeriesRef, PositionWithExtras } from "./positionOverlayTypes";
+import { buildPatch, draftFromPosition, draftMatches, formatPrice, getDefaultLinePrice, priceAtPointer, usePriceY } from "./positionOverlayUtils";
 
-type YStyle = CSSProperties & { "--po-y": string };
-
-function yStyle(y: number): YStyle {
-  return { "--po-y": `${y}px` };
-}
+const RISK_LINES = {
+  stop_loss: { label: "SL", tone: "stop" },
+  take_profit: { label: "TP", tone: "take" },
+} as const;
+const RISK_BUTTONS: EditableLine[] = ["take_profit", "stop_loss"];
 
 export function PositionTag({
   position,
   livePnL,
   isLong,
-  y,
   seriesRef,
   overlayRef,
+  renderVersion,
   onClose,
   onUpdate,
 }: {
   position: PositionWithExtras;
   livePnL: number;
   isLong: boolean;
-  y: number;
-  seriesRef: MutableRefObject<any>;
+  seriesRef: PositionSeriesRef;
   overlayRef: MutableRefObject<HTMLDivElement | null>;
+  renderVersion?: number;
   onClose?: () => void;
   onUpdate?: (patch: PositionPatch) => void | Promise<void>;
 }) {
   const dragStartRef = useRef<{ field: EditableLine; y: number; moved: boolean } | null>(null);
   const persisted = useMemo(
     () => draftFromPosition(position),
-    [
-      position.trade_id,
-      position.order_type,
-      position.price,
-      position.entry_price,
-      position.stop_loss,
-      position.take_profit,
-    ]
+    [position]
   );
 
   const [activeField, setActiveField] = useState<EditableLine | null>(null);
@@ -61,7 +54,7 @@ export function PositionTag({
       stop_loss: getDefaultLinePrice(position, "stop_loss", isLong),
       take_profit: getDefaultLinePrice(position, "take_profit", isLong),
     }),
-    [position.entry_price, isLong]
+    [position, isLong]
   );
 
   const stopLossValue = draft.stop_loss ?? defaultLines.stop_loss;
@@ -72,22 +65,12 @@ export function PositionTag({
       : activeField === "take_profit"
         ? takeProfitValue
         : null;
-  const activeY =
-    activeValue == null ? null : seriesRef.current?.priceToCoordinate(activeValue);
   const orderTone = isLong ? "long" : "short";
+  const tagRef = usePriceY(position.entry_price, seriesRef, renderVersion);
+  const submitRef = usePriceY(activeValue, seriesRef, renderVersion);
 
   function updateDraftLine(field: EditableLine, value: number | null) {
     setDraft((current) => ({ ...current, [field]: value }));
-  }
-
-  function priceFromPointer(e: PointerEvent<HTMLElement>) {
-    const rect = overlayRef.current?.getBoundingClientRect();
-    if (!rect) return null;
-
-    const price = seriesRef.current?.coordinateToPrice(e.clientY - rect.top);
-    if (price == null || !Number.isFinite(price)) return null;
-
-    return normalisePrice(price);
   }
 
   function startRiskDrag(field: EditableLine, e: PointerEvent<HTMLButtonElement>) {
@@ -107,7 +90,7 @@ export function PositionTag({
     if (!drag.moved && Math.abs(e.clientY - drag.y) < 3) return;
     drag.moved = true;
 
-    const price = priceFromPointer(e);
+    const price = priceAtPointer(e.clientY, overlayRef, seriesRef);
     if (price != null) updateDraftLine(field, price);
   }
 
@@ -116,7 +99,7 @@ export function PositionTag({
     if (!drag || drag.field !== field) return;
 
     if (drag.moved) {
-      const price = priceFromPointer(e);
+      const price = priceAtPointer(e.clientY, overlayRef, seriesRef);
       if (price != null) updateDraftLine(field, price);
     }
 
@@ -154,45 +137,38 @@ export function PositionTag({
 
   return (
     <>
-      <EntryPriceLine y={y} orderTone={orderTone} />
+      <EntryPriceLine
+        price={position.entry_price}
+        orderTone={orderTone}
+        seriesRef={seriesRef}
+        renderVersion={renderVersion}
+      />
 
-      {activeField === "stop_loss" && (
-        <DraggablePriceLine
-          field="stop_loss"
-          label="SL"
-          value={stopLossValue}
-          isPreview={draft.stop_loss == null}
-          tone="stop"
+      {activeField && (() => {
+        const config = RISK_LINES[activeField];
+        const value = activeField === "stop_loss" ? stopLossValue : takeProfitValue;
+        return <DraggablePriceLine
+          field={activeField}
+          label={config.label}
+          value={value}
+          isPreview={draft[activeField] == null}
+          tone={config.tone}
           seriesRef={seriesRef}
           overlayRef={overlayRef}
+          renderVersion={renderVersion}
           onPreview={updateDraftLine}
-          onCommit={(field, value) => updateDraftLine(field, normalisePrice(value))}
+          onCommit={updateDraftLine}
           onClear={(field) => updateDraftLine(field, null)}
-        />
-      )}
-
-      {activeField === "take_profit" && (
-        <DraggablePriceLine
-          field="take_profit"
-          label="TP"
-          value={takeProfitValue}
-          isPreview={draft.take_profit == null}
-          tone="take"
-          seriesRef={seriesRef}
-          overlayRef={overlayRef}
-          onPreview={updateDraftLine}
-          onCommit={(field, value) => updateDraftLine(field, normalisePrice(value))}
-          onClear={(field) => updateDraftLine(field, null)}
-        />
-      )}
+        />;
+      })()}
 
       <div
+        ref={tagRef}
         className={cx(
           styles.tag,
           styles[`${orderTone}Order`],
           activeField && styles.tagEditing
         )}
-        style={yStyle(y)}
       >
         <div className={styles.corner} />
         <div className={styles.tagMeta}>
@@ -205,34 +181,20 @@ export function PositionTag({
         </div>
 
         <div className={styles.riskControls}>
-          <button
-            type="button"
-            className={cx(
-              styles.riskButton,
-              styles.take,
-              activeField === "take_profit" && styles.riskButtonActive
-            )}
-            onClick={() => setActiveField("take_profit")}
-            onPointerDown={(e) => startRiskDrag("take_profit", e)}
-            onPointerMove={(e) => moveRiskDrag("take_profit", e)}
-            onPointerUp={(e) => endRiskDrag("take_profit", e)}
-          >
-            TP
-          </button>
-          <button
-            type="button"
-            className={cx(
-              styles.riskButton,
-              styles.stop,
-              activeField === "stop_loss" && styles.riskButtonActive
-            )}
-            onClick={() => setActiveField("stop_loss")}
-            onPointerDown={(e) => startRiskDrag("stop_loss", e)}
-            onPointerMove={(e) => moveRiskDrag("stop_loss", e)}
-            onPointerUp={(e) => endRiskDrag("stop_loss", e)}
-          >
-            SL
-          </button>
+          {RISK_BUTTONS.map((field) => {
+            const config = RISK_LINES[field];
+            return <button
+              key={field}
+              type="button"
+              className={cx(styles.riskButton, styles[config.tone], activeField === field && styles.riskButtonActive)}
+              onClick={() => setActiveField(field)}
+              onPointerDown={(event) => startRiskDrag(field, event)}
+              onPointerMove={(event) => moveRiskDrag(field, event)}
+              onPointerUp={(event) => endRiskDrag(field, event)}
+            >
+              {config.label}
+            </button>;
+          })}
         </div>
 
         <button type="button" className={styles.closeButton} onClick={onClose}>
@@ -240,10 +202,10 @@ export function PositionTag({
         </button>
       </div>
 
-      {activeField && activeY != null && !isNaN(activeY) && (
+      {activeField && (
         <div
+          ref={submitRef}
           className={cx(styles.submitBar, styles[`${orderTone}Order`])}
-          style={yStyle(activeY)}
         >
           <span className={cx(styles.submitValue, activeField === "take_profit" ? styles.take : styles.stop)}>
             {activeField === "take_profit" ? "TP" : "SL"} {formatPrice(activeValue)}

@@ -1,6 +1,4 @@
-export interface AccountStats {
-  balance:           number;
-  net_pnl:           number;
+export interface PerformanceStats {
   trade_count:       number;
   wins:              number;
   losses:            number;
@@ -8,6 +6,11 @@ export interface AccountStats {
   avg_pnl_per_trade: number;
   best_trade:        number;
   worst_trade:       number;
+}
+
+export interface AccountStats extends PerformanceStats {
+  balance: number;
+  net_pnl: number;
 }
 
 export interface JournalTrade {

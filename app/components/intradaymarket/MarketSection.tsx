@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { LinechartIntraday, IntradayLinePoint } from "@/app/chart/chartrender/charts/LinechartIntraday";
-import { fetchIntraday } from "@/app/types/assets";
+import { LinechartIntraday } from "@/app/chart/chartrender/charts/LinechartIntraday";
+import { fetchIntraday, type IntradayLinePoint } from "@/app/types/assets";
 import { AssetPill } from "@/app/components/intradaymarket/components/UI";
 import { theme, traderBlankButtonStyle, traderCornerStyle, traderInsetPanelStyle, traderPanelStyle, cornerStyle } from "@/app/ui";
 

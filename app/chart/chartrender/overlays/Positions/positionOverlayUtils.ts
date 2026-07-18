@@ -1,8 +1,5 @@
-import { Draft, EditableLine, PositionPatch, PositionWithExtras } from "./positionOverlayTypes";
-
-export function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
+import { useLayoutEffect, useRef, type MutableRefObject } from "react";
+import { Draft, EditableLine, PositionPatch, PositionSeriesRef, PositionWithExtras } from "./positionOverlayTypes";
 
 export function numberOrNull(value: unknown) {
   if (value == null || value === "") return null;
@@ -23,6 +20,33 @@ export function normalisePrice(price: number) {
   return Number(price.toFixed(5));
 }
 
+export function priceAtPointer(
+  clientY: number,
+  overlayRef: MutableRefObject<HTMLDivElement | null>,
+  seriesRef: PositionSeriesRef
+) {
+  const rect = overlayRef.current?.getBoundingClientRect();
+  if (!rect) return null;
+  const price = seriesRef.current?.coordinateToPrice(clientY - rect.top);
+  return price == null || !Number.isFinite(price) ? null : normalisePrice(price);
+}
+
+export function usePriceY(
+  price: number | null,
+  seriesRef: PositionSeriesRef,
+  renderVersion?: number
+) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    const y = price == null ? null : seriesRef.current?.priceToCoordinate(price);
+    if (!element) return;
+    element.style.display = y == null || !Number.isFinite(y) ? "none" : "";
+    if (y != null && Number.isFinite(y)) element.style.setProperty("--po-y", `${y}px`);
+  }, [price, renderVersion, seriesRef]);
+  return ref;
+}
+
 export function getDefaultLinePrice(
   position: PositionWithExtras,
   field: EditableLine,
@@ -39,8 +63,6 @@ export function getDefaultLinePrice(
 
 export function draftFromPosition(position: PositionWithExtras): Draft {
   return {
-    order_type: position.order_type === "limit" ? "limit" : "market",
-    price: numberOrNull(position.price) ?? numberOrNull(position.entry_price),
     stop_loss: numberOrNull(position.stop_loss),
     take_profit: numberOrNull(position.take_profit),
   };
@@ -53,8 +75,6 @@ export function pricesMatch(a: number | null, b: number | null) {
 
 export function draftMatches(a: Draft, b: Draft) {
   return (
-    a.order_type === b.order_type &&
-    pricesMatch(a.price, b.price) &&
     pricesMatch(a.stop_loss, b.stop_loss) &&
     pricesMatch(a.take_profit, b.take_profit)
   );
@@ -63,8 +83,6 @@ export function draftMatches(a: Draft, b: Draft) {
 export function buildPatch(previous: Draft, next: Draft): PositionPatch {
   const patch: PositionPatch = {};
 
-  if (previous.order_type !== next.order_type) patch.order_type = next.order_type;
-  if (!pricesMatch(previous.price, next.price)) patch.price = next.price;
   if (!pricesMatch(previous.stop_loss, next.stop_loss)) patch.stop_loss = next.stop_loss;
   if (!pricesMatch(previous.take_profit, next.take_profit)) patch.take_profit = next.take_profit;
 

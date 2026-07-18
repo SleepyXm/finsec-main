@@ -2,21 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CandlestickSeries, createChart, IChartApi, ISeriesApi, UTCTimestamp } from "lightweight-charts";
-import { createLoopTape, createSnapshotSignal, makeActiveCandle, materializeCandle, normalizeTime } from "./authChartData";
+import {
+  createLoopTape,
+  createSnapshotSignal,
+  makeActiveCandle,
+  materializeCandle,
+  normalizeTime,
+  SnapshotSignal,
+} from "./authChartData";
 import { Candle } from "@/app/types/charts";
-
-type SnapshotSignal = {
-  mode: "entry" | "exit";
-  direction: "long" | "short";
-  entry: {
-    x: number;
-    y: number;
-  };
-  exit: {
-    x: number;
-    y: number;
-  };
-};
 
 export function AuthChartAnimation() {
   const containerRef = useRef<HTMLDivElement | null>(null);

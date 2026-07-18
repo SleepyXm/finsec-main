@@ -1,9 +1,5 @@
 import { request } from "./auth";
-import { TradeCursor, PortfolioPage, Portfolio } from "../types/portfolio";
-
-export async function fetchPortfolio(): Promise<Portfolio> {
-  return request<Portfolio>("/api/portfolio", { method: "GET" });
-}
+import { TradeCursor, PortfolioPage } from "../types/portfolio";
 
 export async function fetchPortfolioPage(
   cursor?: TradeCursor,

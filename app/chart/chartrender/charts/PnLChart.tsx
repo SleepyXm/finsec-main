@@ -2,13 +2,12 @@ import { useMemo } from "react";
 import { BaselineSeries, BaselineSeriesPartialOptions } from "lightweight-charts";
 import { useChart } from "../hooks/useChart";
 import { defaultChartTheme } from "../themes/themes";
+import { PnLPoint } from "@/app/types/accounts";
 
-interface PnLPoint {
-  date?: string;
-  time?: string | number;
-  cumulative?: number;
-  value?: number;
-}
+type PnLChartPoint = Pick<PnLPoint, "date" | "cumulative"> | {
+  time: string | number;
+  value: number;
+};
 
 interface PnLChartColors {
   topLineColor?: string;
@@ -23,7 +22,7 @@ interface PnLChartColors {
 }
 
 interface PnLChartProps {
-  data: PnLPoint[];
+  data: PnLChartPoint[];
   colors?: PnLChartColors;
   height?: number;
 }
@@ -35,11 +34,11 @@ function previousDate(date: string) {
   return value.toISOString().slice(0, 10);
 }
 
-function mapCurve(data: PnLPoint[], baselineValue: number) {
+function mapCurve(data: PnLChartPoint[], baselineValue: number) {
   const points = data.flatMap((point) => {
-    const time = point.time ?? point.date;
-    const value = point.value ?? point.cumulative;
-    return time != null && Number.isFinite(value) ? [{ time, value: value as number }] : [];
+    const time = "time" in point ? point.time : point.date;
+    const value = "value" in point ? point.value : point.cumulative;
+    return Number.isFinite(value) ? [{ time, value }] : [];
   });
 
   if (points.length === 0) return [];

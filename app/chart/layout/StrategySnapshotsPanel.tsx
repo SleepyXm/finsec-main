@@ -4,8 +4,7 @@ import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { cornerStyle, MonoLabel, theme, traderInsetPanelStyle, TraderBlankButton } from "@/app/ui";
 import { useChartContext } from "@/app/chart/chartcontext";
 import { SnapshotTeachingSection } from "./SnapshotTeachingSection";
-
-const idleBackground = "rgba(238,242,247,0.025)";
+import { strategyCardBackground, StrategyCaptureSection } from "./StrategyCaptureSection";
 
 export function StrategySnapshotsPanel({
   strategy,
@@ -124,42 +123,14 @@ export function StrategySnapshotsPanel({
         </div>
       )}
 
-      <section style={{
-        ...traderInsetPanelStyle(theme.dark),
-        margin: "14px 0 10px",
-        borderColor: isAnnotatingThis ? theme.dark.accentBorder : theme.dark.borderSoft,
-      }}>
-        <div style={cornerStyle()} />
-        <header style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-          padding: "9px 10px", borderBottom: `1px solid ${theme.dark.borderSoft}`,
-        }}>
-          <MonoLabel>Add snapshot</MonoLabel>
-          <span style={{
-            color: isAnnotatingThis ? theme.dark.accent : theme.dark.muted2,
-            fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase",
-          }}>
-            {isAnnotatingThis ? "Annotating" : "Ready"}
-          </span>
-        </header>
-        <div style={{ padding: 10 }}>
-          <div style={{ color: theme.dark.muted2, fontSize: 10, marginBottom: 9 }}>
-            The selection will be saved directly to {strategy.title.replace(/_/g, " ")}.
-          </div>
-          <TraderBlankButton
-            active={isAnnotatingThis}
-            onClick={() => isAnnotatingThis ? stopAnnotation() : startAnnotation(strategy.title)}
-            style={{ width: "100%", padding: "8px 10px", fontSize: 10, letterSpacing: "0.04em" }}
-          >
-            {isAnnotatingThis ? "Stop annotating" : "Start annotating"}
-          </TraderBlankButton>
-          {isAnnotatingThis && (
-            <div style={{ color: theme.dark.accent, fontSize: 9, marginTop: 8 }}>
-              Select at least five candles. No label choice is required.
-            </div>
-          )}
-        </div>
-      </section>
+      <StrategyCaptureSection
+        title="Add snapshot"
+        active={isAnnotatingThis}
+        description={`The selection will be saved directly to ${strategy.title.replace(/_/g, " ")}.`}
+        activeHint="Select at least five candles. No label choice is required."
+        onToggle={() => isAnnotatingThis ? stopAnnotation() : startAnnotation(strategy.title)}
+        style={{ margin: "14px 0 10px" }}
+      />
 
       <SnapshotTeachingSection strategy={strategy} onSave={onSaveSnapshotAnnotations} />
 
@@ -347,7 +318,7 @@ export function StrategySnapshotsPanel({
               border: `1px solid ${validation.active && validation.strategyId === strategy.id && validation.candidate
                 && index === (validation.aggregate ? validation.candidate.referenceIndex : strategy.snapshots.length - 1)
                 ? theme.dark.accent : theme.dark.borderSoft}`,
-              background: idleBackground,
+              background: strategyCardBackground,
             }}
           >
             <div style={cornerStyle()} />

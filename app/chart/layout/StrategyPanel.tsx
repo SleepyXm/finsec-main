@@ -7,12 +7,11 @@ import {
   SavedStrategy, StrategyAnnotation, StrategyDetails, updateUserStrategySnapshotAnnotations,
 } from "@/app/handlers/annotations";
 import { useUser } from "@/app/provider/userprovider";
-import { cornerStyle, MonoLabel, theme, traderInsetPanelStyle, TraderBlankButton } from "@/app/ui";
+import { cornerStyle, theme } from "@/app/ui";
 import { CandleStickChart } from "@/app/chart/chartrender/charts/CandleStickChart";
 import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { StrategySnapshotsPanel } from "./StrategySnapshotsPanel";
-
-const idleBackground = "rgba(238,242,247,0.025)";
+import { strategyCardBackground, StrategyCaptureSection } from "./StrategyCaptureSection";
 
 export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }) {
   const {
@@ -163,49 +162,20 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
 
   return (
     <div style={{ padding: 12 }}>
-      <section style={{ ...traderInsetPanelStyle(theme.dark), marginBottom: 16 }}>
-        <div style={cornerStyle()} />
-        <header style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-          padding: "9px 10px", borderBottom: `1px solid ${theme.dark.borderSoft}`,
-        }}>
-          <MonoLabel>New strategy snapshot</MonoLabel>
-          <span style={{
-            color: isGenericAnnotating ? theme.dark.accent : theme.dark.muted2,
-            fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase",
-          }}>
-            {isGenericAnnotating ? "Annotating" : "Ready"}
-          </span>
-        </header>
-
-        <div style={{ padding: 10 }}>
-          {!resolved ? (
-            <div style={{ color: theme.dark.muted2, fontSize: 10 }}>Checking your account…</div>
-          ) : !user ? (
-            <div style={{ color: theme.dark.muted2, fontSize: 10 }}>
-              Sign in to create and view your strategies.
-            </div>
-          ) : (
-            <>
-              <div style={{ color: theme.dark.muted2, fontSize: 10, marginBottom: 9 }}>
-                Draw a candle range, then choose its strategy label.
-              </div>
-              <TraderBlankButton
-                active={isGenericAnnotating}
-                onClick={() => isGenericAnnotating ? stopAnnotation() : startAnnotation()}
-                style={{ width: "100%", padding: "8px 10px", fontSize: 10, letterSpacing: "0.04em" }}
-              >
-                {isGenericAnnotating ? "Stop annotating" : "Start annotating"}
-              </TraderBlankButton>
-              {isGenericAnnotating && (
-                <div style={{ color: theme.dark.accent, fontSize: 9, marginTop: 8 }}>
-                  Select at least five candles.
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </section>
+      <StrategyCaptureSection
+        title="New strategy snapshot"
+        active={isGenericAnnotating}
+        description={!resolved
+          ? "Checking your account…"
+          : !user
+            ? "Sign in to create and view your strategies."
+            : "Draw a candle range, then choose its strategy label."}
+        activeHint="Select at least five candles."
+        onToggle={resolved && user
+          ? () => isGenericAnnotating ? stopAnnotation() : startAnnotation()
+          : undefined}
+        style={{ marginBottom: 16 }}
+      />
 
       {(annotationError || loadError) && (
         <div style={{ color: theme.dark.errorText, background: theme.dark.errorBg, padding: 9, fontSize: 10, marginBottom: 12 }}>
@@ -236,7 +206,7 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
                   minWidth: 0,
                   padding: 0,
                   border: `1px solid ${theme.dark.borderSoft}`,
-                  background: idleBackground,
+                  background: strategyCardBackground,
                   color: "inherit",
                   textAlign: "left",
                   fontFamily: "inherit",

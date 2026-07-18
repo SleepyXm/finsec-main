@@ -1,17 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import React from "react";
-import DrawingCanvas, { Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
+import React, { useState } from "react";
+import DrawingCanvas, { type DrawTool, type Shape } from "@/app/chart/chartrender/overlays/DrawingCanvas";
 import { ChartProvider, useChartContext } from "../chartcontext";
 import { ChartRenderer } from "@/app/chart/chartrender/ChartRenderer";
-import { defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { AppliedIndicator } from "@/app/indicators/language/types";
 import { Interval } from "@/app/types/charts";
 import TradeButtons from "@/app/components/trading/tradebuttons";
 import { ChartQuoteStrip } from "./TopBar";
-import { DrawTool } from "./LeftBarSection";
 
 // ── extra chart (one per additional symbol) ──────────────────────────────────
 
@@ -115,7 +112,7 @@ interface ChartAreaSectionProps {
   drawingMode:    boolean;
   shapes:         Shape[];
   setShapes:      React.Dispatch<React.SetStateAction<Shape[]>>;
-  extraChartSettings?: ExtraChartSettings;
+  extraChartSettings: ExtraChartSettings;
 }
 
 export function ChartAreaSection({
@@ -143,17 +140,12 @@ export function ChartAreaSection({
         <div key={`${symbol}-${i}`} style={{ width: pct, height: "100%", flexShrink: 0 }}>
           <ChartProvider
             symbol={symbol}
-            intervalOverride={extraChartSettings?.interval}
-            isCandleOverride={extraChartSettings?.isCandle}
+            intervalOverride={extraChartSettings.interval}
+            isCandleOverride={extraChartSettings.isCandle}
           >
             <ExtraChartInner
               onRemove={() => onRemoveChart(i)}
-              settings={extraChartSettings ?? {
-                theme: defaultChartTheme,
-                interval: "5m",
-                isCandle: true,
-                appliedIndicators: [],
-              }}
+              settings={extraChartSettings}
             />
           </ChartProvider>
         </div>

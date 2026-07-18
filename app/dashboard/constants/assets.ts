@@ -1,6 +1,6 @@
 import { tokens } from "@/app/dashboard/components/dashboard";
 
-export interface Asset {
+export interface DashboardAsset {
   init: string;
   symbol: string;
   name: string;
@@ -11,7 +11,7 @@ export interface Asset {
   color: string;
 }
 
-export const ASSETS: Asset[] = [
+export const ASSETS: DashboardAsset[] = [
   { init: "NV", symbol: "NVDA", name: "Nvidia Corp",  price: "$847.20", change: "+2.14%", up: true,  bg: tokens.blueDim,          color: tokens.blue  },
   { init: "AP", symbol: "AAPL", name: "Apple Inc",    price: "$190.05", change: "+1.52%", up: true,  bg: tokens.greenDim,         color: tokens.green },
   { init: "TS", symbol: "TSLA", name: "Tesla Inc",    price: "$172.40", change: "-1.88%", up: false, bg: tokens.redDim,           color: tokens.red   },

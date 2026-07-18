@@ -121,7 +121,6 @@ export function Banner() {
               onMouseEnter={() => setAcceptHovered(true)}
               onMouseLeave={() => setAcceptHovered(false)}
               style={traderWhiteButtonStyle(acceptHovered, t)}
-              /*className="auth-submit"*/
             >
               Accept
             </button>

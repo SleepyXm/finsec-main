@@ -1,10 +1,11 @@
-export interface TradeHistory {
+import type { PerformanceStats } from "./accounts";
+import type { Trade } from "./trades";
+
+export interface TradeHistory extends Pick<
+  Trade,
+  "trade_id" | "symbol" | "side" | "quantity" | "entry_price"
+> {
   id: string;
-  trade_id: string;
-  symbol: string;
-  side: string;
-  quantity: number;
-  entry_price: number;
   exit_price: number | null;
   realised_pnl: number | null;
   opened_at: string;
@@ -26,20 +27,8 @@ export interface TradeHistoryRow {
 }
 
 
-export interface PortfolioStats {
+export interface PortfolioStats extends PerformanceStats {
   total_realised_pnl: number;
-  trade_count: number;
-  wins: number;
-  losses: number;
-  win_rate: number;
-  avg_pnl_per_trade: number;
-  best_trade: number;
-  worst_trade: number;
-}
-
-export interface Portfolio {
-  history: TradeHistory[];
-  stats: PortfolioStats;
 }
 
 export interface PortfolioPage {

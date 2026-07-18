@@ -1,22 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { CSSProperties, MutableRefObject, PointerEvent } from "react";
+import { useState, type MutableRefObject, type PointerEvent } from "react";
+import { cx } from "@/app/ui";
 import styles from "./PositionOverlay.module.css";
-import { EditableLine } from "./positionOverlayTypes";
-import { cx, formatPrice, normalisePrice } from "./positionOverlayUtils";
+import { EditableLine, PositionSeriesRef } from "./positionOverlayTypes";
+import { formatPrice, priceAtPointer, usePriceY } from "./positionOverlayUtils";
 
-type YStyle = CSSProperties & { "--po-y": string };
-
-function yStyle(y: number): YStyle {
-  return { "--po-y": `${y}px` };
-}
-
-export function EntryPriceLine({ y, orderTone }: { y: number; orderTone: "long" | "short" }) {
+export function EntryPriceLine({ price, orderTone, seriesRef, renderVersion }: {
+  price: number;
+  orderTone: "long" | "short";
+  seriesRef: PositionSeriesRef;
+  renderVersion?: number;
+}) {
+  const ref = usePriceY(price, seriesRef, renderVersion);
   return (
     <div
+      ref={ref}
       className={cx(styles.entryLine, styles[`${orderTone}Order`])}
-      style={yStyle(y)}
     />
   );
 }
@@ -29,6 +29,7 @@ export function DraggablePriceLine({
   tone,
   seriesRef,
   overlayRef,
+  renderVersion,
   onPreview,
   onCommit,
   onClear,
@@ -38,26 +39,15 @@ export function DraggablePriceLine({
   value: number;
   isPreview: boolean;
   tone: "stop" | "take";
-  seriesRef: MutableRefObject<any>;
+  seriesRef: PositionSeriesRef;
   overlayRef: MutableRefObject<HTMLDivElement | null>;
+  renderVersion?: number;
   onPreview: (field: EditableLine, value: number) => void;
   onCommit: (field: EditableLine, value: number) => void;
   onClear: (field: EditableLine) => void;
 }) {
   const [dragging, setDragging] = useState(false);
-  const y = seriesRef.current?.priceToCoordinate(value);
-
-  if (y == null || isNaN(y)) return null;
-
-  function priceFromPointer(e: PointerEvent<HTMLDivElement>) {
-    const rect = overlayRef.current?.getBoundingClientRect();
-    if (!rect) return null;
-
-    const price = seriesRef.current?.coordinateToPrice(e.clientY - rect.top);
-    if (price == null || !Number.isFinite(price)) return null;
-
-    return normalisePrice(price);
-  }
+  const lineRef = usePriceY(value, seriesRef, renderVersion);
 
   function handlePointerDown(e: PointerEvent<HTMLDivElement>) {
     e.preventDefault();
@@ -66,21 +56,21 @@ export function DraggablePriceLine({
     setDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
 
-    const next = priceFromPointer(e);
+    const next = priceAtPointer(e.clientY, overlayRef, seriesRef);
     if (next != null) onPreview(field, next);
   }
 
   function handlePointerMove(e: PointerEvent<HTMLDivElement>) {
     if (!dragging) return;
 
-    const next = priceFromPointer(e);
+    const next = priceAtPointer(e.clientY, overlayRef, seriesRef);
     if (next != null) onPreview(field, next);
   }
 
   function handlePointerUp(e: PointerEvent<HTMLDivElement>) {
     if (!dragging) return;
 
-    const next = priceFromPointer(e);
+    const next = priceAtPointer(e.clientY, overlayRef, seriesRef);
     setDragging(false);
 
     try {
@@ -92,13 +82,13 @@ export function DraggablePriceLine({
 
   return (
     <div
+      ref={lineRef}
       className={cx(
         styles.priceLine,
         styles[tone],
         dragging && styles.dragging,
         isPreview && styles.preview
       )}
-      style={yStyle(y)}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

@@ -1,18 +1,17 @@
 "use client";
 
 import React from "react";
-import { theme, cornerStyle } from "@/app/ui";
+import { theme } from "@/app/ui";
 
 const selectedBlurBg     = "rgba(238,242,247,0.085)";
 const selectedBlurBorder = "rgba(238,242,247,0.26)";
-const idleBg             = "rgba(238,242,247,0.025)";
 
 interface BottomPanelSectionProps {
   bottomH:          number;
   bottomOpen:       boolean;
   draggingBottom:   React.MutableRefObject<boolean>;
   onBottomDragStart:(e: React.MouseEvent) => void;
-  bottomPanel?:     React.ReactNode;
+  bottomPanel:      React.ReactNode;
 }
 
 export function BottomPanelSection({
@@ -51,17 +50,7 @@ export function BottomPanelSection({
             padding: "8px 12px",
           }}
         >
-          {bottomPanel ?? (
-            <div style={{
-              position: "relative", padding: 14,
-              color: theme.dark.muted2, fontSize: 12,
-              border: `1px solid ${theme.dark.borderSoft}`,
-              background: idleBg,
-            }}>
-              <div style={cornerStyle()} />
-              Panel content goes here
-            </div>
-          )}
+          {bottomPanel}
         </div>
       )}
     </div>

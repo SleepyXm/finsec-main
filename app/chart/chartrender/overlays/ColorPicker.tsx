@@ -39,7 +39,7 @@ function hexToRgb(hex: string): [number, number, number] {
   return [parseInt(clean.slice(0, 2), 16), parseInt(clean.slice(2, 4), 16), parseInt(clean.slice(4, 6), 16)];
 }
 
-export function colorToHsva(color: string): HSVa {
+function colorToHsva(color: string): HSVa {
   const rgba = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
   if (rgba) {
     const [h, s, v] = rgbToHsv(+rgba[1], +rgba[2], +rgba[3]);
@@ -54,7 +54,7 @@ export function colorToHsva(color: string): HSVa {
   return { h: 0, s: 0, v: 1, a: 1 };
 }
 
-export function hsvaToString(hsva: HSVa): string {
+function hsvaToString(hsva: HSVa): string {
   const [r, g, b] = hsvToRgb(hsva.h, hsva.s, hsva.v);
   if (hsva.a < 1) return `rgba(${r},${g},${b},${hsva.a.toFixed(2)})`;
   return '#' + rgbToHex(r, g, b);

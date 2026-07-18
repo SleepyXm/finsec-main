@@ -2,12 +2,8 @@
 
 import React from "react";
 import { ColorPicker } from "@/app/chart/chartrender/overlays/ColorPicker";
-import { Row } from "@/app/chart/chartrender/overlays/ThemeSettings";
+import type { DrawTool } from "@/app/chart/chartrender/overlays/DrawingCanvas";
 import { DANGER, theme } from "@/app/ui";
-
-export type DrawTool =
-  | "select" | "trendline" | "hline" | "rect"
-  | "freehand" | "text" | "fibonacci";
 
 const DRAW_TOOLS: { id: DrawTool; label: string; icon: string }[] = [
   { id: "select",    label: "Select",    icon: "↖" },
@@ -42,7 +38,6 @@ function toolButtonStyle({ active, danger = false }: { active?: boolean; danger?
 }
 
 interface LeftBarSectionProps {
-  leftBar?:     React.ReactNode;
   drawingMode:  boolean;
   setDrawingMode: React.Dispatch<React.SetStateAction<boolean>>;
   drawTool:     DrawTool;
@@ -58,7 +53,7 @@ interface LeftBarSectionProps {
 }
 
 export function LeftBarSection({
-  leftBar, drawingMode, setDrawingMode,
+  drawingMode, setDrawingMode,
   drawTool, setDrawTool, drawColor, setDrawColor,
   drawLW, setDrawLW, drawVisible, setDrawVisible,
   handleUndo, handleClear,
@@ -72,8 +67,6 @@ export function LeftBarSection({
       paddingTop: 8, paddingBottom: 8, gap: 2,
       zIndex: 40, overflowY: "auto",
     }}>
-      {leftBar}
-
       {DRAW_TOOLS.map((t) => (
         <button
           key={t.id}
@@ -125,15 +118,13 @@ export function LeftBarSection({
       <div style={dividerStyle} />
 
       {/* colour picker */}
-      <Row label="">
-        <div style={{
-          position: "relative", width: 36, height: 20, overflow: "hidden",
-          border: `1px solid ${theme.dark.borderSoft}`,
-        }}>
-          <div style={{ position: "absolute", inset: 0, background: drawColor }} />
-          <ColorPicker value={drawColor} onChange={setDrawColor} />
-        </div>
-      </Row>
+      <div style={{
+        position: "relative", width: 36, height: 20, overflow: "hidden",
+        border: `1px solid ${theme.dark.borderSoft}`,
+      }}>
+        <div style={{ position: "absolute", inset: 0, background: drawColor }} />
+        <ColorPicker value={drawColor} onChange={setDrawColor} />
+      </div>
 
       {/* line width */}
       <select

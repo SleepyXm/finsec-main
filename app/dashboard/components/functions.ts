@@ -1,1 +1,0 @@
-import { TradeHistory } from "@/app/types/portfolio";

@@ -36,40 +36,12 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
   setSelection: (startX: number, endX: number) => void;
   clearSelection: () => void;
 }) {
-  const { annotationStrategyLabel, validation } = useChartContext();
+  const { annotationStrategyLabel } = useChartContext();
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [pendingAnnotation, setPendingAnnotation] = useState<PendingAnnotation | null>(null);
   const [selectedCandles, setSelectedCandles] = useState<Candle[]>([]);
   const hasMoved = useRef(false);
-  const validationCandidate = validation.active ? validation.candidate : null;
-
-  // Validation mode: canvas already draws the dim + band.
-  // We only add the score badge so the user can read the numbers in context.
-  if (validationCandidate) {
-    const { result } = validationCandidate;
-    return (
-      <div style={{ position: "absolute", inset: 0, zIndex: 20, pointerEvents: "none" }}>
-        <div style={{
-          position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)",
-          background: "rgba(14,17,23,0.94)", border: "1px solid rgba(143,170,220,0.42)",
-          padding: "7px 10px", fontSize: 9, fontFamily: "var(--font-code), monospace",
-          color: "#eef2f7", display: "flex", alignItems: "center", gap: 10,
-          whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,0.24)",
-        }}>
-          <span style={{ color: "#8faadc", letterSpacing: "0.08em" }}>MATCH</span>
-          <span style={{ width: 1, height: 12, background: "rgba(238,242,247,0.12)" }} />
-          <span>Structure <strong style={{ color: "#eef2f7" }}>{result.scores.structure.toFixed(0)}%</strong></span>
-          <span style={{ color: "rgba(238,242,247,0.5)" }}>Length {result.scores.length.toFixed(0)}%</span>
-          <span style={{ color: "rgba(238,242,247,0.5)" }}>Size {result.scores.size.toFixed(0)}%</span>
-          {validationCandidate.semantic && <span style={{ color: validationCandidate.semantic.qualified ? "#4fd1a1" : "#ef6b73" }}>
-            Semantic {validationCandidate.semantic.score.toFixed(0)}%
-          </span>}
-        </div>
-      </div>
-    );
-  }
-
   const snapToCandle = (x: number): number => {
     if (!chartRef.current || !data.length) return x;
     const timeScale = chartRef.current.timeScale();

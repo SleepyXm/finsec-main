@@ -1,19 +1,9 @@
 "use client";
 
 import { useRef } from "react";
-import { MutableRefObject } from "react";
 import { PositionTag } from "./Positions/PositionOverlayTag";
 import styles from "./Positions/PositionOverlay.module.css";
-import { PositionTagsProps, PositionWithExtras } from "./Positions/positionOverlayTypes";
-
-function getTag(position: PositionWithExtras, livePnLMap: Record<string, number>, seriesRef: MutableRefObject<any>) {
-  const id = position.trade_id;
-  const livePnL = livePnLMap[id] ?? 0;
-  const isLong = position.side === "long";
-  const y = seriesRef.current?.priceToCoordinate(position.entry_price);
-
-  return { id, position, livePnL, isLong, y };
-}
+import { PositionTagsProps } from "./Positions/positionOverlayTypes";
 
 export function PositionTags({
   positions,
@@ -28,21 +18,19 @@ export function PositionTags({
   return (
     <div ref={overlayRef} className={styles.overlay} data-render-version={renderVersion}>
       {positions.map((position) => {
-        const tag = getTag(position, livePnLMap, seriesRef);
-
-        if (tag.y == null || isNaN(tag.y)) return null;
+        const id = position.trade_id;
 
         return (
           <PositionTag
-            key={tag.id}
-            position={tag.position}
-            livePnL={tag.livePnL}
-            isLong={tag.isLong}
-            y={tag.y}
+            key={id}
+            position={position}
+            livePnL={livePnLMap[id] ?? 0}
+            isLong={position.side === "long"}
             seriesRef={seriesRef}
             overlayRef={overlayRef}
-            onClose={() => onClosePosition?.(tag.id)}
-            onUpdate={(patch) => updatePosition?.(tag.id, patch)}
+            renderVersion={renderVersion}
+            onClose={() => onClosePosition?.(id)}
+            onUpdate={(patch) => updatePosition?.(id, patch)}
           />
         );
       })}
