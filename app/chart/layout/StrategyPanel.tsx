@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useChartContext } from "../chartcontext";
-import { deleteUserStrategy, deleteUserStrategySnapshot, getUserStrategy, listUserStrategies, SavedStrategy, StrategyDetails } from "@/app/handlers/annotations";
+import {
+  deleteUserStrategy, deleteUserStrategySnapshot, getUserStrategy, listUserStrategies,
+  SavedStrategy, StrategyAnnotation, StrategyDetails, updateUserStrategySnapshotAnnotations,
+} from "@/app/handlers/annotations";
 import { useUser } from "@/app/provider/userprovider";
 import { cornerStyle, MonoLabel, theme, traderInsetPanelStyle, TraderBlankButton } from "@/app/ui";
 import { CandleStickChart } from "@/app/chart/chartrender/charts/CandleStickChart";
@@ -19,6 +22,9 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     stopAnnotation,
     annotations,
     annotationError,
+    openStrategyTeaching,
+    closeStrategyTeaching,
+    setStrategyTeachingAnnotations,
   } = useChartContext();
   const { user, resolved } = useUser();
   const [items, setItems] = useState<SavedStrategy[]>([]);
@@ -57,7 +63,11 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     let cancelled = false;
     void getUserStrategy(selectedStrategyId)
       .then((strategy) => {
-        if (!cancelled) setSelectedStrategy(strategy);
+        if (!cancelled) {
+          setSelectedStrategy(strategy);
+          const latest = strategy.snapshots.length - 1;
+          if (strategy.snapshots[latest]) openStrategyTeaching(strategy.id, latest, strategy.snapshots[latest]);
+        }
       })
       .catch((cause) => {
         if (!cancelled) setLoadError(cause instanceof Error ? cause.message : "Failed to refresh strategy snapshots");
@@ -66,13 +76,15 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     return () => {
       cancelled = true;
     };
-  }, [annotations.length, selectedStrategyId]);
+  }, [annotations.length, openStrategyTeaching, selectedStrategyId]);
 
   const openStrategy = async (strategy: SavedStrategy) => {
     setLoadingStrategyId(strategy.id);
     setLoadError(null);
     try {
-      setSelectedStrategy(await getUserStrategy(strategy.id));
+      const details = await getUserStrategy(strategy.id);
+      setSelectedStrategy(details);
+      if (details.snapshots[0]) openStrategyTeaching(details.id, 0, details.snapshots[0]);
     } catch (cause) {
       setLoadError(cause instanceof Error ? cause.message : "Failed to load strategy snapshots");
     } finally {
@@ -86,6 +98,7 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     setLoadError(null);
     try {
       await deleteUserStrategy(selectedStrategy.id);
+      closeStrategyTeaching();
       setSelectedStrategy(null);
       await loadStrategies();
     } catch (cause) {
@@ -102,13 +115,17 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     try {
       const result = await deleteUserStrategySnapshot(selectedStrategy.id, index);
       if (result.remaining_snapshot_count === 0) {
+        closeStrategyTeaching();
         setSelectedStrategy(null);
       } else {
+        const nextSnapshots = selectedStrategy.snapshots.filter((_, snapshotIndex) => snapshotIndex !== index);
+        const nextIndex = Math.min(index, nextSnapshots.length - 1);
         setSelectedStrategy((current) => current ? {
           ...current,
           snapshot_count: result.remaining_snapshot_count,
-          snapshots: current.snapshots.filter((_, snapshotIndex) => snapshotIndex !== index),
+          snapshots: nextSnapshots,
         } : null);
+        if (nextSnapshots[nextIndex]) openStrategyTeaching(selectedStrategy.id, nextIndex, nextSnapshots[nextIndex]);
       }
       await loadStrategies();
     } catch (cause) {
@@ -118,13 +135,25 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     }
   };
 
+  const saveSnapshotAnnotations = async (index: number, next: StrategyAnnotation[]) => {
+    if (!selectedStrategy) return;
+    const result = await updateUserStrategySnapshotAnnotations(selectedStrategy.id, index, next);
+    setStrategyTeachingAnnotations(result.annotations);
+    setSelectedStrategy((current) => current ? {
+      ...current,
+      snapshots: current.snapshots.map((snapshot, snapshotIndex) =>
+        snapshotIndex === index ? { ...snapshot, annotations: result.annotations } : snapshot),
+    } : current);
+  };
+
   if (selectedStrategy) {
     return (
       <StrategySnapshotsPanel
         strategy={selectedStrategy}
-        onBack={() => setSelectedStrategy(null)}
+        onBack={() => { closeStrategyTeaching(); setSelectedStrategy(null); }}
         onDeleteStrategy={() => void deleteStrategySet()}
         onDeleteSnapshot={(index) => void deleteSnapshot(index)}
+        onSaveSnapshotAnnotations={saveSnapshotAnnotations}
         deleting={deleting}
         error={loadError}
         chartTheme={chartTheme}

@@ -16,4 +16,5 @@ func RegisterAnnotationRoutes(rg *gin.RouterGroup, db *sql.DB) {
 	rg.GET("/user-annotations/:id", middleware.AuthMiddleware(db), annotations.GetUser(db))
 	rg.DELETE("/user-annotations/:id", middleware.AuthMiddleware(db), annotations.DeleteUser(db))
 	rg.DELETE("/user-annotations/:id/snapshots/:index", middleware.AuthMiddleware(db), annotations.DeleteUserSnapshot(db))
+	rg.PUT("/user-annotations/:id/snapshots/:index/annotations", middleware.AuthMiddleware(db), annotations.UpdateUserSnapshotAnnotations(db))
 }

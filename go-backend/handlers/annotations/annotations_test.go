@@ -89,3 +89,51 @@ func TestFirstSnapshotRemainsPreviewAfterAppend(t *testing.T) {
 		t.Fatalf("out-of-range deletion error = %v, expected %v", err, errSnapshotNotFound)
 	}
 }
+
+func TestSnapshotAnnotationsRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "strategy.csv")
+	item := payload{
+		Symbol: "NQ=F", Label: "entry", TimeStart: 100, TimeEnd: 200,
+		Candles: []candle{{Open: 0, High: 1, Low: -1, Close: .5}, {Open: .5, High: 2, Low: 0, Close: 1}},
+	}
+	if err := appendAnnotation(path, item, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	price := .75
+	index := 1
+	annotations := []strategyAnnotation{{
+		ID: "entry-1", ConceptID: "breakout_entry", Label: "Breakout entry",
+		Kind: "marker", Role: "entry", Importance: "required", Trigger: "cross",
+		StartRatio: .5, EndRatio: .5, Price: &price, CandleIndex: &index, PriceAnchor: "close",
+	}}
+	if err := updateSnapshotAnnotations(path, 0, annotations); err != nil {
+		t.Fatal(err)
+	}
+	if err := appendAnnotation(path, item, time.Now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	snapshots, err := readSnapshots(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshots) != 2 || len(snapshots[0].Annotations) != 1 || len(snapshots[1].Annotations) != 0 {
+		t.Fatalf("annotations were not restored: %#v", snapshots)
+	}
+	stored := snapshots[0].Annotations[0]
+	if stored.CandleIndex == nil || *stored.CandleIndex != index || stored.PriceAnchor != "close" {
+		t.Fatalf("candle anchor was not restored: %#v", stored)
+	}
+}
+
+func TestMarkerRequiresCandleAnchor(t *testing.T) {
+	price := 1.25
+	index := 2
+	marker := strategyAnnotation{ID: "target", ConceptID: "target", Label: "Target", Kind: "marker", Role: "take_profit", Importance: "required", Trigger: "touch", StartRatio: .75, EndRatio: .75, Price: &price}
+	if validStrategyAnnotations([]strategyAnnotation{marker}) {
+		t.Fatal("marker without candle anchor was accepted")
+	}
+	marker.CandleIndex, marker.PriceAnchor = &index, "high"
+	if !validStrategyAnnotations([]strategyAnnotation{marker}) {
+		t.Fatal("anchored marker was rejected")
+	}
+}

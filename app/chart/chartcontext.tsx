@@ -10,8 +10,9 @@ import { useTrades } from "../hooks/useTrades";
 import { AppliedIndicator } from "@/app/indicators/language/types";
 import { Candle, RawData } from "@/app/types/charts";
 import { StockTick } from "@/app/types/websocket";
-import { buildAnnotationPayload, saveUserAnnotation, AnnotationDraft } from "@/app/handlers/annotations";
+import { buildAnnotationPayload, saveUserAnnotation, AnnotationDraft, StrategyAnnotation, StrategySnapshot } from "@/app/handlers/annotations";
 import { compareWindow, type SimilarityResult } from "./SimilaritySearch/similarity";
+import { compareSemanticSnapshot, SemanticValidation } from "./SimilaritySearch/semantic";
 
 const intervals: Interval[] = ["1m", "5m", "15m", "1h", "1d", "1wk", "1mo"];
 const MAX_LENGTH_BOUNDARY_RATIO = 0.95;
@@ -19,25 +20,41 @@ const MAX_LENGTH_BOUNDARY_RATIO = 0.95;
 export type ValidationCandidate = {
   candles: Candle[];
   result: SimilarityResult;
+  semantic: SemanticValidation | null;
+  referenceIndex: number;
 };
 
-type StrategyShape = Array<{ open: number; high: number; low: number; close: number }>;
+type StrategyReference = Pick<StrategySnapshot, "candles" | "annotations">;
+export type StrategyTeachingTool = "candle_group" | "zone" | "level" | "entry" | "exit" | "stop_loss" | "take_profit";
+export type StrategyTeachingState = {
+  strategyId: string;
+  snapshotIndex: number;
+  snapshot: StrategySnapshot;
+  annotations: StrategyAnnotation[];
+  tool: StrategyTeachingTool;
+  label: string;
+  importance: StrategyAnnotation["importance"];
+  trigger: StrategyAnnotation["trigger"];
+};
 
-function bestReferenceResult(references: StrategyShape[], observed: Candle[]): SimilarityResult | null {
-  let best: SimilarityResult | null = null;
-
-  for (const reference of references) {
-    const result = compareWindow(reference, observed);
+function bestReferenceMatch(references: StrategyReference[], semanticReferences: StrategySnapshot[], observed: Candle[]) {
+  let best: { result: SimilarityResult; referenceIndex: number } | null = null;
+  for (const [referenceIndex, reference] of references.entries()) {
+    const result = compareWindow(reference.candles, observed);
     if (
       !best
-      || (result.qualified && !best.qualified)
-      || (result.qualified === best.qualified && result.scores.structure > best.scores.structure)
-    ) {
-      best = result;
-    }
+      || (result.qualified && !best.result.qualified)
+      || (result.qualified === best.result.qualified && result.scores.structure > best.result.scores.structure)
+    ) best = { result, referenceIndex };
   }
-
-  return best;
+  if (!best) return null;
+  const structuralReference = references[best.referenceIndex];
+  const semanticIndex = semanticReferences.findIndex((reference) => reference.candles === structuralReference.candles);
+  const resolvedIndex = semanticIndex < 0 ? best.referenceIndex : semanticIndex;
+  const semantic = best.result.qualified
+    ? compareSemanticSnapshot(semanticReferences[resolvedIndex], observed, resolvedIndex, best.result.scores.structure)
+    : null;
+  return { ...best, semantic, rank: best.result.scores.structure * .75 + (semantic?.score ?? best.result.scores.structure) * .25 };
 }
 
 export type ValidationState =
@@ -46,7 +63,8 @@ export type ValidationState =
       active: true;
       strategyId: string;
       strategyLabel: string;
-      references: StrategyShape[];
+      references: StrategyReference[];
+      semanticReferences: StrategySnapshot[];
       aggregate: boolean;
       minLength: number;
       maxLength: number;
@@ -82,12 +100,17 @@ interface ChartContextValue {
   startValidation: (
     strategyId: string,
     strategyLabel: string,
-    snapshots: StrategyShape[],
+    snapshots: StrategySnapshot[],
   ) => void;
   stopValidation: () => void;
   acceptCandidate: () => Promise<void>;
   rejectCandidate: () => void;
   adjustCandidateBoundary: (boundary: "start" | "end", delta: -1 | 1) => void;
+  strategyTeaching: StrategyTeachingState | null;
+  openStrategyTeaching: (strategyId: string, snapshotIndex: number, snapshot: StrategySnapshot) => void;
+  closeStrategyTeaching: () => void;
+  setStrategyTeaching: (patch: Partial<Pick<StrategyTeachingState, "tool" | "label" | "importance" | "trigger">>) => void;
+  setStrategyTeachingAnnotations: (annotations: StrategyAnnotation[]) => void;
 
   // indicator Editor
   isIndicatorPanelOpen: boolean
@@ -159,6 +182,7 @@ export function ChartProvider({
   const [isIndicatorPanelOpen, setIsIndicatorPanelOpen] = useState(false);
   const [appliedIndicators, setAppliedIndicators] = useState<AppliedIndicator[]>([]);
   const [validation, setValidation] = useState<ValidationState>({ active: false });
+  const [strategyTeaching, updateTeaching] = useState<StrategyTeachingState | null>(null);
   const scanningRef = useRef(false);
   
   const [accountUnrealisedPnL, setAccountUnrealisedPnL] = useState(0);
@@ -168,13 +192,31 @@ export function ChartProvider({
     setAnnotationStrategyLabel(null);
   }, []);
 
+  const closeStrategyTeaching = useCallback(() => updateTeaching(null), []);
+  const openStrategyTeaching = useCallback((strategyId: string, snapshotIndex: number, snapshot: StrategySnapshot) => {
+    scanningRef.current = false;
+    setValidation({ active: false });
+    stopAnnotation();
+    updateTeaching({
+      strategyId, snapshotIndex, snapshot, annotations: snapshot.annotations,
+      tool: "candle_group", label: "", importance: "preferred", trigger: "presence",
+    });
+  }, [stopAnnotation]);
+  const setStrategyTeaching = useCallback((patch: Partial<Pick<StrategyTeachingState, "tool" | "label" | "importance" | "trigger">>) => {
+    updateTeaching((current) => current ? { ...current, ...patch } : current);
+  }, []);
+  const setStrategyTeachingAnnotations = useCallback((annotations: StrategyAnnotation[]) => {
+    updateTeaching((current) => current ? { ...current, annotations } : current);
+  }, []);
+
   const startAnnotation = useCallback((strategyLabel?: string) => {
     scanningRef.current = false;
     setValidation({ active: false });
+    closeStrategyTeaching();
     setAnnotationError(null);
     setAnnotationStrategyLabel(strategyLabel ?? null);
     setCreatingStrategy(true);
-  }, []);
+  }, [closeStrategyTeaching]);
 
   const setIsCreatingStrategy = useCallback((value: boolean) => {
     if (value) {
@@ -232,7 +274,7 @@ export function ChartProvider({
   useEffect(() => {
     if (!validation.active || validation.done || validation.candidate !== null || scanningRef.current) return;
 
-    const { references, minLength, maxLength, scanIndex, historyRequest } = validation;
+    const { references, semanticReferences, minLength, maxLength, scanIndex, historyRequest } = validation;
     const scanData = chartData ?? [];
 
     if (historyRequest) {
@@ -275,26 +317,29 @@ export function ChartProvider({
 
     scanningRef.current = true;
     setTimeout(() => {
-      let bestResult: (SimilarityResult & { qualified: true }) | null = null;
-      let bestCandles: Candle[] | null = null;
+      let bestCandidate: ValidationCandidate | null = null;
+      let bestRank = -Infinity;
 
       for (let len = minLength; len <= Math.min(maxLength, scanIndex + 1); len++) {
         const start = scanIndex - len + 1;
         if (start < 0) break;
         const window = scanData.slice(start, scanIndex + 1);
-        const result = bestReferenceResult(references, window);
-        if (result?.qualified && (!bestResult || result.scores.structure > bestResult.scores.structure)) {
-          bestResult = result;
-          bestCandles = window;
+        const match = bestReferenceMatch(references, semanticReferences, window);
+        if (match?.result.qualified && match.rank > bestRank) {
+          bestRank = match.rank;
+          bestCandidate = {
+            candles: window, result: match.result, semantic: match.semantic,
+            referenceIndex: match.referenceIndex,
+          };
         }
       }
 
-      const lengthBoundaryReached = bestCandles !== null
+      const lengthBoundaryReached = bestCandidate !== null
         && maxLength > minLength
-        && bestCandles.length / maxLength >= MAX_LENGTH_BOUNDARY_RATIO;
+        && bestCandidate.candles.length / maxLength >= MAX_LENGTH_BOUNDARY_RATIO;
 
-      if (bestResult && bestCandles && !lengthBoundaryReached) {
-        setValidation((v) => v.active ? { ...v, candidate: { candles: bestCandles!, result: bestResult! } } : v);
+      if (bestCandidate && !lengthBoundaryReached) {
+        setValidation((v) => v.active ? { ...v, candidate: bestCandidate } : v);
       } else {
         setValidation((v) => v.active ? { ...v, scanIndex: v.scanIndex - 1, scanned: v.scanned + 1 } : v);
       }
@@ -305,14 +350,17 @@ export function ChartProvider({
   const startValidation = useCallback((
     strategyId: string,
     strategyLabel: string,
-    snapshots: StrategyShape[],
+    snapshots: StrategySnapshot[],
   ) => {
     if (!chartData?.length || snapshots.length === 0) return;
+    closeStrategyTeaching();
     stopAnnotation();
     const aggregate = snapshots.length >= 4;
-    const references = aggregate ? snapshots : snapshots.slice(-1);
-    const referenceLengths = references.map((reference) => reference.length);
-    const latestLength = references[references.length - 1].length;
+    const semanticReferences = snapshots;
+    const source = aggregate ? snapshots : snapshots.slice(-1);
+    const references = source.map(({ candles, annotations }) => ({ candles, annotations }));
+    const referenceLengths = references.map((reference) => reference.candles.length);
+    const latestLength = references[references.length - 1].candles.length;
     const minLength = aggregate
       ? Math.min(...referenceLengths)
       : Math.max(5, Math.floor(latestLength * 0.5));
@@ -320,7 +368,7 @@ export function ChartProvider({
       ? Math.max(...referenceLengths)
       : Math.ceil(latestLength * 2);
     setValidation({
-      active: true, strategyId, strategyLabel, references, aggregate, minLength, maxLength,
+      active: true, strategyId, strategyLabel, references, semanticReferences, aggregate, minLength, maxLength,
       scanIndex: chartData.length - 1,
       scanned: 0,
       available: Math.max(0, chartData.length - maxLength),
@@ -328,7 +376,7 @@ export function ChartProvider({
       candidate: null,
       done: false,
     });
-  }, [chartData, stopAnnotation]);
+  }, [chartData, closeStrategyTeaching, stopAnnotation]);
 
   const stopValidation = useCallback(() => {
     setValidation({ active: false });
@@ -383,7 +431,7 @@ export function ChartProvider({
   const adjustCandidateBoundary = useCallback((boundary: "start" | "end", delta: -1 | 1) => {
     if (!validation.active || !validation.candidate || !chartData?.length) return;
 
-    const { candidate, references } = validation;
+    const { candidate, references, semanticReferences } = validation;
     const startIndex = chartData.findIndex((candle) => candle.time === candidate.candles[0].time);
     const endIndex = chartData.findIndex((candle) => candle.time === candidate.candles[candidate.candles.length - 1].time);
     if (startIndex < 0 || endIndex < 0) return;
@@ -397,11 +445,14 @@ export function ChartProvider({
     if (nextStartIndex === startIndex && nextEndIndex === endIndex) return;
 
     const candles = chartData.slice(nextStartIndex, nextEndIndex + 1);
-    const result = bestReferenceResult(references, candles);
-    if (!result) return;
+    const match = bestReferenceMatch(references, semanticReferences, candles);
+    if (!match) return;
 
     setValidation((v) => v.active && v.candidate
-      ? { ...v, candidate: { candles, result } }
+      ? { ...v, candidate: {
+          candles, result: match.result, semantic: match.semantic,
+          referenceIndex: match.referenceIndex,
+        } }
       : v);
   }, [validation, chartData]);
 
@@ -442,6 +493,11 @@ export function ChartProvider({
         acceptCandidate,
         rejectCandidate,
         adjustCandidateBoundary,
+        strategyTeaching,
+        openStrategyTeaching,
+        closeStrategyTeaching,
+        setStrategyTeaching,
+        setStrategyTeachingAnnotations,
         isIndicatorPanelOpen,
         setIsIndicatorPanelOpen,
         appliedIndicators,

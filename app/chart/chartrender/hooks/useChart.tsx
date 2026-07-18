@@ -3,12 +3,14 @@ import { createChart, ColorType, CrosshairMode } from "lightweight-charts";
 import { defaultChartTheme, ChartBackground, ChartTheme } from "../themes/themes";
 import { PriceLines } from "@/app/components/trading/price";
 import { StrategyOverlay } from "../overlays/Strategy";
+import { StrategyTeachingOverlay } from "../overlays/StrategyTeachingOverlay";
+import { buildValidationMarks, SemanticMark, SemanticMarksOverlay } from "../overlays/SemanticMarksOverlay";
 import { useCandleHighlight } from "@/app/chart/chartrender/overlays/CandleHighlight";
 import { useScriptIndicators } from "@/app/indicators/hooks/useIndicator";
 import { AppliedIndicator } from "@/app/indicators/language/types";
 import { PositionTags } from "@/app/chart/chartrender/overlays/PositionOverlay";
 import { ACCENT, DANGER, SUCCESS } from "@/app/ui";
-import type { ValidationState } from "@/app/chart/chartcontext";
+import type { StrategyTeachingState, ValidationState } from "@/app/chart/chartcontext";
 
 type ChartPlugins = {
   data?: any[];
@@ -31,6 +33,9 @@ type ChartPlugins = {
   updatePosition?: (id: string, patch: any) => void | Promise<void>;
   fitContent?: boolean;
   validation?: ValidationState;
+  strategyTeaching?: StrategyTeachingState | null;
+  semanticMarks?: SemanticMark[];
+  semanticMarksCompact?: boolean;
 };
 
 export function resolveBackground(bg: ChartBackground) {
@@ -403,13 +408,16 @@ export function useChart(
     chartRef,
     seriesRef,
     data,
-    plugins.enableIndicators ? plugins.appliedIndicators ?? [] : [],
+    plugins.enableIndicators && !plugins.strategyTeaching ? plugins.appliedIndicators ?? [] : [],
     chartKey,
   );
 
   const validationCandidate = plugins.validation?.active
     ? plugins.validation.candidate
     : null;
+  const semanticMarks = plugins.validation?.active && validationCandidate
+    ? buildValidationMarks(validationCandidate, plugins.validation.semanticReferences)
+    : plugins.semanticMarks ?? [];
 
   useEffect(() => {
     if (!validationCandidate?.candles.length || !chartRef.current) return;
@@ -471,7 +479,17 @@ export function useChart(
         />
       )}
 
-      {positions.length > 0 && (
+      {semanticMarks.length > 0 && <SemanticMarksOverlay
+        chartRef={chartRef}
+        seriesRef={seriesRef}
+        data={validationCandidate?.candles ?? data}
+        marks={semanticMarks}
+        compact={plugins.semanticMarksCompact}
+      />}
+
+      {plugins.strategyTeaching && <StrategyTeachingOverlay chartRef={chartRef} seriesRef={seriesRef} data={data} />}
+
+      {!plugins.strategyTeaching && positions.length > 0 && (
         <PositionTags
           positions={positions}
           livePnLMap={plugins.livePnLMap ?? {}}

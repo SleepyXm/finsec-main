@@ -29,6 +29,8 @@ var csvHeaders = []string{
 	"symbol", "label", "timeStart", "timeEnd", "candle_count", "annotatedAt", "candles",
 }
 
+const strategyAnnotationsColumn = 7
+
 func trainingRoot() string {
 	if root := os.Getenv("ANNOTATIONS_DIR"); root != "" {
 		return root
@@ -104,7 +106,7 @@ func appendAnnotation(path string, body payload, annotatedAt time.Time) error {
 	if err != nil {
 		return err
 	}
-	if err := writer.Write([]string{
+	row := []string{
 		body.Symbol,
 		body.Label,
 		strconv.FormatInt(body.TimeStart, 10),
@@ -112,7 +114,14 @@ func appendAnnotation(path string, body payload, annotatedAt time.Time) error {
 		strconv.Itoa(len(body.Candles)),
 		annotatedAt.UTC().Format(time.RFC3339Nano),
 		string(candlesJSON),
-	}); err != nil {
+	}
+	if !needsHeader {
+		rows, readErr := readRows(path)
+		if readErr == nil && len(rows) > 0 && len(rows[0]) > strategyAnnotationsColumn {
+			row = append(row, "[]")
+		}
+	}
+	if err := writer.Write(row); err != nil {
 		return err
 	}
 	writer.Flush()
@@ -125,7 +134,9 @@ func readRows(path string) ([][]string, error) {
 		return nil, err
 	}
 	defer file.Close()
-	return csv.NewReader(file).ReadAll()
+	reader := csv.NewReader(file)
+	reader.FieldsPerRecord = -1
+	return reader.ReadAll()
 }
 
 func SaveTraining() gin.HandlerFunc {

@@ -1,15 +1,18 @@
 import { ChartRenderer } from "@/app/chart/chartrender/ChartRenderer";
 import { defaultChartTheme, ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { Candle } from "@/app/types/charts";
+import { SemanticMark } from "../overlays/SemanticMarksOverlay";
 
 export function CandleStickChart({
   data,
   minimal = false,
   theme = defaultChartTheme,
+  semanticMarks = [],
 }: {
   data: Candle[];
   minimal?: boolean;
   theme?: ChartTheme;
+  semanticMarks?: SemanticMark[];
 }) {
   return (
     <ChartRenderer
@@ -17,6 +20,7 @@ export function CandleStickChart({
       data={data}
       minimal={minimal}
       theme={theme}
+      semanticMarks={semanticMarks}
     />
   );
 }

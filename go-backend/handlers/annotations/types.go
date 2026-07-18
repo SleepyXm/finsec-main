@@ -9,6 +9,27 @@ type candle struct {
 	Close float64 `json:"close"`
 }
 
+type strategyAnnotation struct {
+	ID          string   `json:"id"`
+	ConceptID   string   `json:"conceptId"`
+	Label       string   `json:"label"`
+	Kind        string   `json:"kind"`
+	Role        string   `json:"role"`
+	Importance  string   `json:"importance"`
+	Trigger     string   `json:"trigger"`
+	StartRatio  float64  `json:"startRatio"`
+	EndRatio    float64  `json:"endRatio"`
+	PriceHigh   *float64 `json:"priceHigh,omitempty"`
+	PriceLow    *float64 `json:"priceLow,omitempty"`
+	Price       *float64 `json:"price,omitempty"`
+	CandleIndex *int     `json:"candleIndex,omitempty"`
+	PriceAnchor string   `json:"priceAnchor,omitempty"`
+}
+
+type annotationUpdate struct {
+	Annotations []strategyAnnotation `json:"annotations"`
+}
+
 type payload struct {
 	Symbol    string   `json:"symbol"`
 	Label     string   `json:"label"`
@@ -32,9 +53,10 @@ type previewCandle struct {
 }
 
 type strategyPreview struct {
-	Symbol      string          `json:"symbol"`
-	AnnotatedAt string          `json:"annotated_at"`
-	Candles     []previewCandle `json:"candles"`
+	Symbol      string               `json:"symbol"`
+	AnnotatedAt string               `json:"annotated_at"`
+	Candles     []previewCandle      `json:"candles"`
+	Annotations []strategyAnnotation `json:"annotations"`
 }
 
 type savedStrategy struct {

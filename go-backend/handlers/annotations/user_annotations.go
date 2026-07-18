@@ -203,6 +203,60 @@ func DeleteUserSnapshot(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+func UpdateUserSnapshotAnnotations(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		index, err := strconv.Atoi(c.Param("index"))
+		var body annotationUpdate
+		if err != nil || index < 0 || c.ShouldBindJSON(&body) != nil || !validStrategyAnnotations(body.Annotations) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid strategy annotations"})
+			return
+		}
+		var path string
+		err = db.QueryRowContext(c, `SELECT local_url FROM strategies WHERE id = $1 AND owner_id = $2`,
+			c.Param("id"), c.MustGet("userID").(string)).Scan(&path)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "strategy not found"})
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load strategy"})
+			return
+		}
+		if err = updateSnapshotAnnotations(path, index, body.Annotations); errors.Is(err, errSnapshotNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "snapshot not found"})
+			return
+		} else if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save strategy annotations"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"annotations": body.Annotations})
+	}
+}
+
+func validStrategyAnnotations(items []strategyAnnotation) bool {
+	kinds := map[string]bool{"candle_group": true, "zone": true, "level": true, "marker": true}
+	roles := map[string]bool{"structure": true, "entry": true, "exit": true, "stop_loss": true, "take_profit": true}
+	importance := map[string]bool{"required": true, "preferred": true, "informational": true}
+	triggers := map[string]bool{"presence": true, "touch": true, "cross": true, "close_above": true, "close_below": true, "rejection": true}
+	anchors := map[string]bool{"open": true, "high": true, "low": true, "close": true}
+	for _, item := range items {
+		if item.ID == "" || item.ConceptID == "" || item.Label == "" || !kinds[item.Kind] || !roles[item.Role] ||
+			!importance[item.Importance] || !triggers[item.Trigger] || item.StartRatio < 0 || item.StartRatio > 1 || item.EndRatio < 0 || item.EndRatio > 1 {
+			return false
+		}
+		if (item.Kind == "candle_group" || item.Kind == "zone") && (item.PriceHigh == nil || item.PriceLow == nil) {
+			return false
+		}
+		if (item.Kind == "level" || item.Kind == "marker") && item.Price == nil {
+			return false
+		}
+		if item.Kind == "marker" && (item.CandleIndex == nil || *item.CandleIndex < 0 || !anchors[item.PriceAnchor]) {
+			return false
+		}
+	}
+	return true
+}
+
 func deleteUserStrategy(db *sql.DB, c *gin.Context, strategyID, userID string) (err error) {
 	var path string
 	err = db.QueryRowContext(c, `
@@ -238,7 +292,7 @@ func readSnapshots(path string) ([]strategyPreview, error) {
 
 	snapshots := make([]strategyPreview, 0, len(rows)-1)
 	for _, row := range rows[1:] {
-		if len(row) < len(csvHeaders) {
+		if len(row) < 7 {
 			return nil, strconv.ErrSyntax
 		}
 		start, err := strconv.ParseInt(row[2], 10, 64)
@@ -255,6 +309,12 @@ func readSnapshots(path string) ([]strategyPreview, error) {
 		}
 		if len(stored) == 0 {
 			return nil, strconv.ErrSyntax
+		}
+		storedAnnotations := make([]strategyAnnotation, 0)
+		if len(row) > strategyAnnotationsColumn && row[strategyAnnotationsColumn] != "" {
+			if err := json.Unmarshal([]byte(row[strategyAnnotationsColumn]), &storedAnnotations); err != nil {
+				return nil, err
+			}
 		}
 
 		step := int64(1)
@@ -275,6 +335,7 @@ func readSnapshots(path string) ([]strategyPreview, error) {
 			Symbol:      row[0],
 			AnnotatedAt: row[5],
 			Candles:     candles,
+			Annotations: storedAnnotations,
 		})
 	}
 	return snapshots, nil
@@ -299,6 +360,29 @@ func deleteSnapshot(path string, index int) (int, error) {
 		return 0, err
 	}
 	return remaining, nil
+}
+
+func updateSnapshotAnnotations(path string, index int, annotations []strategyAnnotation) error {
+	rows, err := readRows(path)
+	if err != nil {
+		return err
+	}
+	rowIndex := index + 1
+	if index < 0 || rowIndex >= len(rows) {
+		return errSnapshotNotFound
+	}
+	for row := range rows {
+		for len(rows[row]) <= strategyAnnotationsColumn {
+			rows[row] = append(rows[row], "")
+		}
+	}
+	rows[0][strategyAnnotationsColumn] = "annotations"
+	encoded, err := json.Marshal(annotations)
+	if err != nil {
+		return err
+	}
+	rows[rowIndex][strategyAnnotationsColumn] = string(encoded)
+	return writeRows(path, rows)
 }
 
 func writeRows(path string, rows [][]string) error {

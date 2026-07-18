@@ -7,6 +7,7 @@ import { ChartTheme, defaultChartTheme } from "@/app/chart/chartrender/themes/th
 import { AppliedIndicator } from "@/app/indicators/language/types";
 import { RawData } from "@/app/types/charts";
 import { useChartContext } from "@/app/chart/chartcontext";
+import { SemanticMark } from "./overlays/SemanticMarksOverlay";
 
 type ChartKind = "candlestick" | "line";
 
@@ -28,6 +29,7 @@ type ChartRendererProps = {
   onScrollLeft?: () => void;
   appliedIndicators?: AppliedIndicator[];
   minimal?: boolean;
+  semanticMarks?: SemanticMark[];
 
   theme?: ChartTheme;
 };
@@ -47,9 +49,12 @@ export function ChartRenderer({
   updatePosition,
   appliedIndicators = [],
   minimal = false,
+  semanticMarks = [],
   theme = defaultChartTheme,
 }: ChartRendererProps) {
-  const { validation } = useChartContext();
+  const { validation, strategyTeaching } = useChartContext();
+  const teaching = minimal ? null : strategyTeaching;
+  const renderedData = teaching?.snapshot.candles ?? data;
 
   const getPositionLabel = useCallback(
     (position: any) => {
@@ -115,22 +120,25 @@ export function ChartRenderer({
     seriesOptions,
     chartOptions,
     {
-      data,
-      trades,
-      positions,
+      data: renderedData,
+      trades: teaching ? [] : trades,
+      positions: teaching ? [] : positions,
       livePnLMap,
-      renderTradeUI,
+      renderTradeUI: teaching ? undefined : renderTradeUI,
       getPositionLabel,
       isCreatingStrategy,
       onAnnotation,
-      onScrollLeft,
+      onScrollLeft: teaching ? undefined : onScrollLeft,
       onClosePosition,
       updatePosition,
       enableStrategyOverlay: type === "candlestick",
       enableIndicators: type === "candlestick",
-      appliedIndicators,
-      fitContent: minimal,
+      appliedIndicators: teaching ? [] : appliedIndicators,
+      fitContent: minimal || Boolean(teaching),
       validation: minimal ? undefined : validation,
+      strategyTeaching: teaching,
+      semanticMarks,
+      semanticMarksCompact: minimal,
     },
     theme
   );

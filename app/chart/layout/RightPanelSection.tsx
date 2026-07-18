@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IndicatorPanel } from "@/app/indicators/core/editor/IndicatorPanel";
 import { AssetSearchBar, AssetListItem } from "@/app/assetsearch/assetsearchcomponents";
 import { useAssetSearch } from "@/app/hooks/utility";
@@ -8,6 +8,7 @@ import { theme, cornerStyle } from "@/app/ui";
 import BacktestPanel from "@/app/backtest/components/BacktestPanel";
 import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import StrategyPanel from "./StrategyPanel";
+import { useChartContext } from "../chartcontext";
 
 export type RightTab =
   | "watchlist" | "add-chart" | "strategy"
@@ -44,6 +45,10 @@ export function RightPanelSection({
   chartTheme,
 }: RightPanelSectionProps) {
   const [hoveredTab, setHoveredTab] = useState<RightTab | null>(null);
+  const { closeStrategyTeaching } = useChartContext();
+  useEffect(() => {
+    if (activeRightTab !== "strategy") closeStrategyTeaching();
+  }, [activeRightTab, closeStrategyTeaching]);
 
   return (
     <div style={{

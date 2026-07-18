@@ -38,6 +38,53 @@ export function normaliseCandles(
     close: ((c.close - anchor) / anchor) * 100,
   }));
 }
+
+type CandleValues = Pick<Candle, "open" | "high" | "low" | "close">;
+
+function scale(candles: CandleValues[]) {
+  const low = Math.min(...candles.map((candle) => candle.low));
+  const high = Math.max(...candles.map((candle) => candle.high));
+  const span = Math.max(Number.EPSILON, high - low);
+  return candles.map((candle) => [candle.open, candle.high, candle.low, candle.close]
+    .map((value) => (value - low) / span));
+}
+
+/** Monotonic source-candle to candidate-candle correspondence. */
+export function alignCandleStructure(reference: CandleValues[], observed: Candle[]) {
+  if (!reference.length || !observed.length) return [];
+  const source = scale(reference);
+  const target = scale(normaliseCandles(observed));
+  const costs = source.map(() => target.map(() => Number.POSITIVE_INFINITY));
+  const distance = (left: number[], right: number[]) =>
+    left.reduce((sum, value, index) => sum + Math.abs(value - right[index]), 0) / left.length;
+
+  source.forEach((candle, sourceIndex) => target.forEach((candidate, targetIndex) => {
+    const previous = sourceIndex === 0 && targetIndex === 0 ? 0 : Math.min(
+      sourceIndex && targetIndex ? costs[sourceIndex - 1][targetIndex - 1] : Number.POSITIVE_INFINITY,
+      sourceIndex ? costs[sourceIndex - 1][targetIndex] : Number.POSITIVE_INFINITY,
+      targetIndex ? costs[sourceIndex][targetIndex - 1] : Number.POSITIVE_INFINITY,
+    );
+    costs[sourceIndex][targetIndex] = distance(candle, candidate) + previous;
+  }));
+
+  const matches = source.map(() => [] as number[]);
+  let sourceIndex = source.length - 1;
+  let targetIndex = target.length - 1;
+  while (true) {
+    matches[sourceIndex].push(targetIndex);
+    if (sourceIndex === 0 && targetIndex === 0) break;
+    const steps = [
+      sourceIndex && targetIndex ? [sourceIndex - 1, targetIndex - 1] : null,
+      sourceIndex ? [sourceIndex - 1, targetIndex] : null,
+      targetIndex ? [sourceIndex, targetIndex - 1] : null,
+    ].filter((step): step is number[] => step !== null);
+    [sourceIndex, targetIndex] = steps.reduce((best, step) =>
+      costs[step[0]][step[1]] < costs[best[0]][best[1]] ? step : best);
+  }
+  return matches.map((indices, index) => indices.length
+    ? Math.round(indices.reduce((sum, value) => sum + value, 0) / indices.length)
+    : Math.round(index * (target.length - 1) / Math.max(1, source.length - 1)));
+}
  
 // ---------------------------------------------------------------------------
 // Resample an array to a target length using linear interpolation.

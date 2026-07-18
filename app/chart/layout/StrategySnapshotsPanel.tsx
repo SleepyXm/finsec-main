@@ -1,8 +1,9 @@
-import { StrategyDetails } from "@/app/handlers/annotations";
+import { StrategyAnnotation, StrategyDetails } from "@/app/handlers/annotations";
 import { CandleStickChart } from "@/app/chart/chartrender/charts/CandleStickChart";
 import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { cornerStyle, MonoLabel, theme, traderInsetPanelStyle, TraderBlankButton } from "@/app/ui";
 import { useChartContext } from "@/app/chart/chartcontext";
+import { SnapshotTeachingSection } from "./SnapshotTeachingSection";
 
 const idleBackground = "rgba(238,242,247,0.025)";
 
@@ -11,6 +12,7 @@ export function StrategySnapshotsPanel({
   onBack,
   onDeleteStrategy,
   onDeleteSnapshot,
+  onSaveSnapshotAnnotations,
   deleting,
   error,
   chartTheme,
@@ -19,6 +21,7 @@ export function StrategySnapshotsPanel({
   onBack: () => void;
   onDeleteStrategy: () => void;
   onDeleteSnapshot: (index: number) => void;
+  onSaveSnapshotAnnotations: (index: number, annotations: StrategyAnnotation[]) => Promise<void>;
   deleting: boolean;
   error: string | null;
   chartTheme: ChartTheme;
@@ -36,6 +39,7 @@ export function StrategySnapshotsPanel({
     rejectCandidate,
     adjustCandidateBoundary,
     chartData,
+    strategyTeaching,
   } = useChartContext();
   const isValidatingThis = validation.active && validation.strategyId === strategy.id;
   const isAnnotatingThis = isCreatingStrategy && annotationStrategyLabel === strategy.title;
@@ -157,6 +161,8 @@ export function StrategySnapshotsPanel({
         </div>
       </section>
 
+      <SnapshotTeachingSection strategy={strategy} onSave={onSaveSnapshotAnnotations} />
+
       <section style={{
         ...traderInsetPanelStyle(theme.dark),
         margin: "10px 0 14px",
@@ -189,7 +195,7 @@ export function StrategySnapshotsPanel({
               onClick={() => refSnapshot && startValidation(
                 strategy.id,
                 strategy.title,
-                strategy.snapshots.map((snapshot) => snapshot.candles),
+                strategy.snapshots,
               )}
               style={{ width: "100%", padding: "8px 10px", fontSize: 10, letterSpacing: "0.04em" }}
             >
@@ -201,7 +207,7 @@ export function StrategySnapshotsPanel({
             <div style={{ color: theme.dark.muted2, fontSize: 9, marginBottom: 8 }}>
               {validation.aggregate
                 ? `${validation.references.length}-snapshot aggregate · ${validation.minLength}–${validation.maxLength} candles`
-                : `Latest snapshot · ${validation.references[0].length} candles`}
+                : `Latest snapshot · ${validation.references[0].candles.length} candles`}
             </div>
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -273,6 +279,26 @@ export function StrategySnapshotsPanel({
                 })}
                 </div>
 
+                {validation.candidate.semantic ? <div style={{ border: `1px solid ${theme.dark.borderSoft}`, padding: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9 }}>
+                    <span style={{ color: theme.dark.muted2 }}>Structural semantics</span>
+                    <span style={{ color: validation.candidate.semantic.qualified ? theme.dark.successText : theme.dark.errorText }}>{validation.candidate.semantic.score.toFixed(0)}%</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 7 }}>
+                    {validation.candidate.semantic.results.map((result) => {
+                      const weak = result.score < 70;
+                      const color = weak && result.importance === "required" ? theme.dark.errorText : weak ? "#f1b86b" : theme.dark.successText;
+                      return <div key={result.id} style={{ display: "flex", gap: 6, fontSize: 8, padding: "3px 4px", border: `1px solid ${theme.dark.borderSoft}` }}>
+                        <span style={{ color: theme.dark.text, flex: 1 }}>{result.label}</span><span style={{ color }}>{result.score.toFixed(0)}%</span>
+                      </div>;
+                    })}
+                    {validation.candidate.semantic.execution.map((result) => <div key={result.id} style={{ display: "flex", gap: 6, fontSize: 8, padding: "3px 4px", border: `1px solid ${theme.dark.borderSoft}` }}>
+                      <span style={{ color: theme.dark.text, flex: 1 }}>{result.label}</span><span style={{ color: theme.dark.muted2 }}>{result.role.replace(/_/g, " ")}</span><span style={{ color: theme.dark.successText }}>mapped</span>
+                    </div>)}
+                    {!validation.candidate.semantic.qualified && <div style={{ color: theme.dark.errorText, fontSize: 8 }}>Execution marks withheld until structural semantics pass.</div>}
+                  </div>
+                </div> : <div style={{ color: theme.dark.hint, fontSize: 8 }}>No semantic concepts saved; this match uses candle structure only.</div>}
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                   <TraderBlankButton
                     active
@@ -318,13 +344,21 @@ export function StrategySnapshotsPanel({
             style={{
               position: "relative",
               minWidth: 0,
-              border: `1px solid ${theme.dark.borderSoft}`,
+              border: `1px solid ${validation.active && validation.strategyId === strategy.id && validation.candidate
+                && index === (validation.aggregate ? validation.candidate.referenceIndex : strategy.snapshots.length - 1)
+                ? theme.dark.accent : theme.dark.borderSoft}`,
               background: idleBackground,
             }}
           >
             <div style={cornerStyle()} />
-            <div style={{ height: 96, borderBottom: `1px solid ${theme.dark.borderSoft}` }}>
-              <CandleStickChart data={snapshot.candles} minimal theme={chartTheme} />
+            <div style={{ height: 96, borderBottom: `1px solid ${theme.dark.borderSoft}`, position: "relative" }}>
+              <CandleStickChart
+                data={snapshot.candles}
+                minimal
+                theme={chartTheme}
+                semanticMarks={(strategyTeaching?.strategyId === strategy.id && strategyTeaching.snapshotIndex === index
+                  ? strategyTeaching.annotations : snapshot.annotations).map((annotation) => ({ annotation }))}
+              />
             </div>
             <div style={{ padding: "8px 9px 9px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -350,6 +384,9 @@ export function StrategySnapshotsPanel({
               </div>
               <div style={{ color: theme.dark.muted2, fontSize: 9, marginTop: 3 }}>
                 {snapshot.symbol} · {new Date(snapshot.annotated_at).toLocaleString()}
+              </div>
+              <div style={{ color: theme.dark.hint, fontSize: 8, marginTop: 3 }}>
+                {snapshot.annotations.length} semantic {snapshot.annotations.length === 1 ? "mark" : "marks"}
               </div>
             </div>
           </article>

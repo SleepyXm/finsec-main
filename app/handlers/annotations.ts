@@ -8,6 +8,23 @@ export type AnnotationDraft = {
   candles: Candle[];
 };
 
+export type StrategyAnnotation = {
+  id: string;
+  conceptId: string;
+  label: string;
+  kind: "candle_group" | "zone" | "level" | "marker";
+  role: "structure" | "entry" | "exit" | "stop_loss" | "take_profit";
+  importance: "required" | "preferred" | "informational";
+  trigger: "presence" | "touch" | "cross" | "close_above" | "close_below" | "rejection";
+  startRatio: number;
+  endRatio: number;
+  priceHigh?: number;
+  priceLow?: number;
+  price?: number;
+  candleIndex?: number;
+  priceAnchor?: "open" | "high" | "low" | "close";
+};
+
 export type AnnotationPayload = {
   symbol: string;
   label: string;
@@ -29,6 +46,7 @@ export type StrategySnapshot = {
   symbol: string;
   annotated_at: string;
   candles: Candle[];
+  annotations: StrategyAnnotation[];
 };
 
 export type StrategyDetails = Omit<SavedStrategy, "preview"> & {
@@ -36,13 +54,27 @@ export type StrategyDetails = Omit<SavedStrategy, "preview"> & {
 };
 
 function normaliseStrategySnapshot(snapshot: StrategySnapshot): StrategySnapshot {
+  const candles = snapshot.candles.map((candle) => ({
+    ...candle,
+    volume: candle.volume ?? null,
+    buy_price: candle.buy_price ?? null,
+  }));
   return {
     ...snapshot,
-    candles: snapshot.candles.map((candle) => ({
-      ...candle,
-      volume: candle.volume ?? null,
-      buy_price: candle.buy_price ?? null,
-    })),
+    candles,
+    annotations: (snapshot.annotations ?? []).map((annotation) => {
+      if (annotation.kind !== "marker" || !candles.length) return annotation;
+      const last = candles.length - 1;
+      const candleIndex = Math.max(0, Math.min(last,
+        annotation.candleIndex ?? Math.round(annotation.startRatio * last)));
+      const candle = candles[candleIndex];
+      const anchors = ["open", "high", "low", "close"] as const;
+      const priceAnchor = annotation.priceAnchor ?? anchors.reduce((closest, anchor) =>
+        Math.abs(candle[anchor] - (annotation.price ?? candle.close))
+          < Math.abs(candle[closest] - (annotation.price ?? candle.close)) ? anchor : closest);
+      const ratio = candleIndex / Math.max(1, last);
+      return { ...annotation, candleIndex, priceAnchor, price: candle[priceAnchor], startRatio: ratio, endRatio: ratio };
+    }),
   };
 }
 
@@ -117,5 +149,12 @@ export function deleteUserStrategySnapshot(id: string, index: number) {
   return request<{ remaining_snapshot_count: number }>(
     `/api/user-annotations/${encodeURIComponent(id)}/snapshots/${index}`,
     { method: "DELETE" },
+  );
+}
+
+export function updateUserStrategySnapshotAnnotations(id: string, index: number, annotations: StrategyAnnotation[]) {
+  return request<{ annotations: StrategyAnnotation[] }>(
+    `/api/user-annotations/${encodeURIComponent(id)}/snapshots/${index}/annotations`,
+    { method: "PUT", body: JSON.stringify({ annotations }) },
   );
 }

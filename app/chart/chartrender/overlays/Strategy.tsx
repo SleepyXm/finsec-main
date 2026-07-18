@@ -62,6 +62,9 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
           <span>Structure <strong style={{ color: "#eef2f7" }}>{result.scores.structure.toFixed(0)}%</strong></span>
           <span style={{ color: "rgba(238,242,247,0.5)" }}>Length {result.scores.length.toFixed(0)}%</span>
           <span style={{ color: "rgba(238,242,247,0.5)" }}>Size {result.scores.size.toFixed(0)}%</span>
+          {validationCandidate.semantic && <span style={{ color: validationCandidate.semantic.qualified ? "#4fd1a1" : "#ef6b73" }}>
+            Semantic {validationCandidate.semantic.score.toFixed(0)}%
+          </span>}
         </div>
       </div>
     );
