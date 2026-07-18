@@ -5,13 +5,9 @@ from routers.utils.stock_utils import asset_exists, download_asset_worker
 from routers.storage.retrieveparquet import load_parquet
 from routers.storage.parquet import BASE_DIR, mark_worker_active
 from routers.search import search_router
-from routers.websocket import websocket_router, broadcast_stock_data, subscriptions, fetch_tasks
-from routers.annotations.annotations import annotations_router
+from routers.websocket import broadcast_stock_data, subscriptions, fetch_tasks
 from routers.backtest.backtest import backtest_router
 from routers.publish_price import price_router
-from database import get_db, AsyncSessionLocal
-from helpers.queries.assetquery import get_tracked_tickers
-from sqlalchemy.future import select
 from helpers.redis import redis_client
 import asyncio, sys, json
 
@@ -32,7 +28,6 @@ app.include_router(stock_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
 app.include_router(backtest_router, prefix="/api")
 app.include_router(price_router, prefix="/api")
-app.include_router(annotations_router, prefix="/api")
 
 
 
