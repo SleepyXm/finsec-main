@@ -90,13 +90,3 @@ type BacktestSession struct {
 	// ExpiresAt is the immutable three-day expiry for this session.
 	ExpiresAt string `json:"expires_at"`
 }
-
-// BacktestRunResponse is the JSON response body returned from POST /backtest/run.
-type BacktestRunResponse struct {
-	SessionID       string           `json:"session_id"`
-	Ticker          string           `json:"ticker"`
-	Interval        string           `json:"interval"`
-	CandleCount     int              `json:"candle_count"`
-	StartingBalance float64          `json:"starting_balance"`
-	Candles         []BacktestCandle `json:"candles"`
-}
