@@ -23,13 +23,13 @@ export function listIndicators() {
 }
 
 export function getIndicatorSource(id: string) {
-  return request<SavedIndicatorSource>(`/api/indicators/${encodeURIComponent(id)}`, {
+  return request<SavedIndicatorSource>(`/api/indicators/${id}`, {
     method: "GET",
   });
 }
 
 export function deleteIndicator(id: string) {
-  return request<void>(`/api/indicators/${encodeURIComponent(id)}`, {
+  return request<void>(`/api/indicators/${id}`, {
     method: "DELETE",
   });
 }

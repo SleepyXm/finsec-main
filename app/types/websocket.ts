@@ -43,7 +43,7 @@ export function createStockSocket(
   page: number = 1,
 ): WebSocket {
   const ws = new WebSocket(
-    `${WS_BASE}/ws/stockdata?ticker_symbol=${encodeURIComponent(ticker)}&interval=${interval}&page=${page}`
+    `${WS_BASE}/ws/stockdata?ticker_symbol=${ticker}&interval=${interval}&page=${page}`
   );
 
   ws.onmessage = async (event) => {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stripe/stripe-go/v85"
+	billingportalsession "github.com/stripe/stripe-go/v85/billingportal/session"
 	"github.com/stripe/stripe-go/v85/checkout/session"
 	"github.com/stripe/stripe-go/v85/customer"
 	"github.com/stripe/stripe-go/v85/webhook"
@@ -85,6 +86,16 @@ func createStripeCheckoutSession(userID, customerID string, product checkoutProd
 		}},
 		Metadata:         metadata,
 		SubscriptionData: &stripe.CheckoutSessionSubscriptionDataParams{Metadata: metadata},
+	})
+}
+
+func createStripeBillingPortalSession(customerID string) (*stripe.BillingPortalSession, error) {
+	if err := configureStripe(); err != nil {
+		return nil, err
+	}
+	return billingportalsession.New(&stripe.BillingPortalSessionParams{
+		Customer:  stripe.String(customerID),
+		ReturnURL: stripe.String(checkoutRedirectURL("BILLING_PORTAL_RETURN_URL", "", "/profile")),
 	})
 }
 

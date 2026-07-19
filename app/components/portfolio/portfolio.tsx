@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { TradeHistoryRow } from "@/app/types/portfolio";
 import { AccountStats } from "@/app/types/accounts";
+import { EmptyState, LoadingState } from "@/app/ui";
 
 
 interface RealisedPnLProps {
@@ -34,9 +35,14 @@ export default function RealisedPnL({ rows, stats, loading, statsLoading, hasMor
   const [statsOpen, setStatsOpen] = useState(false);
 
   if (loading && rows.length === 0)
-    return <p className="text-xs text-zinc-600">Loading…</p>;
+    return <LoadingState message="Loading trade history…" className="!h-full min-h-24 !bg-transparent" />;
   if (!loading && rows.length === 0)
-    return <p className="text-xs text-zinc-600">No realised PnL history yet.</p>;
+    return (
+      <EmptyState
+        icon={<span aria-hidden="true" className="text-xl">—</span>}
+        message="No realised PnL history yet."
+      />
+    );
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-1.5 overflow-hidden">
@@ -62,7 +68,7 @@ export default function RealisedPnL({ rows, stats, loading, statsLoading, hasMor
       {statsOpen && (
         <div className="grid shrink-0 grid-cols-2 overflow-hidden rounded-lg border border-zinc-800 sm:grid-cols-4">
           {statsLoading || !stats ? (
-            <p className="col-span-4 p-2 text-xs text-zinc-600">Loading stats…</p>
+            <LoadingState message="Loading stats…" className="col-span-4 !h-12 !bg-transparent" />
           ) : (
             <>
               <StatCard label="Total PnL"   value={stats.net_pnl} />
@@ -113,7 +119,7 @@ export default function RealisedPnL({ rows, stats, loading, statsLoading, hasMor
         <div ref={sentinelRef} style={{ height: 1 }} />
 
         {loading && (
-          <p className="text-xs text-zinc-600 text-center py-2">Loading…</p>
+          <LoadingState message="Loading more trades…" className="!h-12 !bg-transparent" />
         )}
         {!hasMore && rows.length > 0 && (
           <p className="text-xs text-zinc-600 text-center py-2">All trades loaded</p>

@@ -12,6 +12,7 @@ import { defaultChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { ChartTheme } from "@/app/chart/chartrender/themes/themes";
 import { getPreferences, savePreferences } from "@/app/handlers/profile";
 import { BacktestProvider, useBacktestContext } from "@/app/backtest/components/BacktestContext";
+import { EmptyState, LoadingState } from "@/app/ui";
 
 function ChartPageInner() {
   const {
@@ -19,7 +20,7 @@ function ChartPageInner() {
     chartData, interval, isCandle, setIsCandle, isCreatingStrategy,
     handleAnnotation, positions, livePnLMap,
     accountUnrealisedPnL, placeTrade, closeTrade,
-    updatePosition, loadPreviousPage, appliedIndicators,
+    updatePosition, loadPreviousPage, appliedIndicators, tradeReady, tradePending,
   } = useChartContext();
   const backtest = useBacktestContext();
 
@@ -46,6 +47,7 @@ function ChartPageInner() {
   const activePositions = isBacktesting ? backtest.openPositions : positions;
   const activePnLMap = isBacktesting ? backtest.livePnLMap : livePnLMap;
   const activePrice = isBacktesting ? backtest.currentCandle : tick;
+  const activeError = isBacktesting ? backtest.error : error;
 
   const handleSave = (overrides: Partial<ChartTheme>) => {
     const next = { ...themeOverrides, ...overrides };
@@ -68,13 +70,14 @@ function ChartPageInner() {
               {!isBacktesting && !connected && (
                 <p className="text-xs text-yellow-500 mb-1">Connecting to feed…</p>
               )}
-              {(isBacktesting ? backtest.error : error) && (
+              {activeError && (
                 <p className="text-red-500 text-sm mb-2">
-                  {isBacktesting ? backtest.error : error}
+                  {activeError}
                 </p>
               )}
               <TradeButtons
                 data={activePrice}
+                disabled={!isBacktesting && (!tradeReady || tradePending)}
                 onTrade={(action) => {
                   if (isBacktesting && backtest.session && backtest.currentCandle) {
                     backtest.placeTrade(
@@ -111,10 +114,20 @@ function ChartPageInner() {
           appliedIndicators={appliedIndicators}
           theme={activeTheme}
         />
+      ) : isBacktesting ? (
+        <EmptyState
+          icon={<span aria-hidden="true" className="text-xl">▷</span>}
+          message="Press play to start replay."
+          className="!h-full !bg-transparent"
+        />
+      ) : activeError ? (
+        <EmptyState
+          icon={<span aria-hidden="true" className="text-xl">!</span>}
+          message={activeError}
+          className="!h-full !bg-transparent text-red-300/70"
+        />
       ) : (
-        <p style={{ color: "#6b7280", padding: 16 }}>
-          {isBacktesting ? "Press play to start replay…" : "Loading chart…"}
-        </p>
+        <LoadingState message="Loading chart…" className="!h-full !bg-transparent" />
       )}
 
       <div style={{ position: "absolute", top: 8, left: 10, zIndex: 12 }}>

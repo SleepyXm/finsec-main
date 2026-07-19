@@ -38,12 +38,6 @@ type payload struct {
 	Candles   []candle `json:"candles"`
 }
 
-type summary struct {
-	Label    string `json:"label"`
-	File     string `json:"file"`
-	RowCount int    `json:"row_count"`
-}
-
 type previewCandle struct {
 	Time  int64   `json:"time"`
 	Open  float64 `json:"open"`

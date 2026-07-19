@@ -27,3 +27,15 @@ type snapshotUpdate struct {
 	CurrentCandle *int            `json:"current_candle"`
 	Positions     json.RawMessage `json:"positions"`
 }
+
+type backtestPosition struct {
+	TradeID     string   `json:"trade_id"`
+	Symbol      string   `json:"symbol"`
+	Side        string   `json:"side"`
+	Quantity    float64  `json:"quantity"`
+	EntryPrice  float64  `json:"entry_price"`
+	EntryCandle int      `json:"entry_candle"`
+	ExitPrice   *float64 `json:"exit_price"`
+	ExitCandle  *int     `json:"exit_candle"`
+	Status      string   `json:"status"`
+}

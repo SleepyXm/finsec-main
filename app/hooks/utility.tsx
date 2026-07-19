@@ -22,14 +22,16 @@ export function useAssetSearch() {
   const [error, setError] = useState<string | null>(null);
 
   async function search(query: string) {
-    if (!query.trim()) return;
+    if (!query.trim()) {
+      setAssets([]);
+      return;
+    }
     setLoading(true);
     setError(null);
 
     try {
       const results = await fetchAssets(query);
       setAssets(results);
-
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {

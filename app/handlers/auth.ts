@@ -1,10 +1,46 @@
+import type { SubscriptionLimitDetail, SubscriptionTier } from "../types/subscriptions";
+import { SUBSCRIPTION_LIMIT_EVENT } from "../types/subscriptions";
+
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE2;
 export const WSAPI_BASE = process.env.NEXT_PUBLIC_WS_API_BASE2;
 
 let refreshPromise: Promise<boolean> | null = null;
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly payload: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+function apiUrl(path: string): string {
+  if (!API_BASE) throw new Error("API server is not configured.");
+  return `${API_BASE}${path}`;
+}
+
+function asPayload(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+async function responseBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    if (!response.ok) return { error: text };
+    throw new Error("The server returned an invalid response.");
+  }
+}
+
 export async function request<T = unknown>(path: string, options: RequestInit, isRetry = false): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(apiUrl(path), {
     ...options,
     credentials: "include",
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
@@ -13,7 +49,7 @@ export async function request<T = unknown>(path: string, options: RequestInit, i
   const skipRefresh = ["/auth/login", "/auth/signup", "/auth/refresh", "/auth/logout"];
   if (res.status === 401 && !isRetry && !skipRefresh.some(p => path.includes(p))) {
     if (!refreshPromise) {
-      refreshPromise = fetch(`${API_BASE}/api/auth/refresh`, {
+      refreshPromise = fetch(apiUrl("/api/auth/refresh"), {
         method: "POST",
         credentials: "include",
       })
@@ -26,8 +62,21 @@ export async function request<T = unknown>(path: string, options: RequestInit, i
     throw new Error("UNAUTHENTICATED");
   }
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || data.error || `Request failed with status ${res.status}`);
+  const data = await responseBody(res);
+  const payload = asPayload(data);
+  if (!res.ok) {
+    if (payload.code === "subscription_limit_reached" && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent<SubscriptionLimitDetail>(SUBSCRIPTION_LIMIT_EVENT, {
+        detail: payload as SubscriptionLimitDetail,
+      }));
+    }
+    const message = typeof payload.detail === "string"
+      ? payload.detail
+      : typeof payload.error === "string"
+        ? payload.error
+        : `Request failed with status ${res.status}`;
+    throw new ApiError(message, res.status, payload);
+  }
   return data as T;
 }
 
@@ -36,7 +85,7 @@ export async function request<T = unknown>(path: string, options: RequestInit, i
 export type User = {
   username: string;
   email: string;
-  subscription_tier?: string;
+  subscription_tier?: SubscriptionTier;
 };
 
 export type UserAccount = {
@@ -52,14 +101,22 @@ type AuthMessageResponse = {
 
 const STALE_TIME = 5 * 60 * 1000;
 
+function cachedValue<T>(key: string): T | null {
+  const value = localStorage.getItem(key);
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    localStorage.removeItem(key);
+    return null;
+  }
+}
+
 export async function validateUser(): Promise<{ user: User; account: UserAccount } | null> {
   try {
     const lastCheck = localStorage.getItem("user_validated_at");
-    const cachedUser = localStorage.getItem("user");
-    const cachedAccount = localStorage.getItem("user_account");
-
-    const parsedUser = cachedUser ? JSON.parse(cachedUser) as User : null;
-    const parsedAccount = cachedAccount ? JSON.parse(cachedAccount) as UserAccount : null;
+    const parsedUser = cachedValue<User>("user");
+    const parsedAccount = cachedValue<UserAccount>("user_account");
 
     if (
       lastCheck &&
@@ -110,6 +167,9 @@ export async function fetchUserAccountInfo(): Promise<UserAccount | null> {
 
 
 export async function logout(): Promise<void> {
-  await request<AuthMessageResponse>("/api/auth/logout", { method: "POST" });
-  ["user", "user_account", "user_validated_at"].forEach(k => localStorage.removeItem(k));
+  try {
+    await request<AuthMessageResponse>("/api/auth/logout", { method: "POST" });
+  } finally {
+    ["user", "user_account", "user_validated_at"].forEach(k => localStorage.removeItem(k));
+  }
 }

@@ -67,25 +67,8 @@ export const defaultChartTheme: ChartTheme = {
 };
 
 export const intradayChartTheme: ChartTheme = {
-  background: { type: 'transparent' },
-  text: '#e8e8e8',
-
+  ...defaultChartTheme,
   grid: '#2a2e3a00',
-
-  longPosition: '#ffffff',
-  shortPosition: '#000000',
-
-  selectionOverlay: 'rgba(0, 0, 0, 0.45)',
-  selectionBorder: '#2962ff',
-
-  crosshair: '#2962ff',
-
-  lineUp: '#26a69a',
-  lineDown: '#ef5350',
-  areaTopUp: 'rgba(38,166,154,0.2)',
-  areaTopDown: 'rgba(239,83,80,0.2)',
-  areaBottomUp: 'rgba(7,32,30,0.06)',
-  areaBottomDown: 'rgba(54,19,19,0.06)',
 };
 
 

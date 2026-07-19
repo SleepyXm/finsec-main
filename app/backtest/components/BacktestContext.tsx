@@ -6,6 +6,7 @@ import { BacktestPosition, BacktestSession } from "@/app/types/backend";
 import { RawData } from "@/app/types/charts";
 import { deriveBacktestAnalysis, BacktestAnalysis } from "../analysis";
 import { saveBacktestSession } from "../services/backtest";
+import { MAX_TRADE_QUANTITY } from "@/app/types/trades";
 
 interface BacktestContextValue {
   session: BacktestSession | null;
@@ -46,6 +47,8 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
   const [positions, setPositions] = useState<BacktestPosition[]>([]);
   const [error, setError] = useState<string | null>(null);
   const snapshotRef = useRef({ cursor: 0, positions: [] as BacktestPosition[] });
+  const lastSavedRef = useRef("");
+  const savingRef = useRef(false);
 
   const visibleCandles = useMemo(() => candles.slice(0, cursor), [candles, cursor]);
   const currentCandle = visibleCandles[visibleCandles.length - 1] ?? null;
@@ -74,9 +77,16 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
     if (!session) return;
     const persist = () => {
       const snapshot = snapshotRef.current;
+      const fingerprint = JSON.stringify(snapshot);
+      if (savingRef.current || fingerprint === lastSavedRef.current) return;
+      savingRef.current = true;
       saveBacktestSession(session.session_id, snapshot.cursor, snapshot.positions)
-        .then(() => setError(null))
-        .catch((cause) => setError(cause instanceof Error ? cause.message : "Failed to save backtest"));
+        .then(() => {
+          lastSavedRef.current = fingerprint;
+          setError(null);
+        })
+        .catch((cause) => setError(cause instanceof Error ? cause.message : "Failed to save backtest"))
+        .finally(() => { savingRef.current = false; });
     };
     const interval = window.setInterval(persist, 2_000);
     return () => {
@@ -86,10 +96,14 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
   }, [session]);
 
   function startSession(next: BacktestSession, nextCandles: RawData[]) {
+    const nextCursor = Math.max(0, Math.min(next.current_candle ?? 0, nextCandles.length));
+    const nextPositions = next.positions ?? [];
     setSession(next);
     setCandles(nextCandles);
-    setCursor(next.current_candle ?? 0);
-    setPositions(next.positions ?? []);
+    setCursor(nextCursor);
+    setPositions(nextPositions);
+    snapshotRef.current = { cursor: nextCursor, positions: nextPositions };
+    lastSavedRef.current = JSON.stringify(snapshotRef.current);
     setPlaying(false);
     setError(null);
   }
@@ -102,6 +116,7 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
     setPositions([]);
     setPlaying(false);
     setError(null);
+    lastSavedRef.current = "";
   }
 
   function resetReplay() {
@@ -116,8 +131,20 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
     ticker: string,
     tradeQuantity: number,
   ) {
-    if (!session || !currentCandle || tradeQuantity <= 0) return;
+    if (!session || !currentCandle) return;
+    if (!Number.isFinite(tradeQuantity) || tradeQuantity <= 0 || tradeQuantity > MAX_TRADE_QUANTITY) {
+      setError(`Quantity must be between 1 and ${MAX_TRADE_QUANTITY.toLocaleString()}.`);
+      return;
+    }
+    if (positions.length >= 1_000) {
+      setError("This backtest already contains the maximum number of positions.");
+      return;
+    }
     const entryPrice = action === "buy" ? candle.buy_price ?? candle.close : candle.close;
+    if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
+      setError("Valid price data is not available for this candle.");
+      return;
+    }
     const entryCandle = Math.max(0, cursor - 1);
     const tradeId = crypto.randomUUID();
     setPositions((current) => [...current, {
@@ -139,7 +166,7 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
   }
 
   function closeTrade(tradeId: string, exitPrice: number) {
-    if (!currentCandle) return;
+    if (!currentCandle || !Number.isFinite(exitPrice) || exitPrice <= 0) return;
     setPositions((current) => current.map((position) => {
       if (position.trade_id !== tradeId || position.exit_candle != null) return position;
       const direction = position.side === "long" ? 1 : -1;
@@ -148,7 +175,7 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
         exit_price: exitPrice,
         exit_candle: Math.max(0, cursor - 1),
         exit_time: currentCandle.time,
-        realised_pnl: (exitPrice - position.entry_price) * direction * position.quantity,
+        realised_pnl: Math.round((exitPrice - position.entry_price) * direction * position.quantity * 100) / 100,
         status: "closed" as const,
       };
     }));

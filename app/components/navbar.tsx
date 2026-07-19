@@ -114,6 +114,10 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    search("");
+  }, [pathname]);
+
   const handleLogout = async () => {
     await logout();
     setUser(null);
@@ -186,7 +190,7 @@ const Navbar = () => {
           maxWidth: 280,
         }}
       >
-        <AssetSearchBar onSearch={search} />
+        <AssetSearchBar key={pathname} onSearch={search} />
         {searchOpen && (
           <ul
             className="list-none p-0 m-0"
@@ -202,7 +206,7 @@ const Navbar = () => {
           >
             <li aria-hidden="true" style={{ ...cornerStyle(), listStyle: "none" }} />
             {assets.map((asset) => (
-              <AssetListItem key={asset.symbol} asset={asset} />
+              <AssetListItem key={asset.symbol} asset={asset} onSelect={(a) => {search("");router.push(`/chart/${a.symbol}`);}} />
             ))}
           </ul>
         )}
@@ -269,7 +273,7 @@ const Navbar = () => {
                 >
                   <li aria-hidden="true" style={{ ...cornerStyle(), listStyle: "none" }} />
                   {assets.map((asset) => (
-                    <AssetListItem key={asset.symbol} asset={asset} />
+                    <AssetListItem key={asset.symbol} asset={asset} onSelect={(a) => {search("");router.push(`/chart/${a.symbol}`);}}/>
                   ))}
                 </ul>
               )}

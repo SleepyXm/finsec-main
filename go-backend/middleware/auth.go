@@ -29,7 +29,7 @@ func AuthMiddleware(db *sql.DB) gin.HandlerFunc {
 		tokenString := strings.TrimPrefix(token, "Bearer ")
 
 		parsed, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			if t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
 				return nil, jwt.ErrSignatureInvalid
 			}
 			return secret, nil
@@ -48,16 +48,26 @@ func AuthMiddleware(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		userID := claims["sub"].(string)
+		userID, ok := claims["sub"].(string)
+		if !ok || userID == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			c.Abort()
+			return
+		}
 
 		var id, username, email, subscriptionTier string
-		err = db.QueryRow(`
+		err = db.QueryRowContext(c, `
 			SELECT id, username, email, COALESCE(NULLIF(subscription_tier, ''), 'free')
 			FROM users
 			WHERE id = $1
 		`, userID).Scan(&id, &username, &email, &subscriptionTier)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			c.Abort()
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not verify session"})
 			c.Abort()
 			return
 		}

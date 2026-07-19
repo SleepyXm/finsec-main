@@ -16,12 +16,11 @@ import (
 	//"finsec-backend/config"
 	"finsec-backend/utils"
 
+	"finsec-backend/handlers/stocks"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/redis/go-redis/v9"
-
-	//"github.com/jackc/pgx/v5/stdlib"
-	"finsec-backend/handlers/stocks"
 
 	"github.com/joho/godotenv"
 )

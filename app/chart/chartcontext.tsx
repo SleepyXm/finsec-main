@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Interval } from "../types/charts";
+import { CHART_INTERVALS, Interval } from "../types/charts";
 import { useChartData } from "./chartdata";
 import { useStockSocket } from "@/app/hooks/useStockSocket";
 import { usePositions } from "@/app/hooks/usePositions";
@@ -14,7 +14,6 @@ import { buildAnnotationPayload, saveUserAnnotation, AnnotationDraft, StrategyAn
 import { compareWindow, type SimilarityResult } from "./SimilaritySearch/similarity";
 import { compareSemanticSnapshot, SemanticValidation } from "./SimilaritySearch/semantic";
 
-const intervals: Interval[] = ["1m", "5m", "15m", "1h", "1d", "1wk", "1mo"];
 const MAX_LENGTH_BOUNDARY_RATIO = 0.95;
 
 export type ValidationCandidate = {
@@ -136,6 +135,8 @@ interface ChartContextValue {
     quantity: number,
   ) => void;
   closeTrade: (id: string, price: number) => void;
+  tradeReady: boolean;
+  tradePending: boolean;
   updatePosition: (id: string, patch: any) => Promise<any>;
   handlePositionClosed: (id: string) => void;
   error: string | null;
@@ -247,7 +248,7 @@ export function ChartProvider({
   }, []);
 
   const { positions, setPositions, handlePositionClosed, updatePosition } = usePositions(shortname);
-  const { placeTrade, closeTrade, error } = useTrades(positions, setPositions);
+  const { placeTrade, closeTrade, error, ready: tradeReady, placing: tradePending } = useTrades(positions, setPositions);
   const { tick, historicalData, connected, livePnLMap, loadingMore, loadPreviousPage } = useStockSocket(
     shortname, interval, positions, handlePositionClosed, setAccountUnrealisedPnL
   );
@@ -474,7 +475,7 @@ export function ChartProvider({
     <ChartContext.Provider
       value={{
         shortname,
-        intervals,
+        intervals: [...CHART_INTERVALS],
         interval,
         setInterval,
         isCandle,
@@ -514,6 +515,8 @@ export function ChartProvider({
         accountUnrealisedPnL,
         placeTrade,
         closeTrade,
+        tradeReady,
+        tradePending,
         updatePosition,
         handlePositionClosed,
         error,

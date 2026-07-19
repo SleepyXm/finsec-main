@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 
+	"finsec-backend/entitlements"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stripe/stripe-go/v85"
 )
@@ -21,6 +23,19 @@ func GetSubscriptions(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"products": products})
+	}
+}
+
+func GetCurrentSubscription(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetString("userID")
+		tier := entitlements.Normalize(c.GetString("subscriptionTier"))
+		overview, err := loadSubscriptionOverview(c, db, userID, tier)
+		if err != nil {
+			writeError(c, http.StatusInternalServerError, "Could not fetch subscription")
+			return
+		}
+		c.JSON(http.StatusOK, overview)
 	}
 }
 
@@ -52,8 +67,8 @@ func CreateCheckoutSession(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 		userIDString := fmt.Sprint(userID)
-		if normalizeTier(c.GetString("subscriptionTier")) == normalizeTier(product.Tier) {
-			writeError(c, http.StatusConflict, "You are already on this subscription tier")
+		if entitlements.Normalize(c.GetString("subscriptionTier")) != entitlements.Free {
+			writeError(c, http.StatusConflict, "Use billing management to change an existing subscription")
 			return
 		}
 
@@ -84,6 +99,31 @@ func CreateCheckoutSession(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"session_id": session.ID, "url": session.URL})
+	}
+}
+
+func CreateBillingPortalSession(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		customerID, err := findStripeCustomerID(c, db, c.GetString("userID"))
+		if err != nil {
+			writeError(c, http.StatusInternalServerError, "Could not load billing account")
+			return
+		}
+		if strings.TrimSpace(customerID) == "" {
+			writeError(c, http.StatusConflict, "This account does not have Stripe billing to manage")
+			return
+		}
+		portal, err := createStripeBillingPortalSession(customerID)
+		if err != nil {
+			log.Printf("products: create billing portal user_id=%s: %v", c.GetString("userID"), err)
+			writeError(c, http.StatusInternalServerError, publicError("Could not open billing management", err))
+			return
+		}
+		if portal.URL == "" {
+			writeError(c, http.StatusInternalServerError, "Stripe did not return a billing URL")
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"url": portal.URL})
 	}
 }
 

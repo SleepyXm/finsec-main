@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge, BarRow, Btn, Card, CardFooter, DataTable, Grid2, PageHeader, Row, StatCard, StatRow, tokens } from "@/app/dashboard/components/dashboard";
-import { gridBgStyle, handleGridGlowMove, PageShell, theme } from "@/app/ui";
+import { EmptyState, gridBgStyle, handleGridGlowMove, LoadingState, PageShell, theme } from "@/app/ui";
 import { useState } from "react";
 import { useUser } from "../provider/userprovider";
 import { usePortfolio, useAccountStats, usePnLCurve } from "../hooks/usePortfolio";
@@ -106,7 +106,14 @@ export default function DashboardPage() {
           <DataTable columns={TRADE_COLUMNS} rows={rows} />
           <div ref={sentinelRef} style={{ height: 1 }} />
           {loading && (
-            <div style={{ padding: "12px 16px", fontSize: 12, color: tokens.text3, textAlign: "center" }}>Loading...</div>
+            <LoadingState message={rows.length ? "Loading more trades…" : "Loading trade history…"} className="!h-16 !bg-transparent" />
+          )}
+          {!loading && rows.length === 0 && (
+            <EmptyState
+              icon={<span aria-hidden="true" className="text-xl">—</span>}
+              message="No completed trades yet."
+              className="min-h-24"
+            />
           )}
           {!hasMore && rows.length > 0 && (
             <div style={{ padding: "12px 16px", fontSize: 12, color: tokens.text3, textAlign: "center" }}>All trades loaded</div>

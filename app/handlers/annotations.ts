@@ -104,13 +104,6 @@ export function buildAnnotationPayload(
   };
 }
 
-export function saveAnnotation(payload: AnnotationPayload) {
-  return request("/api/annotations", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
 export function saveUserAnnotation(payload: AnnotationPayload) {
   return request<{ id: string; title: string; snapshot_count: number }>(
     "/api/user-annotations",
@@ -130,7 +123,7 @@ export async function listUserStrategies() {
 }
 
 export async function getUserStrategy(id: string) {
-  const strategy = await request<StrategyDetails>(`/api/user-annotations/${encodeURIComponent(id)}`, {
+  const strategy = await request<StrategyDetails>(`/api/user-annotations/${id}`, {
     method: "GET",
   });
   return {
@@ -140,21 +133,21 @@ export async function getUserStrategy(id: string) {
 }
 
 export function deleteUserStrategy(id: string) {
-  return request<void>(`/api/user-annotations/${encodeURIComponent(id)}`, {
+  return request<void>(`/api/user-annotations/${id}`, {
     method: "DELETE",
   });
 }
 
 export function deleteUserStrategySnapshot(id: string, index: number) {
   return request<{ remaining_snapshot_count: number }>(
-    `/api/user-annotations/${encodeURIComponent(id)}/snapshots/${index}`,
+    `/api/user-annotations/${id}/snapshots/${index}`,
     { method: "DELETE" },
   );
 }
 
 export function updateUserStrategySnapshotAnnotations(id: string, index: number, annotations: StrategyAnnotation[]) {
   return request<{ annotations: StrategyAnnotation[] }>(
-    `/api/user-annotations/${encodeURIComponent(id)}/snapshots/${index}/annotations`,
+    `/api/user-annotations/${id}/snapshots/${index}/annotations`,
     { method: "PUT", body: JSON.stringify({ annotations }) },
   );
 }

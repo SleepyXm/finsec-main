@@ -80,7 +80,7 @@ export function SectionDivider({ label }: { label: string }) {
 }
  
 export function ConnectionCard({ name, icon, connected, connectedAs, onConnect, onDisconnect, comingSoon,}: 
-  { name: string; icon: ReactNode; connected?: boolean;
+  { name: string; icon?: ReactNode; connected?: boolean;
     connectedAs?: string; onConnect?: () => void; onDisconnect?: () => void; comingSoon?: boolean; })
     {
   return (
@@ -92,9 +92,11 @@ export function ConnectionCard({ name, icon, connected, connectedAs, onConnect, 
       }`}
     >
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 flex items-center justify-center text-black dark:text-zinc-300">
-          {icon}
-        </div>
+        {icon && (
+          <div className="w-8 h-8 flex items-center justify-center text-black dark:text-zinc-300">
+            {icon}
+          </div>
+        )}
         <div>
           <p className="text-sm font-medium">{name}</p>
           {connected && connectedAs && (
@@ -200,14 +202,6 @@ export function AuthorisationsCard({ name, full_name, private: isPrivate, defaul
           Import
         </button>
       </div>
-    </div>
-  );
-}
- 
-export function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="flex items-center justify-center border-2 border-dashed border-black/20 dark:border-white/10 rounded-lg p-8 text-sm text-black/30 dark:text-zinc-600">
-      {message}
     </div>
   );
 }

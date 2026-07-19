@@ -102,14 +102,15 @@ func GetBacktestSession(db *sql.DB) gin.HandlerFunc {
 func UpdateBacktestSession(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.MustGet("userID").(string)
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 512<<10)
 		var req snapshotUpdate
-		if err := c.ShouldBindJSON(&req); err != nil || req.CurrentCandle == nil || *req.CurrentCandle < 0 {
+		if err := c.ShouldBindJSON(&req); err != nil || req.CurrentCandle == nil ||
+			*req.CurrentCandle < 0 || *req.CurrentCandle > maxBacktestCandles {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid backtest snapshot"})
 			return
 		}
-		var positions []json.RawMessage
-		if err := json.Unmarshal(req.Positions, &positions); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "positions must be an array"})
+		if err := validateBacktestPositions(req.Positions, *req.CurrentCandle); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 

@@ -8,11 +8,6 @@ import { useUser } from "@/app/provider/userprovider";
 import Popup from "../components/errorpopup";
 import { AuthChartAnimation } from "@/app/ui/client";
 import { theme, panelStyle, cornerStyle } from "@/app/ui";
-import { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Sign In | Finsec",
-};
 
 export default function Auth() {
   const { setUser, setAccount } = useUser();
@@ -24,14 +19,18 @@ export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const t = theme.dark;
 
   const router = useRouter();
 
   async function handleSubmit() {
+    if (submitting) return;
     setError("");
     setSuccess("");
 
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedUsername = userName.trim();
     try {
       if (isSignUp) {
         if (password !== password2) {
@@ -39,20 +38,27 @@ export default function Auth() {
           return;
         }
 
-        if (!email.includes("@")) {
+        if (!normalizedEmail.includes("@")) {
           setError("Please enter a valid email address.");
           return;
         }
+        if (!/^[A-Za-z0-9_]{3,32}$/.test(normalizedUsername)) {
+          setError("Username must be 3–32 letters, numbers, or underscores.");
+          return;
+        }
 
-        const res = await signup(userName, email, password);
-        console.log("Signed up:", res.message);
+        setSubmitting(true);
+        await signup(normalizedUsername, normalizedEmail, password);
 
         setSuccess("Account created! Check your email to verify.");
         setIsSignUp(false);
+        setPassword("");
+        setPassword2("");
         return;
       }
 
-      const res = await login(email, password);
+      setSubmitting(true);
+      const res = await login(normalizedEmail, password);
 
       if (!res) {
         setError("Login failed. Try again.");
@@ -67,6 +73,8 @@ export default function Auth() {
         err instanceof Error ? err.message : "Something went wrong.";
 
       setError(message);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -121,6 +129,7 @@ export default function Auth() {
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
                     placeholder="Username"
+                    maxLength={32}
                   />
                 )}
 
@@ -130,6 +139,7 @@ export default function Auth() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
+                  maxLength={254}
                 />
 
                 <AuthField
@@ -138,13 +148,7 @@ export default function Auth() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
-                  rightSlot={
-                    !isSignUp ? (
-                      <a href="#" className="auth-link">
-                        Forgot password?
-                      </a>
-                    ) : null
-                  }
+                  maxLength={72}
                 />
 
                 {isSignUp && (
@@ -154,19 +158,13 @@ export default function Auth() {
                     value={password2}
                     onChange={(e) => setPassword2(e.target.value)}
                     placeholder="Confirm password"
+                    maxLength={72}
                   />
                 )}
               </div>
 
-              {!isSignUp && (
-                <label className="auth-checkbox">
-                  <input type="checkbox" />
-                  <span>Remember me</span>
-                </label>
-              )}
-
-              <button type="submit" className="auth-submit">
-                {isSignUp ? "Create account" : "Sign in"}
+              <button type="submit" className="auth-submit" disabled={submitting}>
+                {submitting ? "Please wait…" : isSignUp ? "Create account" : "Sign in"}
               </button>
             </form>
 
@@ -177,6 +175,7 @@ export default function Auth() {
                   : "Don't have an account?"}{" "}
                 <button
                   type="button"
+                  disabled={submitting}
                   onClick={() => setIsSignUp((value) => !value)}
                 >
                   {isSignUp ? "Sign in" : "Sign up"}
@@ -196,20 +195,19 @@ function AuthField({
   value,
   onChange,
   placeholder,
-  rightSlot,
+  maxLength,
 }: {
   label: string;
   type: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder: string;
-  rightSlot?: React.ReactNode;
+  maxLength?: number;
 }) {
   return (
     <div className="auth-field">
       <div className="auth-label-row">
         <label>{label}</label>
-        {rightSlot}
       </div>
 
       <input
@@ -218,6 +216,7 @@ function AuthField({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        maxLength={maxLength}
       />
     </div>
   );

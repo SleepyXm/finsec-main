@@ -25,17 +25,13 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 	defer tx.Rollback()
 
 	valueParts := make([]string, 0, len(entries))
-	args := make([]any, 0, len(entries)*8)
+	args := make([]any, 0, len(entries)*7)
 
 	for i, entry := range entries {
-		base := i*8 + 1
-		executedBy := "user"
-		if entry.BotID != nil {
-			executedBy = "bot"
-		}
+		base := i*7 + 1
 
 		valueParts = append(valueParts, fmt.Sprintf(
-			"($%d::int, $%d::uuid, $%d::uuid, $%d::text, $%d::text, $%d::text, $%d::numeric, $%d::numeric)",
+			"($%d::int, $%d::uuid, $%d::uuid, $%d::text, $%d::text, $%d::numeric, $%d::numeric)",
 			base,
 			base+1,
 			base+2,
@@ -43,14 +39,12 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 			base+4,
 			base+5,
 			base+6,
-			base+7,
 		))
 
 		args = append(args,
 			i,
 			entry.TradeID,
 			entry.AccountID,
-			executedBy,
 			entry.Ticker,
 			entry.Action,
 			entry.Quantity,
@@ -63,7 +57,6 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 			idx,
 			id,
 			account_id,
-			executed_by,
 			symbol,
 			side,
 			quantity,
@@ -89,7 +82,7 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 			SELECT
 				id,
 				account_id,
-				executed_by,
+				'user',
 				symbol,
 				side,
 				'market',
@@ -186,7 +179,7 @@ func buildQueueConfirms(results []bulkInsertResult) ([]QueueConfirm, error) {
 			TradeID:    result.entry.TradeID,
 			ConnID:     result.entry.ConnID,
 			Symbol:     result.entry.Ticker,
-			Side:       result.entry.Side,
+			Side:       tradeSide(result.entry.Action),
 			Quantity:   result.entry.Quantity,
 			Price:      result.entry.Price,
 			EntryPrice: result.entry.Price,
@@ -200,6 +193,13 @@ func buildQueueConfirms(results []bulkInsertResult) ([]QueueConfirm, error) {
 	}
 
 	return confirms, nil
+}
+
+func tradeSide(action string) string {
+	if action == "buy" {
+		return "long"
+	}
+	return "short"
 }
 
 func (p *WorkerPool) publishConfirms(ctx context.Context, confirms []QueueConfirm) {

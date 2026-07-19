@@ -2,35 +2,27 @@ package handlers
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
+	"strings"
 
 	"finsec-backend/structs"
 	"finsec-backend/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func Signup(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req structs.UserCreate
 		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid signup request"})
+			return
+		}
+		if err := normalizeSignup(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		// Check username taken
-		var exists string
-		err := db.QueryRowContext(c, "SELECT id FROM users WHERE username = $1", req.Username).Scan(&exists)
-		if err != sql.ErrNoRows {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Username taken, try another."})
-			return
-		}
-
-		// Check email taken
-		err = db.QueryRowContext(c, "SELECT id FROM users WHERE email = $1", req.Email).Scan(&exists)
-		if err != sql.ErrNoRows {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already registered"})
 			return
 		}
 
@@ -56,7 +48,18 @@ func Signup(db *sql.DB) gin.HandlerFunc {
 			userID, req.Username, req.Email, hashed, verificationToken,
 		)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create user"})
+			var postgresError *pgconn.PgError
+			if errors.As(err, &postgresError) && postgresError.Code == "23505" {
+				message := "Account already exists"
+				if strings.Contains(postgresError.ConstraintName, "username") {
+					message = "Username taken, try another."
+				} else if strings.Contains(postgresError.ConstraintName, "email") {
+					message = "Email already registered"
+				}
+				c.JSON(http.StatusConflict, gin.H{"error": message})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create user"})
+			}
 			return
 		}
 
@@ -89,19 +92,27 @@ func Login(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req structs.UserLogin
 		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid login request"})
+			return
+		}
+		if err := normalizeLogin(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		var userID, passwordHash string
+		var userID, username, email, passwordHash string
 		err := db.QueryRowContext(c,
-			"SELECT id, password FROM users WHERE email = $1", req.Email,
-		).Scan(&userID, &passwordHash)
+			"SELECT id, username, email, password FROM users WHERE email = $1", req.Email,
+		).Scan(&userID, &username, &email, &passwordHash)
 
 		// Timing-safe — always run bcrypt even if user not found
 		if err == sql.ErrNoRows {
 			utils.VerifyPassword(req.Password, utils.DummyPasswordHash)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Email or Password Incorrect"})
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not sign in"})
 			return
 		}
 		if !utils.VerifyPassword(req.Password, passwordHash) {
@@ -124,10 +135,6 @@ func Login(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not store session"})
 			return
 		}
-
-		// Fetch username for response
-		var username, email string
-		db.QueryRowContext(c, "SELECT username, email FROM users WHERE id = $1", userID).Scan(&username, &email)
 
 		utils.SetAuthCookies(c, accessToken, refreshToken)
 		c.JSON(http.StatusOK, gin.H{
@@ -152,14 +159,9 @@ func Refresh() gin.HandlerFunc {
 			return
 		}
 
-		if _, err = utils.GetStoredRefreshToken(c, token); err != nil {
+		storedUserID, err := utils.GetStoredRefreshToken(c, token)
+		if err != nil || storedUserID != userID {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Refresh token invalid or expired"})
-			return
-		}
-
-		// Rotate — revoke old, issue new
-		if err := utils.RevokeRefreshToken(c, token); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not revoke token"})
 			return
 		}
 
@@ -174,7 +176,15 @@ func Refresh() gin.HandlerFunc {
 			return
 		}
 
-		utils.StoreRefreshToken(c, userID, newRefresh)
+		if err = utils.StoreRefreshToken(c, userID, newRefresh); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not store session"})
+			return
+		}
+		if err = utils.RevokeRefreshToken(c, token); err != nil {
+			_ = utils.RevokeRefreshToken(c, newRefresh)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not rotate session"})
+			return
+		}
 		utils.SetAuthCookies(c, newAccess, newRefresh)
 		c.JSON(http.StatusOK, gin.H{"message": "Token refreshed"})
 	}
@@ -226,23 +236,24 @@ func Me(db *sql.DB) gin.HandlerFunc {
 			`SELECT account_type, balance, currency, status
              FROM user_accounts WHERE user_id = $1`, userID,
 		).Scan(&accountType, &balance, &currency, &status)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not load account"})
+			return
+		}
 
-		resp := gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"user": gin.H{
 				"username":          username,
 				"email":             email,
 				"subscription_tier": subscriptionTier,
 			},
-		}
-		if err == nil {
-			resp["account"] = gin.H{
+			"account": gin.H{
 				"account_type": accountType,
 				"balance":      balance,
 				"currency":     currency,
 				"status":       status,
-			}
-		}
-		c.JSON(http.StatusOK, resp)
+			},
+		})
 	}
 }
 

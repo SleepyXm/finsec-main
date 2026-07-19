@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createCheckoutSession, getProducts, ProductProps } from "../handlers/products";
+import { createBillingPortalSession, createCheckoutSession, getProducts, getSubscriptionOverview, ProductProps } from "../handlers/products";
 import { traderCornerStyle, traderInactiveButtonClassName, traderWhiteButtonClassName } from "@/app/ui";
 import { useUser } from "../provider/userprovider";
+import type { SubscriptionLimits, SubscriptionOverview } from "../types/subscriptions";
+import { normalizeSubscriptionTier } from "../types/subscriptions";
 
 type PlanPresentation = {
   description: string;
@@ -15,42 +17,34 @@ const PLAN_PRESENTATION: Record<string, PlanPresentation> = {
   free: {
     description: "Build and test strategy logic before putting it into live monitoring.",
     features: [
-      "Limited saved strategies",
       "Backtest against historical data",
       "Strategy output stays in backtesting",
       "No live watch bots",
-      "Limited indicators and watchlists",
     ],
   },
   premium: {
     description: "Run proven strategies through watch bots without maintaining your own VPS.",
     recommended: true,
     features: [
-      "Save up to 10 strategies",
       "Apply strategies to watch bots",
       "Live strategy alerts",
       "Server-side monitoring — no VPS required",
-      "Higher backtest and watchlist limits",
     ],
   },
   professional: {
     description: "Monitor more strategies and market conditions at the same time.",
     features: [
-      "Save up to 20 strategies",
       "Apply strategies to watch bots",
       "Live strategy alerts",
       "Expanded watch-bot capacity",
-      "Higher backtest and indicator limits",
     ],
   },
   enterprise: {
-    description: "Unlimited strategy capacity with the highest limits available on Finsec.",
+    description: "The highest strategy and monitoring capacity available on Finsec.",
     features: [
-      "Unlimited saved strategies",
       "Apply strategies to watch bots",
       "Live strategy alerts",
       "Highest watch-bot capacity",
-      "Highest backtest, indicator and watchlist limits",
     ],
   },
 };
@@ -61,7 +55,9 @@ const Products = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [checkoutProduct, setCheckoutProduct] = useState<string | null>(null);
-  const currentTier = normalizeTier(user?.subscription_tier);
+  const [subscription, setSubscription] = useState<SubscriptionOverview | null>(null);
+  const currentTier = subscription?.tier ?? normalizeSubscriptionTier(user?.subscription_tier);
+  const hasPaidPlan = currentTier !== "free";
 
   useEffect(() => {
     let isMounted = true;
@@ -86,8 +82,19 @@ const Products = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!resolved || !user) return;
+    let isMounted = true;
+    getSubscriptionOverview()
+      .then((value) => { if (isMounted) setSubscription(value); })
+      .catch((reason) => {
+        if (isMounted) setError(reason instanceof Error ? reason.message : "Could not load current subscription");
+      });
+    return () => { isMounted = false; };
+  }, [resolved, user]);
+
   const handleCheckout = async (product: ProductProps) => {
-    const requestedTier = normalizeTier(product.tier);
+    const requestedTier = normalizeSubscriptionTier(product.tier);
     if (product.amount <= 0 || requestedTier === currentTier) return;
 
     if (!user) {
@@ -99,7 +106,9 @@ const Products = () => {
     setCheckoutProduct(product.product_id);
 
     try {
-      const { url } = await createCheckoutSession(product.stripe_price_id);
+      const { url } = hasPaidPlan
+        ? await createBillingPortalSession()
+        : await createCheckoutSession(product.stripe_price_id);
       window.location.href = url;
     } catch (err) {
       setCheckoutProduct(null);
@@ -148,12 +157,13 @@ const Products = () => {
 
         {!loading &&
           products.map((product) => {
-            const tier = normalizeTier(product.tier);
+            const tier = normalizeSubscriptionTier(product.tier);
             const presentation = planPresentation(tier);
             const isFree = product.amount <= 0;
             const isCurrentPlan = tier === currentTier;
             const isCheckingOut = checkoutProduct === product.product_id;
-            const disabled = !resolved || isFree || isCurrentPlan || isCheckingOut;
+            const billingIsExternal = hasPaidPlan && !subscription?.can_manage_billing;
+            const disabled = !resolved || isFree || isCurrentPlan || isCheckingOut || billingIsExternal;
 
             return (
               <article
@@ -196,7 +206,7 @@ const Products = () => {
                 </div>
 
                 <ul className="mt-6 flex flex-1 list-none flex-col gap-3 p-0">
-                  {presentation.features.map((feature) => (
+                  {productFeatures(product.limits, presentation.features).map((feature) => (
                     <li
                       key={feature}
                       className="grid grid-cols-[12px_1fr] gap-2.5 text-[13px] leading-5 text-white/68"
@@ -219,6 +229,8 @@ const Products = () => {
                     isCurrentPlan,
                     isFree,
                     isCheckingOut,
+                    hasPaidPlan,
+                    billingIsExternal,
                     productName: displayProductName(product),
                   })}
                 </button>
@@ -282,25 +294,39 @@ function displayProductName(product: ProductProps) {
   return product.product_name.replace(/\s*\((monthly|yearly)\)\s*$/i, "");
 }
 
-function normalizeTier(tier: string | null | undefined) {
-  const normalized = tier?.trim().toLowerCase();
-  return !normalized || normalized === "none" ? "free" : normalized;
+function productFeatures(limits: SubscriptionLimits, features: string[]) {
+  return [
+    formatCapacity(limits.saved_strategies, "saved strategies"),
+    formatCapacity(limits.saved_indicators, "saved indicators"),
+    formatCapacity(limits.active_backtests, "active backtests"),
+    ...features,
+  ];
+}
+
+function formatCapacity(limit: number | null, label: string) {
+  return limit === null ? `Unlimited ${label}` : `${limit} ${label}`;
 }
 
 function buttonLabel({
   isCurrentPlan,
   isFree,
   isCheckingOut,
+  hasPaidPlan,
+  billingIsExternal,
   productName,
 }: {
   isCurrentPlan: boolean;
   isFree: boolean;
   isCheckingOut: boolean;
+  hasPaidPlan: boolean;
+  billingIsExternal: boolean;
   productName: string;
 }) {
   if (isCurrentPlan) return "Current plan";
   if (isFree) return "Included";
   if (isCheckingOut) return "Opening...";
+  if (billingIsExternal) return "Billing managed externally";
+  if (hasPaidPlan) return "Manage in billing";
   return `Choose ${productName}`;
 }
 

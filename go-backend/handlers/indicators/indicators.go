@@ -2,10 +2,13 @@ package indicators
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"finsec-backend/entitlements"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -41,6 +44,15 @@ func Save(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 		defer tx.Rollback()
+		if err := checkIndicatorLimit(c, tx, userID, body.Name); err != nil {
+			var limitErr *entitlements.LimitError
+			if errors.As(err, &limitErr) {
+				entitlements.WriteLimitError(c, limitErr)
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify indicator limit"})
+			}
+			return
+		}
 
 		var item savedIndicator
 		var path string
@@ -71,6 +83,16 @@ func Save(db *sql.DB) gin.HandlerFunc {
 		}
 		c.JSON(http.StatusCreated, item)
 	}
+}
+
+func checkIndicatorLimit(c *gin.Context, tx *sql.Tx, userID, name string) error {
+	if err := entitlements.LockUser(c, tx, userID); err != nil {
+		return err
+	}
+	return entitlements.CheckCreate(
+		c, tx, entitlements.Normalize(c.GetString("subscriptionTier")),
+		userID, entitlements.SavedIndicators, name,
+	)
 }
 
 func List(db *sql.DB) gin.HandlerFunc {

@@ -15,5 +15,5 @@ func RegisterTradeRoutes(rg *gin.RouterGroup, db *sql.DB, redisClient *redis.Cli
 	rg.GET("/portfolio", middleware.AuthMiddleware(db), positions.GetPositionHistory(db))
 	rg.GET("/trade", middleware.AuthMiddleware(db), positions.PlaceTrade(db, redisClient, pool))
 	rg.PATCH("/trade/:trade_id", middleware.AuthMiddleware(db), positions.UpdateTrade(db))
-	rg.DELETE("/trade/:trade_id", middleware.AuthMiddleware(db), positions.CloseTrade(db, redisClient))
+	rg.DELETE("/trade/:trade_id", middleware.AuthMiddleware(db), positions.CloseTrade(db))
 }

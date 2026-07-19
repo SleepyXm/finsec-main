@@ -3,6 +3,7 @@ package annotations
 import (
 	"encoding/csv"
 	"encoding/json"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -31,13 +32,7 @@ var csvHeaders = []string{
 
 const strategyAnnotationsColumn = 7
 
-func trainingRoot() string {
-	if root := os.Getenv("ANNOTATIONS_DIR"); root != "" {
-		return root
-	}
-	root, _ := filepath.Abs("../app/backend/data/annotations")
-	return root
-}
+const maxAnnotationCandles = 5_000
 
 func canonicalLabel(label string) string {
 	cleaned := strings.TrimSpace(strings.ToLower(label))
@@ -61,6 +56,7 @@ func canonicalLabel(label string) string {
 }
 
 func bindPayload(c *gin.Context) (payload, bool) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2<<20)
 	var body payload
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid annotation"})
@@ -68,11 +64,28 @@ func bindPayload(c *gin.Context) (payload, bool) {
 	}
 	body.Symbol = strings.ToUpper(strings.TrimSpace(body.Symbol))
 	body.Label = canonicalLabel(body.Label)
-	if body.Symbol == "" || body.Label == "" || len(body.Candles) == 0 || body.TimeEnd < body.TimeStart {
+	if body.Symbol == "" || body.Label == "" || len(body.Label) > 80 ||
+		len(body.Candles) == 0 || len(body.Candles) > maxAnnotationCandles ||
+		body.TimeStart <= 0 || body.TimeEnd < body.TimeStart || !validCandles(body.Candles) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid annotation"})
 		return body, false
 	}
 	return body, true
+}
+
+func validCandles(candles []candle) bool {
+	for _, item := range candles {
+		values := []float64{item.Open, item.High, item.Low, item.Close}
+		for _, value := range values {
+			if math.IsNaN(value) || math.IsInf(value, 0) {
+				return false
+			}
+		}
+		if item.High < math.Max(item.Open, item.Close) || item.Low > math.Min(item.Open, item.Close) {
+			return false
+		}
+	}
+	return true
 }
 
 func appendAnnotation(path string, body payload, annotatedAt time.Time) error {
@@ -137,61 +150,4 @@ func readRows(path string) ([][]string, error) {
 	reader := csv.NewReader(file)
 	reader.FieldsPerRecord = -1
 	return reader.ReadAll()
-}
-
-func SaveTraining() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		body, ok := bindPayload(c)
-		if !ok {
-			return
-		}
-		path := filepath.Join(trainingRoot(), body.Label+".csv")
-		if err := appendAnnotation(path, body, time.Now()); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save annotation"})
-			return
-		}
-		c.JSON(http.StatusCreated, gin.H{
-			"success":      true,
-			"file":         filepath.Base(path),
-			"symbol":       body.Symbol,
-			"label":        body.Label,
-			"candle_count": len(body.Candles),
-		})
-	}
-}
-
-func ListTraining() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		entries, err := os.ReadDir(trainingRoot())
-		if os.IsNotExist(err) {
-			c.JSON(http.StatusOK, gin.H{"annotations": []summary{}})
-			return
-		}
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list annotations"})
-			return
-		}
-
-		items := make([]summary, 0)
-		for _, entry := range entries {
-			if entry.IsDir() || filepath.Ext(entry.Name()) != ".csv" {
-				continue
-			}
-			rows, err := readRows(filepath.Join(trainingRoot(), entry.Name()))
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read annotations"})
-				return
-			}
-			rowCount := len(rows) - 1
-			if rowCount < 0 {
-				rowCount = 0
-			}
-			items = append(items, summary{
-				Label:    strings.TrimSuffix(entry.Name(), ".csv"),
-				File:     entry.Name(),
-				RowCount: rowCount,
-			})
-		}
-		c.JSON(http.StatusOK, gin.H{"annotations": items})
-	}
 }

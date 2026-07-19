@@ -158,14 +158,6 @@ func stripeCustomerID(customer *stripe.Customer) string {
 	return strings.TrimSpace(customer.ID)
 }
 
-func normalizeTier(tier string) string {
-	normalized := strings.ToLower(strings.TrimSpace(tier))
-	if normalized == "" || normalized == "none" {
-		return "free"
-	}
-	return normalized
-}
-
 func normalizeSubscriptionStatus(status string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(status))
 	if normalized == "" {

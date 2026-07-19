@@ -32,10 +32,8 @@ type QueueEntry struct {
 	TradeID   string  `json:"trade_id"`
 	ConnID    string  `json:"conn_id"`
 	AccountID string  `json:"account_id"`
-	BotID     *string `json:"bot_id,omitempty"`
 	Ticker    string  `json:"ticker"`
 	Action    string  `json:"action"`
-	Side      string  `json:"side"`
 	Quantity  float64 `json:"quantity"`
 	Price     float64 `json:"price"`
 	QueuedAt  string  `json:"queued_at"`

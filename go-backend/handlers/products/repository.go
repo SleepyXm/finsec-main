@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+
+	"finsec-backend/entitlements"
 )
 
 func listProducts(ctx context.Context, db *sql.DB) ([]Product, error) {
@@ -30,9 +32,66 @@ func listProducts(ctx context.Context, db *sql.DB) ([]Product, error) {
 			return nil, err
 		}
 		product.Price = float64(product.Amount) / 100
+		product.Limits = entitlements.LimitsFor(entitlements.Normalize(product.Tier))
 		products = append(products, product)
 	}
 	return products, rows.Err()
+}
+
+func loadSubscriptionOverview(
+	ctx context.Context,
+	db *sql.DB,
+	userID string,
+	tier entitlements.Tier,
+) (SubscriptionOverview, error) {
+	usage, err := entitlements.LoadUsage(ctx, db, userID)
+	if err != nil {
+		return SubscriptionOverview{}, err
+	}
+	overview := SubscriptionOverview{
+		Tier: tier, Status: "free", Limits: entitlements.LimitsFor(tier), Usage: usage,
+	}
+	if tier != entitlements.Free {
+		overview.Status = "managed"
+	}
+
+	var customerID string
+	if err := db.QueryRowContext(ctx, `
+		SELECT COALESCE(stripe_customer_id, '') FROM users WHERE id = $1
+	`, userID).Scan(&customerID); err != nil {
+		return SubscriptionOverview{}, err
+	}
+
+	var periodEnd sql.NullTime
+	err = db.QueryRowContext(ctx, `
+		SELECT s.status, s.current_period_end, s.cancel_at_period_end
+		FROM subscriptions s
+		JOIN products p ON p.id = s.product_id
+		WHERE s.user_id = $1 AND s.status IN ('active', 'trialing', 'past_due')
+		ORDER BY p.amount DESC LIMIT 1
+	`, userID).Scan(&overview.Status, &periodEnd, &overview.CancelAtPeriodEnd)
+	if err == sql.ErrNoRows {
+		return overview, nil
+	}
+	if err != nil {
+		return SubscriptionOverview{}, err
+	}
+	if periodEnd.Valid {
+		value := periodEnd.Time.UTC()
+		overview.CurrentPeriodEnd = &value
+	}
+	overview.CanManageBilling = customerID != ""
+	return overview, nil
+}
+
+func findStripeCustomerID(ctx context.Context, db *sql.DB, userID string) (string, error) {
+	var customerID sql.NullString
+	if err := db.QueryRowContext(ctx, `
+		SELECT stripe_customer_id FROM users WHERE id = $1
+	`, userID).Scan(&customerID); err != nil {
+		return "", err
+	}
+	return customerID.String, nil
 }
 
 func findCheckoutProduct(ctx context.Context, db *sql.DB, priceID string) (*checkoutProduct, error) {
@@ -140,7 +199,7 @@ func syncUserSubscriptionTier(ctx context.Context, db *sql.DB, userID string) er
 	_, err := db.ExecContext(ctx, `
 		UPDATE users SET subscription_tier = COALESCE((
 			SELECT p.tier FROM subscriptions s
-			JOIN products p ON p.id::text = s.product_id
+			JOIN products p ON p.id = s.product_id
 			WHERE s.user_id = $1 AND s.status IN ('active', 'trialing', 'past_due')
 			ORDER BY p.amount DESC LIMIT 1
 		), 'free'), updated_at = NOW()

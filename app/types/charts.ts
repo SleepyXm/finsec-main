@@ -11,15 +11,9 @@ export type RawData = {
 export type Candle = RawData;
 
 
-export type Interval = 
-  | "1m"
-  | "5m"
-  | "15m"
-  | "1h"
-  | "4h"
-  | "1d"
-  | "1wk"
-  | "1mo";
+export const CHART_INTERVALS = ["1m", "5m", "15m", "30m", "1h", "1d"] as const;
+
+export type Interval = (typeof CHART_INTERVALS)[number];
 
 export type Period =
   | "1d"

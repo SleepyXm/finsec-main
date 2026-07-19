@@ -5,11 +5,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
-	"strings"
 	"time"
 
+	"finsec-backend/entitlements"
 	"finsec-backend/structs"
 	"finsec-backend/utils"
 
@@ -19,6 +21,8 @@ import (
 
 const BacktestSessionTTL = 72 * time.Hour
 
+var candleHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
 func fetchCandles(
 	ctx context.Context,
 	ticker string,
@@ -27,7 +31,7 @@ func fetchCandles(
 	dateTo string,
 ) ([]structs.BacktestCandle, error) {
 	body, err := json.Marshal(map[string]any{
-		"ticker": strings.ToUpper(ticker), "interval": interval,
+		"ticker": ticker, "interval": interval,
 		"date_from": dateFrom, "date_to": dateTo,
 	})
 	if err != nil {
@@ -46,7 +50,7 @@ func fetchCandles(
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Internal-Secret", utils.Cfg.InternalSecret)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := candleHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -55,12 +59,23 @@ func fetchCandles(
 		return nil, fmt.Errorf("candle service returned %d", resp.StatusCode)
 	}
 
+	const maxResponseBytes = 32 << 20
+	responseBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(responseBody) > maxResponseBytes {
+		return nil, fmt.Errorf("candle response is too large")
+	}
 	var candles []structs.BacktestCandle
-	if err := json.NewDecoder(resp.Body).Decode(&candles); err != nil {
+	if err := json.Unmarshal(responseBody, &candles); err != nil {
 		return nil, err
 	}
 	if len(candles) == 0 {
 		return nil, fmt.Errorf("no candles found")
+	}
+	if len(candles) > maxBacktestCandles {
+		return nil, fmt.Errorf("backtest contains too many candles; choose a shorter range")
 	}
 	return candles, nil
 }
@@ -92,36 +107,60 @@ func RunBacktest(db *sql.DB) gin.HandlerFunc {
 		userID := c.MustGet("userID").(string)
 		var req structs.BacktestRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid backtest request"})
 			return
 		}
-
-		candles, err := fetchCandles(c, req.Ticker, req.Interval, req.DateFrom, req.DateTo)
-		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		if err := normalizeBacktestRequest(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
 		sessionID := uuid.NewString()
 		var createdAt, expiresAt time.Time
-		err = db.QueryRowContext(c, `
+		tx, err := db.BeginTx(c, nil)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create backtest"})
+			return
+		}
+		defer tx.Rollback()
+		if err = checkBacktestLimit(c, tx, userID); err != nil {
+			var limitErr *entitlements.LimitError
+			if errors.As(err, &limitErr) {
+				entitlements.WriteLimitError(c, limitErr)
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify backtest limit"})
+			}
+			return
+		}
+		err = tx.QueryRowContext(c, `
 			INSERT INTO backtests (
 				id, user_id, ticker, interval, date_from, date_to, starting_balance
 			)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			RETURNING created_at, expires_at
 		`,
-			sessionID, userID, strings.ToUpper(req.Ticker), req.Interval,
+			sessionID, userID, req.Ticker, req.Interval,
 			req.DateFrom, req.DateTo, req.StartingBalance,
 		).Scan(&createdAt, &expiresAt)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create backtest"})
 			return
 		}
+		if err = tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create backtest"})
+			return
+		}
+
+		candles, err := fetchCandles(c, req.Ticker, req.Interval, req.DateFrom, req.DateTo)
+		if err != nil {
+			_, _ = db.ExecContext(c, `DELETE FROM backtests WHERE id = $1`, sessionID)
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+			return
+		}
 
 		session := structs.BacktestSession{
 			SessionID: sessionID, UserID: userID,
-			Ticker: strings.ToUpper(req.Ticker), Interval: req.Interval,
+			Ticker: req.Ticker, Interval: req.Interval,
 			DateFrom: req.DateFrom, DateTo: req.DateTo,
 			StartingBalance: req.StartingBalance, CandleCount: len(candles),
 			CreatedAt: createdAt.UTC().Format(time.RFC3339),
@@ -142,4 +181,14 @@ func RunBacktest(db *sql.DB) gin.HandlerFunc {
 			"expires_at": session.ExpiresAt, "candles": candles,
 		})
 	}
+}
+
+func checkBacktestLimit(c *gin.Context, tx *sql.Tx, userID string) error {
+	if err := entitlements.LockUser(c, tx, userID); err != nil {
+		return err
+	}
+	return entitlements.CheckCreate(
+		c, tx, entitlements.Normalize(c.GetString("subscriptionTier")),
+		userID, entitlements.ActiveBacktests, "",
+	)
 }

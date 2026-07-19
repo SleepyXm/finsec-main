@@ -7,14 +7,15 @@ export type QuantityStepperProps = {
   value: number;
   onChange: (value: number) => void;
   min?: number;
+  max?: number;
 };
 
-export function QuantityStepper({ value, onChange, min = 1 }: QuantityStepperProps) {
+export function QuantityStepper({ value, onChange, min = 1, max = Number.MAX_SAFE_INTEGER }: QuantityStepperProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const displayedValue = draft ?? String(value);
 
   function update(next: number) {
-    const safeValue = Math.max(min, Math.floor(next));
+    const safeValue = Math.min(max, Math.max(min, Math.floor(next)));
     setDraft(null);
     onChange(safeValue);
   }
@@ -41,6 +42,7 @@ export function QuantityStepper({ value, onChange, min = 1 }: QuantityStepperPro
         role="spinbutton"
         aria-label="Trade quantity"
         aria-valuemin={min}
+        aria-valuemax={max}
         aria-valuenow={value}
         inputMode="numeric"
         pattern="[0-9]*"
@@ -49,7 +51,7 @@ export function QuantityStepper({ value, onChange, min = 1 }: QuantityStepperPro
           const next = event.target.value;
           if (!/^\d*$/.test(next)) return;
           setDraft(next);
-          if (next) onChange(Math.max(min, Number.parseInt(next, 10)));
+          if (next) update(Number.parseInt(next, 10));
         }}
         onBlur={commit}
         onKeyDown={(event) => {

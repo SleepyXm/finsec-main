@@ -9,6 +9,7 @@ import { AppliedIndicator } from "@/app/indicators/language/types";
 import { Interval } from "@/app/types/charts";
 import TradeButtons from "@/app/components/trading/tradebuttons";
 import { ChartQuoteStrip } from "./TopBar";
+import { EmptyState, LoadingState } from "@/app/ui";
 
 // ── extra chart (one per additional symbol) ──────────────────────────────────
 
@@ -37,6 +38,8 @@ function ExtraChartInner({
     livePnLMap,
     placeTrade,
     closeTrade,
+    tradeReady,
+    tradePending,
     updatePosition,
     loadPreviousPage,
   } = useChartContext();
@@ -72,6 +75,7 @@ function ExtraChartInner({
               )}
               <TradeButtons
                 data={tick}
+                disabled={!tradeReady || tradePending}
                 onTrade={(action) => {
                   if (tick) placeTrade(action, tick, shortname, quantity);
                 }}
@@ -88,8 +92,14 @@ function ExtraChartInner({
           appliedIndicators={settings.appliedIndicators}
           theme={settings.theme}
         />
+      ) : error ? (
+        <EmptyState
+          icon={<span aria-hidden="true" className="text-xl">!</span>}
+          message={error}
+          className="!h-full !bg-transparent text-red-300/70"
+        />
       ) : (
-        <p style={{ color: "#6b7280", padding: 16, fontSize: 12 }}>Loading…</p>
+        <LoadingState message="Loading chart…" className="!h-full !bg-transparent" />
       )}
 
       <div style={{ position: "absolute", top: 8, left: 10, zIndex: 12 }}>

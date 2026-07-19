@@ -34,8 +34,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [account, setAccount] = useState<UserAccount | null>(null);
   const [resolved, setResolved] = useState(false);
-  // check whether the inital auth check was run
-  const hasInitialized = useRef(false);
   const didRun = useRef(false);
 
   const initAuth = async () => {
@@ -60,9 +58,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (didRun.current) return;
     didRun.current = true;
-
-    const authPages = ["/login", "/signup"];
-    if (authPages.includes(window.location.pathname)) return;
 
     const cachedUser = getCachedUser();
     const cachedAccount = getCachedAccount();

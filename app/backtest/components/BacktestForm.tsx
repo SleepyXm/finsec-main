@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { runBacktest } from "../services/backtest";
 import { BacktestSession } from "@/app/types/backend";
-import { RawData } from "@/app/types/charts";
+import { CHART_INTERVALS, Interval, RawData } from "@/app/types/charts";
 import { Label, MonoLabel, TraderBlankButton, buttonStyle, cornerStyle, theme, traderInsetPanelStyle } from "@/app/ui";
-
-const INTERVALS = ["1m", "5m", "15m", "30m", "1h", "1d"];
 
 interface Props {
   onSessionStart: (session: BacktestSession, candles: RawData[]) => void;
@@ -26,22 +24,47 @@ const inputStyle: React.CSSProperties = {
 
 export default function BacktestForm({ onSessionStart, defaultTicker = "", defaultInterval = "5m" }: Props) {
   const [ticker, setTicker]     = useState(defaultTicker);
-  const [interval, setInterval] = useState(defaultInterval);
+  const initialInterval = CHART_INTERVALS.includes(defaultInterval as Interval)
+    ? defaultInterval as Interval
+    : "5m";
+  const [interval, setInterval] = useState<Interval>(initialInterval);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState("");
   const [balance, setBalance]   = useState(100000);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
+  const today = new Date().toISOString().slice(0, 10);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     setError(null);
+
+    const normalizedTicker = ticker.trim().toUpperCase();
+    if (!/^[A-Z0-9.^=_-]{1,24}$/.test(normalizedTicker)) {
+      setError("Enter a valid ticker using at most 24 letters, numbers, or market-symbol characters.");
+      return;
+    }
+    if (!dateFrom || !dateTo || dateFrom > dateTo) {
+      setError("The start date must be on or before the end date.");
+      return;
+    }
+    if (dateTo > today) {
+      setError("The end date cannot be in the future.");
+      return;
+    }
+    if (!Number.isFinite(balance) || balance < 1 || balance > 1_000_000_000_000) {
+      setError("Starting balance must be between 1 and 1,000,000,000,000.");
+      return;
+    }
+
+    setTicker(normalizedTicker);
     setLoading(true);
     try {
-      const res = await runBacktest(ticker.toUpperCase(), interval, dateFrom, dateTo, balance);
+      const res = await runBacktest(normalizedTicker, interval, dateFrom, dateTo, balance);
       onSessionStart(res, res.candles);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not start backtest.");
     } finally {
       setLoading(false);
     }
@@ -61,6 +84,7 @@ export default function BacktestForm({ onSessionStart, defaultTicker = "", defau
         <input
           value={ticker}
           onChange={(e) => setTicker(e.target.value)}
+          maxLength={24}
           placeholder="e.g. NQ=F"
           style={inputStyle}
           required
@@ -71,7 +95,7 @@ export default function BacktestForm({ onSessionStart, defaultTicker = "", defau
       <div>
         <Label t={theme.dark}>Interval</Label>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {INTERVALS.map((i) => {
+          {CHART_INTERVALS.map((i) => {
             const active = interval === i;
             return (
               <TraderBlankButton
@@ -98,6 +122,7 @@ export default function BacktestForm({ onSessionStart, defaultTicker = "", defau
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
+            max={dateTo || today}
             style={inputStyle}
             required
           />
@@ -108,6 +133,8 @@ export default function BacktestForm({ onSessionStart, defaultTicker = "", defau
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
+            min={dateFrom || undefined}
+            max={today}
             style={inputStyle}
             required
           />
@@ -121,6 +148,9 @@ export default function BacktestForm({ onSessionStart, defaultTicker = "", defau
           type="number"
           value={balance}
           onChange={(e) => setBalance(Number(e.target.value))}
+          min={1}
+          max={1_000_000_000_000}
+          step="0.01"
           style={inputStyle}
           required
         />

@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -43,7 +44,7 @@ func CreateRefreshToken(userID string) (string, error) {
 func VerifyToken(tokenStr string) (string, error) {
 	tokenStr = strings.TrimPrefix(tokenStr, "Bearer+")
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+		if t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
 			return nil, fmt.Errorf("unexpected signing method")
 		}
 		return []byte(Cfg.SecretKey), nil
@@ -52,7 +53,7 @@ func VerifyToken(tokenStr string) (string, error) {
 		return "", fmt.Errorf("invalid token")
 	}
 	claims, ok := token.Claims.(*Claims)
-	if !ok {
+	if !ok || claims.Sub == "" {
 		return "", fmt.Errorf("invalid claims")
 	}
 	return claims.Sub, nil
@@ -61,7 +62,7 @@ func VerifyToken(tokenStr string) (string, error) {
 func DecodeRefreshToken(tokenStr string) (string, error) {
 	tokenStr = strings.TrimPrefix(tokenStr, "Bearer+")
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+		if t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
 			return nil, fmt.Errorf("unexpected signing method")
 		}
 		return []byte(Cfg.SecretKey), nil
@@ -70,7 +71,7 @@ func DecodeRefreshToken(tokenStr string) (string, error) {
 		return "", fmt.Errorf("invalid or expired refresh token")
 	}
 	claims, ok := token.Claims.(*Claims)
-	if !ok || claims.Type != "refresh" {
+	if !ok || claims.Type != "refresh" || claims.Sub == "" {
 		return "", fmt.Errorf("invalid token type")
 	}
 	return claims.Sub, nil
@@ -100,6 +101,7 @@ func RevokeRefreshToken(ctx context.Context, token string) error {
 // --- Cookies ---
 
 func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) {
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(
 		"access_token",
 		"Bearer "+accessToken,
@@ -121,6 +123,7 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) {
 }
 
 func ClearAuthCookies(c *gin.Context) {
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("access_token", "", -1, "/", "", true, true)
 	c.SetCookie("refresh_token", "", -1, "/", "", true, true)
 }

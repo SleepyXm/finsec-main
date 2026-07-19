@@ -2,6 +2,7 @@ package stocks
 
 import (
 	"context"
+	"finsec-backend/market"
 	"finsec-backend/services"
 	"fmt"
 	"log"
@@ -19,10 +20,16 @@ import (
 
 func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ticker := c.Query("ticker_symbol")
-		interval := c.Query("interval")
-		if interval == "" {
-			interval = "1m"
+		ticker, err := market.NormalizeTicker(c.Query("ticker_symbol"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		rawInterval := c.DefaultQuery("interval", "1m")
+		interval, err := market.NormalizeInterval(rawInterval)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
 		}
 		t0 := time.Now()
 		conn, _, _, err := ws.UpgradeHTTP(c.Request, c.Writer)

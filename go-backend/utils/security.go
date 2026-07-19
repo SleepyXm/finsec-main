@@ -11,7 +11,7 @@ import (
 
 // DummyPasswordHash is used to prevent timing attacks when a user is not found.
 // Pre-computed bcrypt hash so verify_password always does real work.
-const DummyPasswordHash = "$2b$12$C6UzMDM.H6dfI/f/IKcEeO9u9wZK0s8AjtKoa6HgMHqmpYyqn1cG."
+const DummyPasswordHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
 
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)

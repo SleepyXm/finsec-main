@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LinechartIntraday } from "@/app/chart/chartrender/charts/LinechartIntraday";
 import { fetchIntraday, type IntradayLinePoint } from "@/app/types/assets";
 import { AssetPill } from "@/app/components/intradaymarket/components/UI";
-import { theme, traderBlankButtonStyle, traderCornerStyle, traderInsetPanelStyle, traderPanelStyle, cornerStyle } from "@/app/ui";
+import { EmptyState, LoadingState, theme, traderBlankButtonStyle, traderCornerStyle, traderInsetPanelStyle, traderPanelStyle } from "@/app/ui";
 
 const ASSET_CARD_WIDTH = 280;
 const ASSET_CARD_GAP = 12;
@@ -11,14 +11,15 @@ const ASSET_RAIL_GAP = 8;
 const ASSET_RAIL_PADDING = 12;
 
 export function MarketSection({ title, items }: { title: string; items: { ticker: string, name: string, close: number,  }[] }) {
-  const assetRailShellRef = useRef<HTMLDivElement | null>(null);
   const assetRailRef = useRef<HTMLDivElement | null>(null);
-  const [assetRailWidth, setAssetRailWidth] = useState(ASSET_CARD_WIDTH);
   const [selected, setSelected] = useState(items[0]?.ticker ?? "");
   const [chartState, setChartState] = useState<{
     ticker: string;
     data: IntradayLinePoint[];
   }>({ ticker: "", data: [] });
+  const [chartStatus, setChartStatus] = useState<"loading" | "ready" | "empty" | "error">(
+    items.length ? "loading" : "empty",
+  );
   const selectedItem = items.find((item) => item.ticker === selected);
   const selectedName = selectedItem?.name ?? selected;
   const chartData = chartState.ticker === selected ? chartState.data : [];
@@ -31,50 +32,17 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
       .then((data) => {
         if (!cancelled) {
           setChartState({ ticker: selected, data });
+          setChartStatus(data.length ? "ready" : "empty");
         }
       })
-      .catch(console.error);
+      .catch(() => {
+        if (!cancelled) setChartStatus("error");
+      });
 
     return () => {
       cancelled = true;
     };
   }, [selected]);
-
-  useLayoutEffect(() => {
-    const shell = assetRailShellRef.current;
-    if (!shell) return;
-
-    const setWholeCardWidth = () => {
-      const availableWidth =
-        shell.clientWidth -
-        ASSET_RAIL_PADDING * 2 -
-        ASSET_RAIL_BUTTON_WIDTH * 2 -
-        ASSET_RAIL_GAP * 2;
-      const assetAreaWidth = Math.max(
-        ASSET_CARD_WIDTH,
-        availableWidth
-      );
-      const visibleCards = Math.max(
-        1,
-        Math.floor(
-          (assetAreaWidth + ASSET_CARD_GAP) /
-            (ASSET_CARD_WIDTH + ASSET_CARD_GAP)
-        )
-      );
-
-      setAssetRailWidth(
-        visibleCards * ASSET_CARD_WIDTH +
-          (visibleCards - 1) * ASSET_CARD_GAP
-      );
-    };
-
-    setWholeCardWidth();
-
-    const observer = new ResizeObserver(setWholeCardWidth);
-    observer.observe(shell);
-
-    return () => observer.disconnect();
-  }, []);
 
   const scrollAssetRail = (direction: -1 | 1) => {
     assetRailRef.current?.scrollBy({
@@ -99,7 +67,6 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
         </div>
 
         <div
-          ref={assetRailShellRef}
           className="relative mb-4 overflow-hidden"
           style={{
             ...traderInsetPanelStyle(theme.dark),
@@ -147,7 +114,11 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
                 name={item.name}
                 close={item.close}
                 selected={selected === item.ticker}
-                onSelect={() => setSelected(item.ticker)}
+                onSelect={() => {
+                  if (item.ticker === selected) return;
+                  setChartStatus("loading");
+                  setSelected(item.ticker);
+                }}
               />
             ))}
           </div>
@@ -170,10 +141,16 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
           style={traderInsetPanelStyle(theme.dark)}
         >
           <div style={traderCornerStyle(0.22)} />
-          {chartData.length > 0
-            ? <LinechartIntraday data={chartData} minimal />
-            : <div className="flex h-full w-full items-center justify-center text-sm text-[#5d6578]">Loading...</div>
-          }
+          {chartStatus === "ready" && chartData.length > 0 ? (
+            <LinechartIntraday data={chartData} minimal />
+          ) : chartStatus === "loading" ? (
+            <LoadingState message={`Loading ${selectedName} chart…`} className="!h-full !bg-transparent" />
+          ) : (
+            <EmptyState
+              icon={<span aria-hidden="true" className="text-xl">{chartStatus === "error" ? "!" : "—"}</span>}
+              message={chartStatus === "error" ? "Chart data could not be loaded." : "No chart data is available."}
+            />
+          )}
         </div>
 
         <div
@@ -186,9 +163,11 @@ export function MarketSection({ title, items }: { title: string; items: { ticker
             <div className="text-sm text-white">Relevant news</div>
             <div className="text-sm text-[#8a90a0]">{selectedName}</div>
           </div>
-          <p className="mt-3 text-sm text-[#8a90a0]">
-            Loading relevant news for {selectedName}...
-          </p>
+          <EmptyState
+            icon={<span aria-hidden="true">—</span>}
+            message="News integration is not available yet."
+            className="!h-auto min-h-12"
+          />
         </div>
       </div>
     </section>

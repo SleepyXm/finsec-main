@@ -9,8 +9,6 @@ import (
 )
 
 func RegisterAnnotationRoutes(rg *gin.RouterGroup, db *sql.DB) {
-	rg.POST("/annotations", annotations.SaveTraining())
-	rg.GET("/annotations", annotations.ListTraining())
 	rg.POST("/user-annotations", middleware.AuthMiddleware(db), annotations.SaveUser(db))
 	rg.GET("/user-annotations", middleware.AuthMiddleware(db), annotations.ListUser(db))
 	rg.GET("/user-annotations/:id", middleware.AuthMiddleware(db), annotations.GetUser(db))
