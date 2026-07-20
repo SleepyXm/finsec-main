@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { AreaSeries } from 'lightweight-charts';
 import { useChart } from '../hooks/useChart';
 import { intradayChartTheme, ChartTheme } from '../themes/themes';
-import type { IntradayLinePoint } from '@/app/types/assets';
+import { IntradayLinePoint } from '@/app/types/assets';
 
 export const LinechartIntraday: React.FC<{
   data: IntradayLinePoint[];

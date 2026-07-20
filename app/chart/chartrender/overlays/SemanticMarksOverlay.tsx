@@ -35,43 +35,108 @@ function project(value: number, source: Candle[], target: Candle[]) {
   return to.low + ((value - from.low) / from.span) * to.span;
 }
 
-export function buildValidationMarks(candidate: ValidationCandidate, references: StrategySnapshot[]) {
-  if (!candidate.semantic) return [];
+export function buildValidationMarks(
+  candidate: ValidationCandidate,
+  references: StrategySnapshot[],
+) {
+  if (!candidate.semantic || !candidate.candles.length) return [];
+
   const placements = [
     ...candidate.semantic.results,
     ...candidate.semantic.execution,
   ];
+
   return placements.flatMap((placement): SemanticMark[] => {
     const reference = references[placement.referenceIndex];
-    const annotation = reference?.annotations.find((item) => item.id === placement.id)
-      ?? reference?.annotations.find((item) => item.conceptId === placement.conceptId);
+
+    const annotation =
+      reference?.annotations.find(
+        (item) => item.id === placement.id,
+      ) ??
+      reference?.annotations.find(
+        (item) => item.conceptId === placement.conceptId,
+      );
+
     if (!reference || !annotation) return [];
-    const projected = { ...annotation, startRatio: placement.matchedStartRatio, endRatio: placement.matchedEndRatio };
+
+    const last = candidate.candles.length - 1;
+    const ratioLast = Math.max(1, last);
+
+    const start = Math.max(
+      0,
+      Math.min(last, placement.matchedStartIndex),
+    );
+
+    const end = Math.max(
+      start,
+      Math.min(last, placement.matchedEndIndex),
+    );
+
+    let projected: StrategyAnnotation;
+
     if (annotation.kind === "candle_group") {
-      const last = candidate.candles.length - 1;
-      const start = Math.round(Math.min(placement.matchedStartRatio, placement.matchedEndRatio) * last);
-      const end = Math.round(Math.max(placement.matchedStartRatio, placement.matchedEndRatio) * last);
-      const candles = candidate.candles.slice(start, end + 1);
-      projected.priceHigh = Math.max(...candles.map((candle) => candle.high));
-      projected.priceLow = Math.min(...candles.map((candle) => candle.low));
+      projected = {
+        ...annotation,
+        candles: candidate.candles
+          .slice(start, end + 1)
+          .map(({ open, high, low, close }) => ({
+            open,
+            high,
+            low,
+            close,
+          })),
+      };
+    } else if (annotation.kind === "zone") {
+      projected = {
+        ...annotation,
+        startRatio: start / ratioLast,
+        endRatio: end / ratioLast,
+        priceHigh: project(
+          annotation.priceHigh,
+          reference.candles,
+          candidate.candles,
+        ),
+        priceLow: project(
+          annotation.priceLow,
+          reference.candles,
+          candidate.candles,
+        ),
+      };
+    } else if (annotation.kind === "level") {
+      projected = {
+        ...annotation,
+        startRatio: start / ratioLast,
+        endRatio: end / ratioLast,
+        price: project(
+          annotation.price,
+          reference.candles,
+          candidate.candles,
+        ),
+      };
     } else {
-      if (annotation.priceHigh != null) projected.priceHigh = project(annotation.priceHigh, reference.candles, candidate.candles);
-      if (annotation.priceLow != null) projected.priceLow = project(annotation.priceLow, reference.candles, candidate.candles);
+      const candleIndex = start;
+      const candle = candidate.candles[candleIndex];
+
+      projected = {
+        ...annotation,
+        candleIndex,
+        price: candle[annotation.priceAnchor],
+      };
     }
-    if (annotation.kind === "marker" && annotation.priceAnchor) {
-      const candleIndex = Math.round(placement.matchedStartRatio * (candidate.candles.length - 1));
-      projected.candleIndex = candleIndex;
-      projected.price = candidate.candles[candleIndex][annotation.priceAnchor];
-    } else if (annotation.price != null) {
-      projected.price = project(annotation.price, reference.candles, candidate.candles);
-    }
+
     const scored = isScored(placement);
     const weak = scored && placement.score < 70;
-    const required = scored && placement.importance === "required";
+    const required =
+      scored && placement.importance === "required";
+
     return [{
       annotation: projected,
       score: scored ? placement.score : undefined,
-      status: weak ? required ? "fail" : "weak" : "pass",
+      status: weak
+        ? required
+          ? "fail"
+          : "weak"
+        : "pass",
     }];
   });
 }
@@ -108,19 +173,110 @@ export function SemanticMarksOverlay({ chartRef, seriesRef, data, marks, compact
           const other = chart.timeScale().timeToCoordinate(data[next].time) ?? center;
           return center + direction * Math.max(3, Math.abs(other - center) / 2);
         };
-        setScreenMarks(marks.map((mark) => {
-          const start = Math.min(mark.annotation.startRatio, mark.annotation.endRatio);
-          const end = Math.max(mark.annotation.startRatio, mark.annotation.endRatio);
-          const candleGroup = mark.annotation.kind === "candle_group";
-          return {
-            ...mark,
-            left: candleGroup ? edge(start, -1) : coordinate(start),
-            right: candleGroup ? edge(end, 1) : coordinate(end),
-            top: mark.annotation.priceHigh == null ? undefined : series.priceToCoordinate(mark.annotation.priceHigh) ?? 0,
-            bottom: mark.annotation.priceLow == null ? undefined : series.priceToCoordinate(mark.annotation.priceLow) ?? 0,
-            y: mark.annotation.price == null ? undefined : series.priceToCoordinate(mark.annotation.price) ?? 0,
-          };
-        }));
+        setScreenMarks(
+  marks.flatMap((mark): ScreenMark[] => {
+    const annotation = mark.annotation;
+    const last = Math.max(1, data.length - 1);
+
+    if (annotation.kind === "candle_group") {
+      if (!annotation.candles.length) return [];
+
+      const startIndex = data.findIndex((_, index) =>
+        index + annotation.candles.length <= data.length &&
+        annotation.candles.every((candle, offset) => {
+          const chartCandle = data[index + offset];
+
+          return (
+            chartCandle.open === candle.open &&
+            chartCandle.high === candle.high &&
+            chartCandle.low === candle.low &&
+            chartCandle.close === candle.close
+          );
+        }),
+      );
+
+      if (startIndex < 0) return [];
+
+      const endIndex =
+        startIndex + annotation.candles.length - 1;
+
+      const priceHigh = Math.max(
+        ...annotation.candles.map((candle) => candle.high),
+      );
+
+      const priceLow = Math.min(
+        ...annotation.candles.map((candle) => candle.low),
+      );
+
+      return [{
+        ...mark,
+        left: edge(startIndex / last, -1),
+        right: edge(endIndex / last, 1),
+        top:
+          series.priceToCoordinate(priceHigh) ?? 0,
+        bottom:
+          series.priceToCoordinate(priceLow) ?? 0,
+      }];
+    }
+
+    if (annotation.kind === "zone") {
+      const start = Math.min(
+        annotation.startRatio,
+        annotation.endRatio,
+      );
+
+      const end = Math.max(
+        annotation.startRatio,
+        annotation.endRatio,
+      );
+
+      return [{
+        ...mark,
+        left: coordinate(start),
+        right: coordinate(end),
+        top:
+          series.priceToCoordinate(annotation.priceHigh) ?? 0,
+        bottom:
+          series.priceToCoordinate(annotation.priceLow) ?? 0,
+      }];
+    }
+
+    if (annotation.kind === "marker") {
+      const candleIndex = Math.max(
+        0,
+        Math.min(data.length - 1, annotation.candleIndex),
+      );
+
+      const candleRatio = candleIndex / last;
+
+      return [{
+        ...mark,
+        left: coordinate(candleRatio),
+        right: coordinate(candleRatio),
+        y:
+          series.priceToCoordinate(annotation.price) ?? 0,
+      }];
+    }
+
+    const start = Math.min(
+      annotation.startRatio,
+      annotation.endRatio,
+    );
+
+    const end = Math.max(
+      annotation.startRatio,
+      annotation.endRatio,
+    );
+
+    return [{
+      ...mark,
+      left: coordinate(start),
+      right: coordinate(end),
+      y:
+        series.priceToCoordinate(annotation.price) ?? 0,
+    }];
+  }),
+);
       });
     };
     const observer = new ResizeObserver(paint);
@@ -136,14 +292,120 @@ export function SemanticMarksOverlay({ chartRef, seriesRef, data, marks, compact
 
   if (!marks.length) return null;
   return <div ref={rootRef} style={{ position: "absolute", inset: 0, zIndex: 18, pointerEvents: "none", overflow: "hidden" }}>
-    {screenMarks.map(({ annotation, score, status, left, right, top = 0, bottom = 0, y = 0 }) => {
-      const color = status === "fail" ? "#ef6b73" : status === "weak" ? "#f1b86b" : COLORS[annotation.role];
-      const label = `${annotation.label}${compact || score == null ? "" : ` · ${score.toFixed(0)}%`}`;
-      const tag: React.CSSProperties = { position: "absolute", left: 3, top: 2, color, whiteSpace: "nowrap", fontSize: compact ? 7 : 9, background: "rgba(8,11,16,.84)", padding: "2px 3px" };
-      if ((annotation.kind === "candle_group" || annotation.kind === "zone") && annotation.priceHigh != null && annotation.priceLow != null) return <div key={annotation.id} style={{ position: "absolute", left: Math.min(left, right), top: Math.min(top, bottom), width: Math.max(3, Math.abs(right - left)), height: Math.max(3, Math.abs(bottom - top)), border: `1px ${status === "weak" ? "dashed" : "solid"} ${color}`, background: `${color}1f` }}><span style={tag}>{label}</span></div>;
-      if (annotation.price == null) return null;
-      if (annotation.kind === "marker") return <div key={annotation.id} style={{ position: "absolute", left: left - 4, top: y - 4, width: 8, height: 8, borderRadius: "50%", background: color }}><span style={{ ...tag, left: 11, top: -7 }}>{label}</span></div>;
-      return <div key={annotation.id} style={{ position: "absolute", left: Math.min(left, right), top: y, width: Math.max(3, Math.abs(right - left)), borderTop: `1px dashed ${color}` }}><span style={{ ...tag, top: -14 }}>{label}</span></div>;
-    })}
+    {screenMarks.map(({
+  annotation,
+  score,
+  status,
+  left,
+  right,
+  top = 0,
+  bottom = 0,
+  y = 0,
+}) => {
+  const color =
+    status === "fail"
+      ? "#ef6b73"
+      : status === "weak"
+        ? "#f1b86b"
+        : COLORS[annotation.role];
+
+  const label =
+    `${annotation.label}${
+      compact || score == null
+        ? ""
+        : ` · ${score.toFixed(0)}%`
+    }`;
+
+  const tag: React.CSSProperties = {
+    position: "absolute",
+    left: 3,
+    top: 2,
+    color,
+    whiteSpace: "nowrap",
+    fontSize: compact ? 7 : 9,
+    background: "rgba(8,11,16,.84)",
+    padding: "2px 3px",
+  };
+
+  if (annotation.kind === "candle_group") {
+    return (
+      <div
+        key={annotation.id}
+        style={{
+          position: "absolute",
+          left: Math.min(left, right),
+          top: Math.min(top, bottom),
+          width: Math.max(3, Math.abs(right - left)),
+          height: Math.max(3, Math.abs(bottom - top)),
+          border: `1px ${
+            status === "weak" ? "dashed" : "solid"
+          } ${color}`,
+          background: `${color}1f`,
+        }}
+      >
+        <span style={tag}>{label}</span>
+      </div>
+    );
+  }
+
+  if (annotation.kind === "zone") {
+    return (
+      <div
+        key={annotation.id}
+        style={{
+          position: "absolute",
+          left: Math.min(left, right),
+          top: Math.min(top, bottom),
+          width: Math.max(3, Math.abs(right - left)),
+          height: Math.max(3, Math.abs(bottom - top)),
+          border: `1px ${
+            status === "weak" ? "dashed" : "solid"
+          } ${color}`,
+          background: `${color}1f`,
+        }}
+      >
+        <span style={tag}>{label}</span>
+      </div>
+    );
+  }
+
+  if (annotation.kind === "marker") {
+    return (
+      <div
+        key={annotation.id}
+        style={{
+          position: "absolute",
+          left: left - 4,
+          top: y - 4,
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: color,
+        }}
+      >
+        <span style={{ ...tag, left: 11, top: -7 }}>
+          {label}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      key={annotation.id}
+      style={{
+        position: "absolute",
+        left: Math.min(left, right),
+        top: y,
+        width: Math.max(3, Math.abs(right - left)),
+        borderTop: `1px dashed ${color}`,
+      }}
+    >
+      <span style={{ ...tag, top: -14 }}>
+        {label}
+      </span>
+    </div>
+  );
+})}
   </div>;
 }

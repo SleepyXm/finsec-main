@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { CHART_INTERVALS, Interval } from "../types/charts";
+import { CHART_INTERVALS, Interval } from "@/app/types/charts";
 import { useChartData } from "./chartdata";
 import { useStockSocket } from "@/app/hooks/useStockSocket";
 import { usePositions } from "@/app/hooks/usePositions";
@@ -10,9 +10,10 @@ import { useTrades } from "../hooks/useTrades";
 import { AppliedIndicator } from "@/app/indicators/language/types";
 import { Candle, RawData } from "@/app/types/charts";
 import { StockTick } from "@/app/types/websocket";
-import { buildAnnotationPayload, saveUserAnnotation, AnnotationDraft, StrategyAnnotation, StrategySnapshot } from "@/app/handlers/annotations";
+import { buildAnnotationPayload, saveUserAnnotation, updateUserStrategySnapshotAnnotations, AnnotationDraft, StrategyAnnotation, StrategySnapshot } from "@/app/handlers/annotations";
 import { compareWindow, type SimilarityResult } from "./SimilaritySearch/similarity";
 import { compareSemanticSnapshot, SemanticValidation } from "./SimilaritySearch/semantic";
+import { buildValidationMarks } from "./chartrender/overlays/SemanticMarksOverlay";
 
 const MAX_LENGTH_BOUNDARY_RATIO = 0.95;
 
@@ -385,30 +386,78 @@ export function ChartProvider({
   }, []);
 
   const acceptCandidate = useCallback(async () => {
-    if (!validation.active || !validation.candidate) return;
-    const { strategyLabel, candidate, scanIndex } = validation;
-    const candidateStartIndex = chartData?.findIndex((candle) => candle.time === candidate.candles[0].time) ?? -1;
-    if (candidateStartIndex < 0) return;
-    const nextScanIndex = candidateStartIndex - 1;
-    const draft: AnnotationDraft = {
-      label: strategyLabel,
-      timeStart: candidate.candles[0].time,
-      timeEnd: candidate.candles[candidate.candles.length - 1].time,
-      candles: candidate.candles,
+  if (!validation.active || !validation.candidate) return;
+
+  const {
+    strategyLabel,
+    candidate,
+    scanIndex,
+    semanticReferences,
+  } = validation;
+
+  const candidateStartIndex =
+    chartData?.findIndex(
+      (candle) => candle.time === candidate.candles[0].time,
+    ) ?? -1;
+
+  if (candidateStartIndex < 0) return;
+
+  const nextScanIndex = candidateStartIndex - 1;
+
+  const draft: AnnotationDraft = {
+    label: strategyLabel,
+    timeStart: candidate.candles[0].time,
+    timeEnd:
+      candidate.candles[candidate.candles.length - 1].time,
+    candles: candidate.candles,
+  };
+
+  const payload = buildAnnotationPayload(draft, shortname);
+
+  const saved = await saveUserAnnotation(payload);
+
+  if (candidate.semantic) {
+    const projectedCandidate: ValidationCandidate = {
+      ...candidate,
+      candles: candidate.candles.map((candle, index) => ({
+        ...candle,
+        ...payload.candles[index],
+      })),
     };
-    await saveUserAnnotation(buildAnnotationPayload(draft, shortname));
-    setValidation((v) => v.active
+
+    const semanticAnnotations = buildValidationMarks(
+      projectedCandidate,
+      semanticReferences,
+    ).map(({ annotation }) => annotation);
+
+    if (semanticAnnotations.length > 0) {
+      await updateUserStrategySnapshotAnnotations(
+        saved.id,
+        saved.snapshot_count - 1,
+        semanticAnnotations,
+      );
+    }
+  }
+
+  setValidation((current) =>
+    current.active
       ? {
-          ...v,
+          ...current,
           candidate: null,
           scanIndex: nextScanIndex,
-          scanned: v.scanned + Math.min(
-            scanIndex - nextScanIndex,
-            Math.max(0, scanIndex - v.maxLength + 1),
-          ),
+          scanned:
+            current.scanned +
+            Math.min(
+              scanIndex - nextScanIndex,
+              Math.max(
+                0,
+                scanIndex - current.maxLength + 1,
+              ),
+            ),
         }
-      : v);
-  }, [validation, chartData, shortname]);
+      : current,
+  );
+}, [validation, chartData, shortname]);
 
   const rejectCandidate = useCallback(() => {
     if (!validation.active || !validation.candidate) return;

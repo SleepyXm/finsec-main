@@ -10,20 +10,25 @@ type candle struct {
 }
 
 type strategyAnnotation struct {
-	ID          string   `json:"id"`
-	ConceptID   string   `json:"conceptId"`
-	Label       string   `json:"label"`
-	Kind        string   `json:"kind"`
-	Role        string   `json:"role"`
-	Importance  string   `json:"importance"`
-	Trigger     string   `json:"trigger"`
-	StartRatio  float64  `json:"startRatio"`
-	EndRatio    float64  `json:"endRatio"`
-	PriceHigh   *float64 `json:"priceHigh,omitempty"`
-	PriceLow    *float64 `json:"priceLow,omitempty"`
-	Price       *float64 `json:"price,omitempty"`
-	CandleIndex *int     `json:"candleIndex,omitempty"`
-	PriceAnchor string   `json:"priceAnchor,omitempty"`
+	ID         string `json:"id"`
+	ConceptID  string `json:"conceptId"`
+	Label      string `json:"label"`
+	Kind       string `json:"kind"`
+	Role       string `json:"role"`
+	Importance string `json:"importance"`
+	Trigger    string `json:"trigger"`
+	// zone / level only
+	StartRatio float64  `json:"startRatio,omitempty"`
+	EndRatio   float64  `json:"endRatio,omitempty"`
+	PriceHigh  *float64 `json:"priceHigh,omitempty"`
+	PriceLow   *float64 `json:"priceLow,omitempty"`
+	// level / marker only
+	Price *float64 `json:"price,omitempty"`
+	// marker only
+	CandleIndex *int   `json:"candleIndex,omitempty"`
+	PriceAnchor string `json:"priceAnchor,omitempty"`
+	// candle_group only
+	Candles []candle `json:"candles,omitempty"`
 }
 
 type annotationUpdate struct {

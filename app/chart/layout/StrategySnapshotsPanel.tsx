@@ -170,7 +170,7 @@ export function StrategySnapshotsPanel({
               )}
               style={{ width: "100%", padding: "8px 10px", fontSize: 10, letterSpacing: "0.04em" }}
             >
-              Scan history
+              Validate Strategy
             </TraderBlankButton>
           </div>
         ) : (

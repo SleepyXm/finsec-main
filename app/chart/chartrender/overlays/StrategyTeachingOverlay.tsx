@@ -35,36 +35,75 @@ export function StrategyTeachingOverlay({ chartRef, seriesRef, data }: {
   const price = (y: number) => Number(seriesRef.current?.coordinateToPrice(y));
 
   const add = (from: Point, to: Point) => {
-    const first = Math.min(nearestIndex(from.x), nearestIndex(to.x));
-    const last = Math.max(nearestIndex(from.x), nearestIndex(to.x));
-    const execution = ["entry", "exit", "stop_loss", "take_profit"].includes(tool);
-    const base = {
-      id: annotationId(), conceptId: conceptId(activeLabel), label: activeLabel,
-      role: (execution ? tool : "structure") as StrategyAnnotation["role"],
-      importance, trigger, startRatio: ratio(first), endRatio: ratio(last),
-    };
-    let annotation: StrategyAnnotation;
-    if (tool === "candle_group") {
-      const candles = data.slice(first, last + 1);
-      annotation = { ...base, kind: "candle_group", priceHigh: Math.max(...candles.map((candle) => candle.high)), priceLow: Math.min(...candles.map((candle) => candle.low)) };
-    } else if (tool === "zone") {
-      annotation = { ...base, kind: "zone", priceHigh: Math.max(price(from.y), price(to.y)), priceLow: Math.min(price(from.y), price(to.y)) };
-    } else if (tool === "level") {
-      annotation = { ...base, kind: "level", startRatio: 0, endRatio: 1, price: price(to.y) };
-    } else {
-      const candleIndex = nearestIndex(to.x);
-      const candle = data[candleIndex];
-      const clickedPrice = price(to.y);
-      const anchors = ["open", "high", "low", "close"] as const;
-      const priceAnchor = anchors.reduce((closest, anchor) =>
-        Math.abs(candle[anchor] - clickedPrice) < Math.abs(candle[closest] - clickedPrice) ? anchor : closest);
-      annotation = {
-        ...base, kind: "marker", candleIndex, priceAnchor, price: candle[priceAnchor],
-        startRatio: ratio(candleIndex), endRatio: ratio(candleIndex),
-      };
-    }
-    setStrategyTeachingAnnotations([...annotations, annotation]);
+  const first = Math.min(nearestIndex(from.x), nearestIndex(to.x));
+  const last = Math.max(nearestIndex(from.x), nearestIndex(to.x));
+  const execution = ["entry", "exit", "stop_loss", "take_profit"].includes(tool);
+
+  const base = {
+    id: annotationId(),
+    conceptId: conceptId(activeLabel),
+    label: activeLabel,
+    role: (execution ? tool : "structure") as StrategyAnnotation["role"],
+    importance,
+    trigger,
   };
+
+  let annotation: StrategyAnnotation;
+
+  if (tool === "candle_group") {
+    annotation = {
+      ...base,
+      kind: "candle_group",
+      candles: data
+        .slice(first, last + 1)
+        .map(({ open, high, low, close }) => ({
+          open,
+          high,
+          low,
+          close,
+        })),
+    };
+  } else if (tool === "zone") {
+    annotation = {
+      ...base,
+      kind: "zone",
+      startRatio: ratio(first),
+      endRatio: ratio(last),
+      priceHigh: Math.max(price(from.y), price(to.y)),
+      priceLow: Math.min(price(from.y), price(to.y)),
+    };
+  } else if (tool === "level") {
+    annotation = {
+      ...base,
+      kind: "level",
+      startRatio: 0,
+      endRatio: 1,
+      price: price(to.y),
+    };
+  } else {
+    const candleIndex = nearestIndex(to.x);
+    const candle = data[candleIndex];
+    const clickedPrice = price(to.y);
+    const anchors = ["open", "high", "low", "close"] as const;
+
+    const priceAnchor = anchors.reduce((closest, anchor) =>
+      Math.abs(candle[anchor] - clickedPrice) <
+      Math.abs(candle[closest] - clickedPrice)
+        ? anchor
+        : closest,
+    );
+
+    annotation = {
+      ...base,
+      kind: "marker",
+      candleIndex,
+      priceAnchor,
+      price: candle[priceAnchor],
+    };
+  }
+
+  setStrategyTeachingAnnotations([...annotations, annotation]);
+};
 
   return <div
     style={{ position: "absolute", inset: 0, zIndex: 20, cursor: tool === "level" ? "row-resize" : "crosshair" }}

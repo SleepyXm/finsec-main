@@ -28,22 +28,75 @@ export type SemanticValidation = {
 const GATE = 70;
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 
-function bounds(length: number, annotation: StrategyAnnotation) {
-  const last = Math.max(0, length - 1);
-  const start = annotation.kind === "marker" && annotation.candleIndex != null
-    ? Math.max(0, Math.min(last, annotation.candleIndex))
-    : Math.round(clamp(Math.min(annotation.startRatio, annotation.endRatio)) * last);
-  const end = annotation.kind === "marker" ? start
-    : Math.max(start, Math.round(clamp(Math.max(annotation.startRatio, annotation.endRatio)) * last));
+function bounds(reference: Candle[], annotation: StrategyAnnotation) {
+  const last = Math.max(0, reference.length - 1);
+
+  if (annotation.kind === "marker") {
+    const index = Math.max(0, Math.min(last, annotation.candleIndex));
+    return { start: index, end: index };
+  }
+
+  if (annotation.kind === "candle_group") {
+    const located = reference.findIndex((_, index) =>
+      index + annotation.candles.length <= reference.length &&
+      annotation.candles.every((candle, offset) => {
+        const referenceCandle = reference[index + offset];
+
+        return (
+          referenceCandle.open === candle.open &&
+          referenceCandle.high === candle.high &&
+          referenceCandle.low === candle.low &&
+          referenceCandle.close === candle.close
+        );
+      }),
+    );
+
+    const start = located >= 0 ? located : 0;
+    const end = Math.min(
+      last,
+      start + Math.max(0, annotation.candles.length - 1),
+    );
+
+    return { start, end };
+  }
+
+  const start = Math.round(
+    clamp(Math.min(annotation.startRatio, annotation.endRatio)) * last,
+  );
+
+  const end = Math.max(
+    start,
+    Math.round(
+      clamp(Math.max(annotation.startRatio, annotation.endRatio)) * last,
+    ),
+  );
+
   return { start, end };
 }
 
-function mappedBounds(referenceLength: number, candidateLength: number, annotation: StrategyAnnotation, alignment: number[]) {
-  const source = bounds(referenceLength, annotation);
-  const fallback = (index: number) => Math.round(index * (candidateLength - 1) / Math.max(1, referenceLength - 1));
+function mappedBounds(
+  reference: Candle[],
+  candidateLength: number,
+  annotation: StrategyAnnotation,
+  alignment: number[],
+) {
+  const source = bounds(reference, annotation);
+
+  const fallback = (index: number) =>
+    Math.round(
+      index *
+      (candidateLength - 1) /
+      Math.max(1, reference.length - 1),
+    );
+
   const start = alignment[source.start] ?? fallback(source.start);
   const end = alignment[source.end] ?? fallback(source.end);
-  return { source, start: Math.min(start, end), end: Math.max(start, end) };
+
+  return {
+    source,
+    start: Math.min(start, end),
+    end: Math.max(start, end),
+  };
 }
 
 function shape(candles: Array<Pick<Candle, "open" | "high" | "low" | "close">>) {
@@ -112,23 +165,66 @@ function interactionScore(trigger: StrategyAnnotation["trigger"], reference: num
   return similarity(reference, candidate);
 }
 
-function scoreAnnotation(reference: Candle[], candidate: Candle[], annotation: StrategyAnnotation, alignment: number[]) {
+function scoreAnnotation(
+  reference: Candle[],
+  candidate: Candle[],
+  annotation: StrategyAnnotation,
+  alignment: number[],
+) {
   const normalised = normaliseCandles(candidate);
-  const mapped = mappedBounds(reference.length, candidate.length, annotation, alignment);
-  const source = reference.slice(mapped.source.start, mapped.source.end + 1);
+
+  const mapped = mappedBounds(
+    reference,
+    candidate.length,
+    annotation,
+    alignment,
+  );
+
+  const source = annotation.kind === "candle_group"
+    ? annotation.candles
+    : reference.slice(mapped.source.start, mapped.source.end + 1);
+
   const target = normalised.slice(mapped.start, mapped.end + 1);
+
   let score = similarity(shape(source), shape(target));
-  if (annotation.kind === "zone" && annotation.priceLow != null && annotation.priceHigh != null) {
+
+  if (
+    annotation.kind === "zone" &&
+    annotation.priceLow != null &&
+    annotation.priceHigh != null
+  ) {
     score = interactionScore(
       annotation.trigger,
-      zoneSignature(source, annotation.priceLow, annotation.priceHigh),
-      zoneSignature(target, projectPrice(annotation.priceLow, reference, normalised), projectPrice(annotation.priceHigh, reference, normalised)),
+      zoneSignature(
+        source,
+        annotation.priceLow,
+        annotation.priceHigh,
+      ),
+      zoneSignature(
+        target,
+        projectPrice(annotation.priceLow, reference, normalised),
+        projectPrice(annotation.priceHigh, reference, normalised),
+      ),
     );
-  } else if (annotation.kind === "level" && annotation.price != null) {
-    score = interactionScore(annotation.trigger, levelSignature(source, annotation.price), levelSignature(target, projectPrice(annotation.price, reference, normalised)));
+  } else if (
+    annotation.kind === "level" &&
+    annotation.price != null
+  ) {
+    score = interactionScore(
+      annotation.trigger,
+      levelSignature(source, annotation.price),
+      levelSignature(
+        target,
+        projectPrice(annotation.price, reference, normalised),
+      ),
+    );
   }
-  const last = Math.max(1, candidate.length - 1);
-  return { score, startRatio: mapped.start / last, endRatio: mapped.end / last };
+
+  return {
+    score,
+    start: mapped.start,
+    end: mapped.end,
+  };
 }
 
 export function compareSemanticSnapshot(
@@ -138,32 +234,93 @@ export function compareSemanticSnapshot(
   structuralScore: number,
 ): SemanticValidation | null {
   if (!reference.annotations.length) return null;
+
   const alignment = alignCandleStructure(reference.candles, candidate);
   if (!alignment.length) return null;
-  const active = reference.annotations.filter((annotation) => annotation.importance !== "informational");
-  const results = active.filter((annotation) => annotation.role === "structure").map((annotation): SemanticResult => {
-    const match = scoreAnnotation(reference.candles, candidate, annotation, alignment);
-    return {
-      id: annotation.id, conceptId: annotation.conceptId, label: annotation.label, role: annotation.role,
-      importance: annotation.importance, score: match.score,
-      passed: annotation.importance !== "required" || match.score >= GATE,
-      matchedStartRatio: match.startRatio, matchedEndRatio: match.endRatio, referenceIndex,
-    };
-  }).sort((left, right) => left.matchedStartRatio - right.matchedStartRatio);
-  const weight = (result: SemanticResult) => result.importance === "required" ? 2 : 1;
-  const weights = results.reduce((sum, result) => sum + weight(result), 0);
-  const score = results.length
-    ? results.reduce((sum, result) => sum + result.score * weight(result), 0) / weights
-    : structuralScore;
-  const qualified = results.every((result) => result.passed);
-  const last = Math.max(1, candidate.length - 1);
-  const execution = qualified ? reference.annotations.filter((annotation) => annotation.role !== "structure")
-    .map((annotation): SemanticPlacement => {
-      const mapped = mappedBounds(reference.candles.length, candidate.length, annotation, alignment);
+
+  const active = reference.annotations.filter(
+    (annotation) => annotation.importance !== "informational",
+  );
+
+  const results = active
+    .filter((annotation) => annotation.role === "structure")
+    .map((annotation): SemanticResult => {
+      const match = scoreAnnotation(
+        reference.candles,
+        candidate,
+        annotation,
+        alignment,
+      );
+
       return {
-        id: annotation.id, conceptId: annotation.conceptId, label: annotation.label, role: annotation.role,
-        matchedStartRatio: mapped.start / last, matchedEndRatio: mapped.end / last, referenceIndex,
+        id: annotation.id,
+        conceptId: annotation.conceptId,
+        label: annotation.label,
+        role: annotation.role,
+        importance: annotation.importance,
+        score: match.score,
+        passed:
+          annotation.importance !== "required" ||
+          match.score >= GATE,
+        matchedStartIndex: match.start,
+        matchedEndIndex: match.end,
+        referenceIndex,
       };
-    }).sort((left, right) => left.matchedStartRatio - right.matchedStartRatio) : [];
-  return { qualified, score, results, execution };
+    })
+    .sort(
+      (left, right) =>
+        left.matchedStartIndex - right.matchedStartIndex,
+    );
+
+  const weight = (result: SemanticResult) =>
+    result.importance === "required" ? 2 : 1;
+
+  const weights = results.reduce(
+    (sum, result) => sum + weight(result),
+    0,
+  );
+
+  const score = results.length
+    ? results.reduce(
+        (sum, result) =>
+          sum + result.score * weight(result),
+        0,
+      ) / weights
+    : structuralScore;
+
+  const qualified = results.every((result) => result.passed);
+
+  const execution = qualified
+    ? reference.annotations
+        .filter((annotation) => annotation.role !== "structure")
+        .map((annotation): SemanticPlacement => {
+          const mapped = mappedBounds(
+            reference.candles,
+            candidate.length,
+            annotation,
+            alignment,
+          );
+
+          return {
+            id: annotation.id,
+            conceptId: annotation.conceptId,
+            label: annotation.label,
+            role: annotation.role,
+            matchedStartIndex: mapped.start,
+            matchedEndIndex: mapped.end,
+            referenceIndex,
+          };
+        })
+        .sort(
+          (left, right) =>
+            left.matchedStartIndex - right.matchedStartIndex,
+        )
+    : [];
+
+  return {
+    qualified,
+    score,
+    results,
+    execution,
+  };
 }
