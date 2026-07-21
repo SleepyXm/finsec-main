@@ -10,7 +10,7 @@ import {
   normalizeTime,
   SnapshotSignal,
 } from "./authChartData";
-import { Candle } from "@/app/types/charts";
+import { Candle } from "@/app/components/types/charts";
 
 export function AuthChartAnimation() {
   const containerRef = useRef<HTMLDivElement | null>(null);

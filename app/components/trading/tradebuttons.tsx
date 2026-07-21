@@ -1,6 +1,6 @@
-import { QuantityStepper } from "@/app/ui/client";
-import { RawData } from "@/app/types/charts";
-import { MAX_TRADE_QUANTITY } from "@/app/types/trades";
+import { QuantityStepper } from "@/app/UI/client";
+import { RawData } from "@/app/components/types/charts";
+import { MAX_TRADE_QUANTITY } from "@/app/components/types/trades";
 
 interface TradeButtonsProps {
   data?: Pick<RawData, "close" | "buy_price"> | null;

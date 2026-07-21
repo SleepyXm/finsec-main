@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect, CSSProperties } from "react";
-import { useUser } from "../provider/userprovider";
-import { logout } from "../handlers/auth";
+import { useUser } from "./provider/userprovider";
+import { logout } from "./handlers/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AssetSearchBar, AssetListItem } from "@/app/assetsearch/assetsearchcomponents";
-import { useAssetSearch } from "../hooks/utility";
+import { AssetSearchBar, AssetListItem } from "@/app/features/assetsearch/assetsearchcomponents";
+import { useAssetSearch } from "./hooks/utility";
 import { usePathname } from "next/navigation";
-import { cornerStyle, panelStyle, theme } from "@/app/ui";
+import { cornerStyle, panelStyle, theme } from "@/app/UI";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { cx } from "../classnames";
+import { cx } from "@/app/UI/classnames";
 
 type TraderButtonClassOptions = {
   rounded?: boolean;

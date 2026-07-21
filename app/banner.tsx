@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
-import { CookieConsent, getPreferences, saveCookieConsent } from "@/app/handlers/profile";
-import { useUser } from "@/app/provider/userprovider";
-import type { SubscriptionLimitDetail } from "@/app/types/subscriptions";
-import { SUBSCRIPTION_LIMIT_EVENT } from "@/app/types/subscriptions";
-import { cornerStyle, ghostButtonStyle, panelStyle, theme, traderWhiteButtonStyle } from "@/app/ui";
+import { CookieConsent, getPreferences, saveCookieConsent } from "@/app/components/handlers/profile";
+import { useUser } from "@/app/components/provider/userprovider";
+import type { SubscriptionLimitDetail } from "@/app/components/types/subscriptions";
+import { SUBSCRIPTION_LIMIT_EVENT } from "@/app/components/types/subscriptions";
+import { cornerStyle, ghostButtonStyle, panelStyle, theme, traderWhiteButtonStyle } from "@/app/UI";
 
 const SESSION_CONSENT_KEY = "finsec.cookie-consent";
 

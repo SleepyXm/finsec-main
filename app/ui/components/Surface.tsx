@@ -1,6 +1,6 @@
 import { HTMLAttributes } from "react";
-import { cx } from "../classnames";
-import { Corner } from "./Corner";
+import { cx } from "@/app/UI/classnames";
+import { Corner } from "@/app/UI/components/Corner";
 import styles from "./Surface.module.css";
 
 export type SurfaceVariant = "card" | "panel" | "trader" | "inset";

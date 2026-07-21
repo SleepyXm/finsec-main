@@ -1,7 +1,7 @@
 # Finsec UI
 
 This directory is the application's shared visual language. Application and
-feature code should import from `@/app/ui` (or `@/app/ui/client` for
+feature code should import from `@/app/UI` (or `@/app/UI/client` for
 interactive primitives) instead of reaching into implementation files.
 
 ## Layers
@@ -30,7 +30,7 @@ interactive primitives) instead of reaching into implementation files.
 ## Example
 
 ```tsx
-import { Button, Stack, Surface } from "@/app/ui";
+import { Button, Stack, Surface } from "@/app/UI";
 
 export function Example() {
   return (

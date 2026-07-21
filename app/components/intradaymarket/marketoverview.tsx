@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MarketOverviewItem, fetchMarketOverview } from "../../types/assets";
+import { MarketOverviewItem, fetchMarketOverview } from "../types/assets";
 import { MarketSection } from "./MarketSection";
 
 const TABS = [

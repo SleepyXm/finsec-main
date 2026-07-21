@@ -1,4 +1,4 @@
-import { OpenPositionsProps } from "@/app/types/trades";
+import { OpenPositionsProps } from "@/app/components/types/trades";
 
 export default function OpenPositions({ positions, livePnLMap, onClose }: OpenPositionsProps) {
   if (!positions.length) return null;

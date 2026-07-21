@@ -1,5 +1,5 @@
 import { PriceLineOptions } from "lightweight-charts";
-import { Trade } from "@/app/types/trades";
+import { Trade } from "@/app/components/types/trades";
 
 export function PriceLines(
   seriesRef: React.MutableRefObject<any | null>,

@@ -1,8 +1,8 @@
 import Image from "next/image";
 import React from "react";
-import { theme, Theme, WHITE } from "../tokens";
-import { traderBlankButtonStyle } from "../styles";
-import { Corner } from "./Corner";
+import { theme, Theme, WHITE } from "@/app/UI/tokens";
+import { traderBlankButtonStyle } from "@/app/UI/styles";
+import { Corner } from "@/app/UI/components/Corner";
 import styles from "./LegacyPrimitives.module.css";
 
 type TraderBlankButtonProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "style"> & {

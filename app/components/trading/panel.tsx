@@ -3,9 +3,9 @@
 import { CSSProperties, useState } from "react";
 import OpenPositions from "./positions";
 import RealisedPnL from "../portfolio/portfolio";
-import { OpenPositionsProps } from "@/app/types/trades";
-import { usePortfolio, useAccountStats } from "@/app/hooks/usePortfolio";
-import { theme, panelStyle, cornerStyle } from "@/app/ui";
+import { OpenPositionsProps } from "@/app/components/types/trades";
+import { usePortfolio, useAccountStats } from "@/app/components/hooks/usePortfolio";
+import { theme, panelStyle, cornerStyle } from "@/app/UI";
 import styles from "./TradingPanel.module.css";
 
 type Tab = "realised" | "positions";

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { TradeHistoryRow } from "@/app/types/portfolio";
-import { AccountStats } from "@/app/types/accounts";
-import { EmptyState, LoadingState } from "@/app/ui";
+import { TradeHistoryRow } from "@/app/components/types/portfolio";
+import { AccountStats } from "@/app/components/types/accounts";
+import { EmptyState, LoadingState } from "@/app/UI";
 
 
 interface RealisedPnLProps {

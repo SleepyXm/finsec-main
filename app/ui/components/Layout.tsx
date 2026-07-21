@@ -1,5 +1,5 @@
 import { CSSProperties, HTMLAttributes } from "react";
-import { cx } from "../classnames";
+import { cx } from "@/app/UI/classnames";
 import styles from "./Layout.module.css";
 
 type LayoutProps = HTMLAttributes<HTMLDivElement> & { gap?: "xs" | "sm" | "md" | "lg" | "xl" };
