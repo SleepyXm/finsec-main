@@ -14,6 +14,15 @@ import { getPreferences, savePreferences } from "@/app/components/handlers/profi
 import { BacktestProvider, useBacktestContext } from "@/app/features/backtest/components/BacktestContext";
 import { EmptyState, LoadingState } from "@/app/UI";
 
+function ChartLoadState({ connected }: { connected: boolean }) {
+  return (
+    <LoadingState
+      message={connected ? "Loading chart…" : "Connecting to chart service…"}
+      className="!h-full !bg-transparent"
+    />
+  );
+}
+
 function ChartPageInner() {
   const {
     shortname, tick, connected, error,
@@ -127,7 +136,7 @@ function ChartPageInner() {
           className="!h-full !bg-transparent text-red-300/70"
         />
       ) : (
-        <LoadingState message="Loading chart…" className="!h-full !bg-transparent" />
+        <ChartLoadState connected={connected} />
       )}
 
       <div style={{ position: "absolute", top: 8, left: 10, zIndex: 12 }}>
