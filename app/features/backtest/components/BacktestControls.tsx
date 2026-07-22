@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import React from "react";
 import { BacktestSession } from "@/app/components/types/backend";
 import { MonoLabel, TraderBlankButton, Button, cornerStyle, panelStyle, theme } from "@/app/UI";
+import type { BacktestStrategyConfig } from "./BacktestContext";
+import type { ValidationCandidate } from "@/app/(pages)/chart/SimilaritySearch/validation";
 
 interface Props {
   session: BacktestSession;
@@ -13,6 +15,8 @@ interface Props {
   playing: boolean;
   setPlaying: React.Dispatch<React.SetStateAction<boolean>>;
   onReset: () => void;
+  strategy: BacktestStrategyConfig | null;
+  strategyCandidate: ValidationCandidate | null;
 }
 
 const SPEEDS = [
@@ -33,6 +37,8 @@ export default function BacktestControls({
   playing,
   setPlaying,
   onReset,
+  strategy,
+  strategyCandidate,
 }: Props) {
   const [speed, setSpeed] = useState(500);
 
@@ -107,6 +113,24 @@ export default function BacktestControls({
           Candle {cursor.toLocaleString()} / {totalCandles.toLocaleString()}
         </span>
       </div>
+
+      {strategy && (
+        <div style={{
+          display: "flex", justifyContent: "space-between", gap: 12,
+          marginTop: 9, paddingTop: 9, borderTop: `1px solid ${theme.dark.borderSoft}`,
+        }}>
+          <MonoLabel>{strategy.strategyLabel} · {strategy.formationPercent}%</MonoLabel>
+          <span style={{
+            color: strategyCandidate ? theme.dark.accent : theme.dark.muted2,
+            fontSize: 10,
+            fontFamily: "var(--font-code), monospace",
+          }}>
+            {strategyCandidate
+              ? `${strategyCandidate.result.state} · ${strategyCandidate.result.scores.structure.toFixed(0)}%`
+              : cursor > 0 ? "Scanning" : "Waiting"}
+          </span>
+        </div>
+      )}
     </section>
   );
 }

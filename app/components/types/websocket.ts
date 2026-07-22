@@ -33,7 +33,17 @@ export type HistoricalData = {
   total_pages: number;
 }
 
-export type WSMessage = StockTick | HistoricalData | TradeClosedEvent | AccountPnLEvent;
+export type ChartPreparingEvent = {
+  type: "downloading";
+  message: string;
+};
+
+export type WSMessage =
+  | StockTick
+  | HistoricalData
+  | TradeClosedEvent
+  | AccountPnLEvent
+  | ChartPreparingEvent;
 
 export function createStockSocket(
   ticker: string,
@@ -43,7 +53,7 @@ export function createStockSocket(
   page: number = 1,
 ): WebSocket {
   const ws = new WebSocket(
-    `${WS_BASE}/ws/stockdata?ticker_symbol=${ticker}&interval=${interval}&page=${page}`
+    `${WS_BASE}/charts/${ticker}?interval=${interval}&page=${page}`
   );
 
   ws.onmessage = async (event) => {

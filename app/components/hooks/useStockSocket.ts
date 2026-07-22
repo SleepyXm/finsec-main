@@ -2,6 +2,10 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { createStockSocket, StockTick, WSMessage } from "@/app/components/types/websocket";
 import { Trade } from "@/app/components/types/trades";
 
+export type ChartLoadState = "connecting" | "preparing" | "ready" | "error";
+
+const MAX_RECONNECT_ATTEMPTS = 10;
+
 export function useStockSocket(
   ticker: string,
   interval: string = "1m",
@@ -9,13 +13,28 @@ export function useStockSocket(
   onPositionClosed: (tradeId: string) => void,
   onAccountPnL: (unrealised: number) => void,
 ) {
-  const [tick, setTick] = useState<StockTick | null>(null);
-  const [historicalData, setHistoricalData] = useState<StockTick[]>([]);
+  const seriesKey = `${ticker}:${interval}`;
+  const [tickState, setTickState] = useState<{ key: string; data: StockTick | null }>({
+    key: "", data: null,
+  });
+  const [historyState, setHistoryState] = useState<{ key: string; data: StockTick[] }>({
+    key: "", data: [],
+  });
   const [connected, setConnected] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadState, setLoadState] = useState<{ key: string; state: ChartLoadState }>({
+    key: "", state: "connecting",
+  });
+  const [retryGeneration, setRetryGeneration] = useState(0);
+  const tick = tickState.key === seriesKey ? tickState.data : null;
+  const historicalData = historyState.key === seriesKey ? historyState.data : [];
+  const chartLoadState = loadState.key === seriesKey ? loadState.state : "connecting";
 
   const wsRef = useRef<WebSocket | null>(null);
   const connectionIdRef = useRef(0);
+  const seriesKeyRef = useRef("");
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<number | null>(null);
   const currentPageRef = useRef(1);
   const receivedPagesRef = useRef<Set<number>>(new Set());
   const totalPagesRef = useRef(1);
@@ -59,9 +78,34 @@ export function useStockSocket(
   useEffect(() => {
     if (!ticker) return;
 
+    const seriesChanged = seriesKeyRef.current !== seriesKey;
+    if (seriesChanged) {
+      seriesKeyRef.current = seriesKey;
+      retryCountRef.current = 0;
+    }
+
     // increment first — this is the ID for this connection
     connectionIdRef.current += 1;
     const connectionId = connectionIdRef.current;
+    let disposed = false;
+
+    const scheduleReconnect = () => {
+      if (
+        disposed || connectionId !== connectionIdRef.current ||
+        retryTimerRef.current !== null
+      ) return;
+      if (retryCountRef.current >= MAX_RECONNECT_ATTEMPTS) {
+        setLoadState({ key: seriesKey, state: "error" });
+        return;
+      }
+
+      const delay = Math.min(1_000 * 2 ** retryCountRef.current, 10_000);
+      retryCountRef.current += 1;
+      retryTimerRef.current = window.setTimeout(() => {
+        retryTimerRef.current = null;
+        setRetryGeneration((current) => current + 1);
+      }, delay);
+    };
 
     // close previous socket synchronously before opening a new one
     if (wsRef.current) {
@@ -71,13 +115,12 @@ export function useStockSocket(
     }
 
     // reset all per-connection state
-    currentPageRef.current = 1;
-    receivedPagesRef.current = new Set();
-    totalPagesRef.current = 1;
     loadingPageRef.current = null;
-    setHistoricalData([]);
-    setTick(null);
-    setLoadingMore(false);
+    if (seriesChanged) {
+      currentPageRef.current = 1;
+      receivedPagesRef.current = new Set();
+      totalPagesRef.current = 1;
+    }
 
     const ws = createStockSocket(
       ticker,
@@ -108,16 +151,31 @@ export function useStockSocket(
           }
           receivedPagesRef.current.add(page);
 
-          setHistoricalData((previous) => {
+          setHistoryState((current) => {
             const byTime = new Map<number, StockTick>();
-            previous.forEach((candle) => byTime.set(candle.time, candle));
+            if (current.key === seriesKey) {
+              current.data.forEach((candle) => byTime.set(candle.time, candle));
+            }
             msg.data.forEach((candle) => byTime.set(candle.time, candle));
-            return [...byTime.values()].sort((a, b) => a.time - b.time);
+            return {
+              key: seriesKey,
+              data: [...byTime.values()].sort((a, b) => a.time - b.time),
+            };
           });
 
           loadingPageRef.current = null;
           setLoadingMore(false);
+          retryCountRef.current = 0;
+          setLoadState({ key: seriesKey, state: msg.data.length ? "ready" : "error" });
 
+          return;
+        }
+
+        if ("type" in msg && msg.type === "downloading") {
+          setLoadingMore(false);
+          setLoadState({ key: seriesKey, state: "preparing" });
+          scheduleReconnect();
+          wsRef.current?.close();
           return;
         }
 
@@ -128,30 +186,43 @@ export function useStockSocket(
 
         const priceTick = msg as StockTick;
         if (priceTick.ticker !== ticker) return;
-        setTick(priceTick);
+        setTickState({ key: seriesKey, data: priceTick });
       },
       () => {
         if (connectionId === connectionIdRef.current) {
           loadingPageRef.current = null;
           setLoadingMore(false);
           setConnected(false);
+          scheduleReconnect();
         }
       },
     );
 
     ws.onopen = () => {
-      if (connectionId === connectionIdRef.current) setConnected(true);
+      if (connectionId === connectionIdRef.current) {
+        setConnected(true);
+        setLoadingMore(false);
+      }
+    };
+    ws.onerror = () => {
+      if (connectionId === connectionIdRef.current) ws.close();
     };
 
     wsRef.current = ws;
 
     // cleanup: just close the socket, never touch connectionIdRef here
     return () => {
+      disposed = true;
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
       ws.onmessage = null;
+      ws.onclose = null;
       ws.close();
       wsRef.current = null;
     };
-  }, [ticker, interval, loadPage]);
+  }, [ticker, interval, loadPage, retryGeneration, onAccountPnL, onPositionClosed, seriesKey]);
 
   const loadPreviousPage = useCallback(() => {
     const loaded = receivedPagesRef.current;
@@ -168,7 +239,10 @@ export function useStockSocket(
   const filteredPositions = positions.filter(p => p.symbol === ticker);
   const livePnLMap = computeLivePnL(filteredPositions, tick?.close ?? null);
 
-  return { tick, historicalData, connected, livePnLMap, loadingMore, loadPage, loadPreviousPage };
+  return {
+    tick, historicalData, connected, chartLoadState, livePnLMap,
+    loadingMore, loadPage, loadPreviousPage,
+  };
 }
 
 function computeLivePnL(

@@ -1,0 +1,25 @@
+.panel { overflow: hidden; }
+.active { border-color: var(--ui-accent); }
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  padding: 0.5625rem 0.625rem;
+  border-bottom: 1px solid var(--ui-border-soft);
+}
+.heading { flex: 1; min-width: 0; }
+.subtitle { margin-top: 0.1875rem; color: var(--ui-muted-2); font-size: 0.5rem; }
+.status {
+  flex: none;
+  font-family: var(--font-code), monospace;
+  font-size: 0.5625rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.muted { color: var(--ui-muted-2); }
+.accent { color: var(--ui-accent); }
+.success { color: var(--ui-success-text); }
+.danger { color: var(--ui-danger-text); }
+.body { padding: 0.625rem; }
+

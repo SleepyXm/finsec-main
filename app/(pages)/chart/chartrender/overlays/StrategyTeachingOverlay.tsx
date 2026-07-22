@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useChartContext } from "@/app/(pages)/chart/chartcontext";
 import { StrategyAnnotation } from "@/app/components/handlers/annotations";
 import { Candle } from "@/app/components/types/charts";
-import { theme } from "@/app/UI";
-import { ChartOverlayRef, SemanticMarksOverlay, SeriesOverlayRef } from "./SemanticMarksOverlay";
+import { Surface, theme, type SeriesOverlayRef } from "@/app/UI";
+import { ChartOverlayRef, SemanticMarksOverlay } from "./SemanticMarksOverlay";
 
 type Point = { x: number; y: number };
 const annotationId = () => globalThis.crypto?.randomUUID?.() ?? `annotation-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -113,9 +113,9 @@ export function StrategyTeachingOverlay({ chartRef, seriesRef, data }: {
     onMouseLeave={() => { setStart(null); setPointer(null); }}
   >
     <SemanticMarksOverlay chartRef={chartRef} seriesRef={seriesRef} data={data} marks={annotations.map((annotation) => ({ annotation }))} />
-    <div style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", padding: "7px 10px", color: theme.dark.text, background: "rgba(14,17,23,.94)", border: `1px solid ${theme.dark.accentBorder}`, fontSize: 9, pointerEvents: "none" }}>
+    <Surface variant="inset" decorated style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", padding: "7px 10px", color: theme.dark.text, borderColor: theme.dark.accentBorder, fontSize: 9, pointerEvents: "none" }}>
       TEACHING · {strategyTeaching.snapshot.symbol} · {tool.replace(/_/g, " ")} · {activeLabel}
-    </div>
+    </Surface>
     {start && pointer && (tool === "candle_group" || tool === "zone") && <div style={{ position: "absolute", left: Math.min(start.x, pointer.x), top: Math.min(start.y, pointer.y), width: Math.abs(pointer.x - start.x), height: Math.abs(pointer.y - start.y), border: `1px dashed ${theme.dark.accent}`, background: theme.dark.accentSoft }} />}
     {start && pointer && tool === "level" && <div style={{ position: "absolute", left: 0, right: 0, top: pointer.y, borderTop: `1px dashed ${theme.dark.accent}` }} />}
   </div>;

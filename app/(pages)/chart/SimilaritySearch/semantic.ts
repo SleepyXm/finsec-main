@@ -11,6 +11,8 @@ export type SemanticPlacement = {
   matchedEndIndex: number;
   referenceIndex: number;
   priceAnchor?: "open" | "high" | "low" | "close";
+  forming?: boolean;
+  support?: number;
 };
 
 export type SemanticResult = SemanticPlacement & {
@@ -258,68 +260,127 @@ export function scoreAnnotation(
   return { score, start, end };
 }
 
-export function compareSemanticSnapshot(
+function visibleAnnotation(
   reference: StrategySnapshot,
+  annotation: StrategyAnnotation,
+  prefixLength: number,
+) {
+  const source = bounds(reference.candles, annotation);
+  if (prefixLength <= source.start) return null;
+  const last = Math.max(0, prefixLength - 1);
+  const complete = last >= source.end;
+
+  if (annotation.kind === "candle_group") {
+    return {
+      annotation: {
+        ...annotation,
+        candles: annotation.candles.slice(0, prefixLength - source.start),
+      } as StrategyAnnotation,
+      complete,
+    };
+  }
+  if (annotation.kind === "marker") {
+    return annotation.candleIndex <= last ? { annotation, complete: true } : null;
+  }
+
+  const startRatio = Math.min(source.start, last) / Math.max(1, last);
+  const endRatio = Math.min(source.end, last) / Math.max(1, last);
+  return {
+    annotation: { ...annotation, startRatio, endRatio } as StrategyAnnotation,
+    complete,
+  };
+}
+
+export function compareSemanticSnapshots(
+  references: StrategySnapshot[],
   candidate: Candle[],
-  referenceIndex: number,
-  structuralScore: number,
+  structuralScores: number[],
 ): SemanticValidation | null {
-  if (!reference.annotations.length) return null;
+  const requiredSupport = Math.max(1, Math.ceil(references.length / 2));
+  const groups = new Map<string, Array<{
+    annotation: StrategyAnnotation;
+    reference: StrategySnapshot;
+    referenceIndex: number;
+  }>>();
 
-  const alignment = alignCandleStructure(reference.candles, candidate);
-  if (!alignment.length) return null;
+  references.forEach((reference, referenceIndex) => {
+    reference.annotations
+      .filter(({ importance }) => importance !== "informational")
+      .forEach((annotation) => {
+        const key = `${annotation.conceptId}:${annotation.role}:${annotation.kind}`;
+        const group = groups.get(key) ?? [];
+        group.push({ annotation, reference, referenceIndex });
+        groups.set(key, group);
+      });
+  });
 
-  const active = reference.annotations.filter(
-    (annotation) => annotation.importance !== "informational",
+  const placements = [...groups.values()].flatMap((group) => {
+    const support = new Set(group.map(({ referenceIndex }) => referenceIndex)).size;
+    if (support < requiredSupport) return [];
+
+    const matches = group.flatMap(({ annotation, reference, referenceIndex }) => {
+      const prefixLength = Math.min(candidate.length, reference.candles.length);
+      const visible = visibleAnnotation(reference, annotation, prefixLength);
+      const prefix = reference.candles.slice(0, prefixLength);
+      if (!visible || !prefix.length) return [];
+      const alignment = alignCandleStructure(prefix, candidate);
+      if (!alignment.length) return [];
+      const match = scoreAnnotation(prefix, candidate, visible.annotation, alignment);
+      return [{ annotation, referenceIndex, complete: visible.complete, ...match }];
+    });
+    if (!matches.length) return [];
+
+    const representative = matches.reduce((best, match) =>
+      match.score > best.score ? match : best);
+    const annotation = representative.annotation;
+    const average = (select: (match: typeof representative) => number) =>
+      matches.reduce((sum, match) => sum + select(match), 0) / matches.length;
+    const importance = group.filter(({ annotation: item }) => item.importance === "required").length >= requiredSupport
+      ? "required" as const
+      : "preferred" as const;
+
+    return [{
+      id: annotation.id,
+      conceptId: annotation.conceptId,
+      label: annotation.label,
+      role: annotation.role,
+      importance,
+      score: average(({ score }) => score),
+      matchedStartIndex: Math.round(average(({ start }) => start)),
+      matchedEndIndex: Math.round(average(({ end }) => end)),
+      referenceIndex: representative.referenceIndex,
+      priceAnchor: annotation.kind === "marker" ? annotation.priceAnchor : undefined,
+      forming: matches.some(({ complete }) => !complete),
+      support,
+    }];
+  });
+
+  if (!placements.length) return null;
+  const results = placements
+    .filter(({ role }) => role === "structure")
+    .map((placement): SemanticResult => ({
+      ...placement,
+      passed: placement.importance !== "required" || placement.score >= GATE,
+    }));
+  const execution = placements.filter(({ role }) => role !== "structure");
+  const weights = results.reduce(
+    (sum, result) => sum + (result.importance === "required" ? 2 : 1),
+    0,
   );
+  const fallback = structuralScores.length
+    ? structuralScores.reduce((sum, score) => sum + score, 0) / structuralScores.length
+    : 0;
+  const score = weights
+    ? results.reduce(
+        (sum, result) => sum + result.score * (result.importance === "required" ? 2 : 1),
+        0,
+      ) / weights
+    : fallback;
 
-  const results = active
-    .filter((annotation) => annotation.role === "structure")
-    .map((annotation): SemanticResult => {
-      const match = scoreAnnotation(reference.candles, candidate, annotation, alignment);
-
-      return {
-        id: annotation.id,
-        conceptId: annotation.conceptId,
-        label: annotation.label,
-        role: annotation.role,
-        importance: annotation.importance,
-        score: match.score,
-        passed: annotation.importance !== "required" || match.score >= GATE,
-        matchedStartIndex: match.start,
-        matchedEndIndex: match.end,
-        referenceIndex,
-      };
-    })
-    .sort((left, right) => left.matchedStartIndex - right.matchedStartIndex);
-
-  const weight = (result: SemanticResult) => result.importance === "required" ? 2 : 1;
-  const weights = results.reduce((sum, result) => sum + weight(result), 0);
-
-  const score =
-    results.length && weights
-      ? results.reduce((sum, result) => sum + result.score * weight(result), 0) / weights
-      : structuralScore;
-
-  const qualified = results.every((result) => result.passed);
-
-  const execution = active
-    .filter((annotation) => annotation.role !== "structure")
-    .map((annotation): SemanticPlacement => {
-      const mapped = mappedBounds(reference.candles, candidate.length, annotation, alignment);
-
-      return {
-        id: annotation.id,
-        conceptId: annotation.conceptId,
-        label: annotation.label,
-        role: annotation.role,
-        matchedStartIndex: mapped.start,
-        matchedEndIndex: mapped.end,
-        referenceIndex,
-        priceAnchor: annotation.kind === "marker" ? annotation.priceAnchor : undefined,
-      };
-    })
-    .sort((left, right) => left.matchedStartIndex - right.matchedStartIndex);
-
-  return { qualified, score, results, execution };
+  return {
+    qualified: results.every(({ passed }) => passed),
+    score,
+    results: results.sort((left, right) => left.matchedStartIndex - right.matchedStartIndex),
+    execution: execution.sort((left, right) => left.matchedStartIndex - right.matchedStartIndex),
+  };
 }

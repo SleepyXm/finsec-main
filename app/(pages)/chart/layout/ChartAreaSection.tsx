@@ -31,6 +31,7 @@ function ExtraChartInner({
     shortname,
     tick,
     connected,
+    chartLoadState,
     error,
     chartData,
     isCandle,
@@ -92,14 +93,17 @@ function ExtraChartInner({
           appliedIndicators={settings.appliedIndicators}
           theme={settings.theme}
         />
-      ) : error ? (
+      ) : error || chartLoadState === "error" ? (
         <EmptyState
           icon={<span aria-hidden="true" className="text-xl">!</span>}
-          message={error}
+          message={error ?? "Chart data could not be loaded. Refresh to retry."}
           className="!h-full !bg-transparent text-red-300/70"
         />
       ) : (
-        <LoadingState message="Loading chart…" className="!h-full !bg-transparent" />
+        <LoadingState
+          message={chartLoadState === "preparing" ? "Preparing chart data…" : "Loading chart…"}
+          className="!h-full !bg-transparent"
+        />
       )}
 
       <div style={{ position: "absolute", top: 8, left: 10, zIndex: 12 }}>

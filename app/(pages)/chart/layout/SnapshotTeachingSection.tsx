@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { StrategyTeachingTool, useChartContext } from "@/app/(pages)/chart/chartcontext";
 import { StrategyAnnotation, StrategyDetails } from "@/app/components/handlers/annotations";
-import { cornerStyle, MonoLabel, theme, traderInsetPanelStyle, TraderBlankButton } from "@/app/UI";
+import { theme, ToolPanel, TraderBlankButton } from "@/app/UI";
 
 const TOOLS: Array<{ value: StrategyTeachingTool; label: string }> = [
   { value: "candle_group", label: "Candle group" }, { value: "zone", label: "Zone" },
@@ -26,7 +26,7 @@ export function SnapshotTeachingSection({ strategy, onSave }: {
   const labels = useMemo(() => Array.from(new Set(strategy.snapshots
     .flatMap((item) => item.annotations).map((item) => item.label))).sort(), [strategy.snapshots]);
   if (!snapshot) return null;
-  const ordered = [...draft].sort((left, right) => left.startRatio - right.startRatio || left.endRatio - right.endRatio);
+  const ordered = draft;
   const move = (next: number) => {
     if (dirty && !window.confirm("Discard unsaved teaching changes?")) return;
     openStrategyTeaching(strategy.id, next, strategy.snapshots[next]);
@@ -36,14 +36,16 @@ export function SnapshotTeachingSection({ strategy, onSave }: {
     try { await onSave(index, draft); } finally { setSaving(false); }
   };
 
-  return <section style={{ ...traderInsetPanelStyle(theme.dark), margin: "10px 0" }}>
-    <div style={cornerStyle()} />
-    <header style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderBottom: `1px solid ${theme.dark.borderSoft}` }}>
-      <div style={{ flex: 1 }}><MonoLabel>Teach strategy</MonoLabel><div style={{ color: theme.dark.muted2, fontSize: 8, marginTop: 3 }}>Snapshot {index + 1} of {strategy.snapshots.length} · main chart</div></div>
+  return <ToolPanel
+    title="Teach strategy"
+    subtitle={`Snapshot ${index + 1} of ${strategy.snapshots.length} · main chart`}
+    style={{ margin: "10px 0" }}
+    headerActions={<div style={{ display: "flex", gap: 8 }}>
       <TraderBlankButton disabled={index === 0} onClick={() => move(index - 1)} style={{ padding: "4px 7px" }}>←</TraderBlankButton>
       <TraderBlankButton disabled={index === strategy.snapshots.length - 1} onClick={() => move(index + 1)} style={{ padding: "4px 7px" }}>→</TraderBlankButton>
-    </header>
-    <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+    </div>}
+  >
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ color: theme.dark.muted2, fontSize: 9 }}>Mark structure first; execution remains attached to its candle and OHLC anchor.</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 5 }}>
         <input list="strategy-concepts" value={strategyTeaching?.label ?? ""} placeholder="Concept label" onChange={(event) => setStrategyTeaching({ label: event.target.value })} style={{ minWidth: 0, background: theme.dark.bg2, color: theme.dark.text, border: `1px solid ${theme.dark.borderSoft}`, padding: 6, fontSize: 9 }} />
@@ -66,5 +68,5 @@ export function SnapshotTeachingSection({ strategy, onSave }: {
       </div>
       <TraderBlankButton active disabled={!dirty || saving} onClick={() => void save()} style={{ width: "100%", padding: 7 }}>{saving ? "Saving…" : dirty ? "Save teaching" : "Teaching saved"}</TraderBlankButton>
     </div>
-  </section>;
+  </ToolPanel>;
 }

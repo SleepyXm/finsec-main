@@ -1,11 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
-import { ColorType, CrosshairMode, createChart } from "lightweight-charts";
-import { ChartBackground, ChartTheme, defaultChartTheme } from "../themes/themes";
+import React, { useEffect, useState } from "react";
+import { ChartTheme, defaultChartTheme } from "../themes/themes";
 import { PriceLines } from "@/app/components/trading/price";
 import { StrategyOverlay } from "../overlays/Strategy";
 import { StrategyTeachingOverlay } from "../overlays/StrategyTeachingOverlay";
-import { buildValidationMarks, SemanticMarksOverlay } from "../overlays/SemanticMarksOverlay";
-import type { SemanticMark } from "../overlays/SemanticMarksOverlay";
+import { SemanticMarksOverlay } from "../overlays/SemanticMarksOverlay";
+import type { SemanticMark } from "@/app/UI";
 import { useCandleHighlight } from "../overlays/CandleHighlight";
 import { useScriptIndicators } from "@/app/features/indicators/hooks/useScriptIndicators";
 import { AppliedIndicator } from "@/app/features/indicators/language/types";
@@ -13,9 +12,13 @@ import { PositionTags } from "../overlays/PositionOverlay";
 import { ACCENT, DANGER, SUCCESS } from "@/app/UI";
 import type {
   CandidateBoundaryAdjustment,
-  StrategyTeachingState,
+  ValidationCandidate,
   ValidationState,
-} from "@/app/(pages)/chart/chartcontext";
+} from "../../SimilaritySearch/validation";
+import type { StrategyTeachingState } from "@/app/(pages)/chart/chartcontext";
+import { buildValidationMarks } from "@/app/UI";
+import type { StrategySnapshot } from "@/app/components/handlers/annotations";
+import { useChartSurface } from "./useChartSurface";
 
 type ChartPlugins = {
   data?: any[];
@@ -34,29 +37,13 @@ type ChartPlugins = {
   updatePosition?: (id: string, patch: any) => void | Promise<void>;
   fitContent?: boolean;
   validation?: ValidationState;
+  formationCandidate?: ValidationCandidate | null;
+  formationSnapshots?: StrategySnapshot[];
   strategyTeaching?: StrategyTeachingState | null;
   semanticMarks?: SemanticMark[];
   semanticMarksCompact?: boolean;
   adjustCandidateBoundary?: (adjustment: CandidateBoundaryAdjustment) => void;
 };
-
-export function resolveBackground(bg: ChartBackground) {
-  switch (bg.type) {
-    case "solid":
-      return { type: ColorType.Solid, color: bg.color };
-
-    case "gradient":
-      return {
-        type: ColorType.VerticalGradient,
-        topColor: bg.topColor,
-        bottomColor: bg.bottomColor,
-      };
-
-    case "transparent":
-    default:
-      return { type: ColorType.Solid, color: "transparent" };
-  }
-}
 
 export function useChart(
   seriesConstructor: any,
@@ -65,108 +52,20 @@ export function useChart(
   plugins: ChartPlugins = {},
   theme: ChartTheme = defaultChartTheme,
 ) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const chartRef = useRef<any>(null);
-  const seriesRef = useRef<any>(null);
-  const priceLinesRef = useRef<any[]>([]);
-  const positionLinesRef = useRef<Map<string, any>>(new Map());
-
-  const [chartKey, setChartKey] = useState(0);
+  const surface = useChartSurface(seriesConstructor, seriesOptions, chartOptions, theme);
+  const {
+    containerRef,
+    priceLinesRef,
+    positionLinesRef,
+    chartKey,
+  } = surface;
+  const chartRef = surface.chartRef as React.MutableRefObject<any>;
+  const seriesRef = surface.seriesRef as React.MutableRefObject<any>;
   const [overlayVersion, setOverlayVersion] = useState(0);
 
   const data = plugins.data ?? [];
   const trades = plugins.trades ?? [];
   const positions = plugins.positions ?? [];
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const chart = createChart(containerRef.current, {
-      layout: {
-        background: resolveBackground(theme.background),
-        textColor: theme.text,
-      },
-      grid: {
-        vertLines: { color: theme.grid },
-        horzLines: { color: theme.grid },
-      },
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight,
-      handleScroll: {
-        mouseWheel: true,
-        pressedMouseMove: true,
-        horzTouchDrag: true,
-        vertTouchDrag: true,
-      },
-      handleScale: {
-        mouseWheel: true,
-        pinch: true,
-        axisPressedMouseMove: true,
-      },
-      timeScale: {
-        rightOffset: 30,
-        timeVisible: true,
-        secondsVisible: false,
-        ...chartOptions.timeScale,
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: { color: theme.crosshair },
-        horzLine: { color: theme.crosshair },
-        ...chartOptions.crosshair,
-      },
-      ...chartOptions.extra,
-    });
-
-    const series = chart.addSeries(seriesConstructor, seriesOptions);
-
-    chartRef.current = chart;
-    seriesRef.current = series;
-    setChartKey((key) => key + 1);
-
-    const observer = new ResizeObserver(() => {
-      if (!containerRef.current || !chartRef.current) return;
-
-      chartRef.current.applyOptions({
-        width: containerRef.current.clientWidth,
-        height: containerRef.current.clientHeight,
-      });
-    });
-
-    observer.observe(containerRef.current);
-
-    return () => {
-      observer.disconnect();
-      priceLinesRef.current = [];
-      positionLinesRef.current.clear();
-      chart.remove();
-      chartRef.current = null;
-      seriesRef.current = null;
-    };
-  }, [seriesConstructor]);
-
-  useEffect(() => {
-    if (!chartRef.current || !seriesRef.current) return;
-
-    chartRef.current.applyOptions({
-      layout: {
-        background: resolveBackground(theme.background),
-        textColor: theme.text,
-      },
-      grid: {
-        vertLines: { color: theme.grid },
-        horzLines: { color: theme.grid },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: { color: theme.crosshair },
-        horzLine: { color: theme.crosshair },
-        ...chartOptions.crosshair,
-      },
-    });
-
-    seriesRef.current.applyOptions(seriesOptions);
-  }, [theme, seriesOptions, chartOptions, chartKey]);
 
   useEffect(() => {
     if (!seriesRef.current) return;
@@ -383,20 +282,28 @@ export function useChart(
     chartKey,
   );
 
-  const validationCandidate = plugins.validation?.active ? plugins.validation.candidate : null;
+  const manualCandidate = plugins.validation?.active ? plugins.validation.candidate : null;
+  const hasFormationOverride = plugins.formationCandidate !== undefined;
+  const validationCandidate = hasFormationOverride
+    ? plugins.formationCandidate
+    : manualCandidate;
+  const validationSnapshots = hasFormationOverride
+    ? plugins.formationSnapshots ?? []
+    : plugins.validation?.active ? plugins.validation.snapshots : [];
 
   const semanticMarks =
-    plugins.validation?.active && validationCandidate
-      ? buildValidationMarks(validationCandidate, plugins.validation.semanticReferences)
+    validationCandidate && validationSnapshots.length
+      ? buildValidationMarks(validationCandidate, validationSnapshots)
       : plugins.semanticMarks ?? [];
 
-  const candidateFrom = validationCandidate?.candles[0]?.time;
-  const candidateTo = validationCandidate?.candles[validationCandidate.candles.length - 1]?.time;
+  const focusCandidate = hasFormationOverride ? null : validationCandidate;
+  const candidateFrom = focusCandidate?.candles[0]?.time;
+  const candidateTo = focusCandidate?.candles[focusCandidate.candles.length - 1]?.time;
 
   useEffect(() => {
     if (candidateFrom == null || candidateTo == null || !chartRef.current) return;
 
-    const candleCount = validationCandidate?.candles.length ?? 0;
+    const candleCount = focusCandidate?.candles.length ?? 0;
     const span = Math.max(1, candidateTo - candidateFrom);
     const candleSpan = span / Math.max(1, candleCount - 1);
     const padding = Math.max(span * 0.15, candleSpan * 2);
@@ -413,7 +320,7 @@ export function useChart(
     containerRef,
     data,
     active: Boolean(plugins.enableStrategyOverlay && plugins.isCreatingStrategy),
-    validation: plugins.validation,
+    candidate: validationCandidate,
   });
 
   const chartElement = (
@@ -448,8 +355,8 @@ export function useChart(
           data={validationCandidate?.candles ?? data}
           marks={semanticMarks}
           compact={plugins.semanticMarksCompact}
-          interactive={Boolean(validationCandidate)}
-          onAdjustBoundary={plugins.adjustCandidateBoundary}
+          interactive={Boolean(manualCandidate && !hasFormationOverride)}
+          onAdjustBoundary={hasFormationOverride ? undefined : plugins.adjustCandidateBoundary}
         />
       )}
 

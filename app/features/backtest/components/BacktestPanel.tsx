@@ -33,6 +33,8 @@ export default function BacktestPanel() {
     closeTrade,
     error,
     analysis,
+    strategy,
+    strategyCandidate,
   } = useBacktestContext();
 
   if (!session) {
@@ -79,6 +81,8 @@ export default function BacktestPanel() {
         playing={playing}
         setPlaying={setPlaying}
         onReset={resetReplay}
+        strategy={strategy}
+        strategyCandidate={strategyCandidate}
       />
 
       {error && (

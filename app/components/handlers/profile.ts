@@ -1,5 +1,5 @@
 import { request } from "./auth";
-import { ChartTheme } from "../chart/chartrender/themes/themes";
+import { ChartTheme } from "@/app/(pages)/chart/chartrender/themes/themes";
 
 export type CookieConsent = "accepted" | "declined";
 

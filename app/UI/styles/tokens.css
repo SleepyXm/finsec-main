@@ -44,6 +44,9 @@
   --ui-danger-border: rgba(199, 125, 125, 0.34);
   --ui-danger-text: #e2a1a1;
   --ui-danger-hover: rgba(199, 125, 125, 0.2);
+  --ui-success-text: #b8dcc5;
+  --ui-warning-text: #f1b86b;
+  --ui-card-subtle: rgba(238, 242, 247, 0.025);
   --ui-page-gradient: radial-gradient(circle at 15% 10%, rgba(143,170,220,0.10), transparent 28%), linear-gradient(180deg, #0e1117 0%, #131821 45%, #0e1117 100%);
   --ui-panel-gradient: linear-gradient(180deg, rgba(238,242,247,0.035), rgba(238,242,247,0.015));
   --ui-trader-gradient: linear-gradient(180deg, rgba(238,242,247,0.045), rgba(238,242,247,0.018));

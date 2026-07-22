@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { AnnotationDraft } from '@/app/components/handlers/annotations';
 import { Candle } from '@/app/components/types/charts';
 import { useChartContext } from "@/app/(pages)/chart/chartcontext";
-import { cornerStyle, MonoLabel, theme, traderInsetPanelStyle, TraderBlankButton } from "@/app/UI";
+import { Surface, theme, ToolPanel, TraderBlankButton } from "@/app/UI";
 
 const LABELS = [
   {value: 'bearish_fvg', label: "Bearish Fair Value Gap"},
@@ -143,50 +143,47 @@ export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSe
         const change = (((close - open) / open) * 100).toFixed(2);
         const isUp = close >= open;
         return (
-          <div style={{
-            ...traderInsetPanelStyle(theme.dark),
+          <Surface variant="inset" decorated style={{
             position: 'absolute', top: 8, left: 8, padding: '6px 9px',
             fontSize: 9, fontFamily: 'var(--font-code), monospace', color: theme.dark.text,
             display: 'flex', gap: 10, pointerEvents: 'none', whiteSpace: 'nowrap',
           }}>
-            <div style={cornerStyle()} />
             <span style={{ color: theme.dark.accent }}>{selectedCandles.length} candles</span>
             <span style={{ color: theme.dark.muted }}>H {high.toFixed(2)}</span>
             <span style={{ color: theme.dark.muted }}>L {low.toFixed(2)}</span>
             <span style={{ color: theme.dark.muted2 }}>Range {(high - low).toFixed(2)}</span>
             <span style={{ color: isUp ? theme.dark.successText : theme.dark.errorText }}>{isUp ? '+' : ''}{change}%</span>
-          </div>
+          </Surface>
         );
       })()}
 
       {pendingAnnotation && (
-        <div style={{
-          ...traderInsetPanelStyle(theme.dark),
+        <ToolPanel title="Strategy label" style={{
           position: 'absolute', left: pendingAnnotation.x + 8, top: pendingAnnotation.y + 8,
-          padding: 9, zIndex: 30, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 190,
+          zIndex: 30, minWidth: 190,
         }}>
-          <div style={cornerStyle()} />
-          <MonoLabel>Strategy label</MonoLabel>
-          <select
-            style={{
-              width: '100%', background: theme.dark.bg2, color: theme.dark.text,
-              border: `1px solid ${theme.dark.borderSoft}`, padding: '7px 8px',
-              fontSize: 10, fontFamily: 'inherit', outline: 'none',
-            }}
-            defaultValue=""
-            onChange={(e) => {
-              if (!e.target.value) return;
-              onAnnotation?.({ ...pendingAnnotation, label: e.target.value });
-              setPendingAnnotation(null);
-            }}
-          >
-            <option value="" disabled>Select label...</option>
-            {LABELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-          </select>
-          <TraderBlankButton onClick={() => setPendingAnnotation(null)} style={{ padding: '6px 8px', fontSize: 9 }}>
-            Cancel
-          </TraderBlankButton>
-        </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <select
+              style={{
+                width: '100%', background: theme.dark.bg2, color: theme.dark.text,
+                border: `1px solid ${theme.dark.borderSoft}`, padding: '7px 8px',
+                fontSize: 10, fontFamily: 'inherit', outline: 'none',
+              }}
+              defaultValue=""
+              onChange={(e) => {
+                if (!e.target.value) return;
+                onAnnotation?.({ ...pendingAnnotation, label: e.target.value });
+                setPendingAnnotation(null);
+              }}
+            >
+              <option value="" disabled>Select label...</option>
+              {LABELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+            </select>
+            <TraderBlankButton onClick={() => setPendingAnnotation(null)} style={{ padding: '6px 8px', fontSize: 9 }}>
+              Cancel
+            </TraderBlankButton>
+          </div>
+        </ToolPanel>
       )}
     </div>
   );

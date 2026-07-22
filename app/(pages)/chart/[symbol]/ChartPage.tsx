@@ -16,7 +16,7 @@ import { EmptyState, LoadingState } from "@/app/UI";
 
 function ChartPageInner() {
   const {
-    shortname, tick, connected, error,
+    shortname, tick, connected, chartLoadState, error,
     chartData, interval, isCandle, setIsCandle, isCreatingStrategy,
     handleAnnotation, positions, livePnLMap,
     accountUnrealisedPnL, placeTrade, closeTrade,
@@ -112,6 +112,8 @@ function ChartPageInner() {
           onAnnotation={handleAnnotation}
           onScrollLeft={isBacktesting ? undefined : loadPreviousPage}
           appliedIndicators={appliedIndicators}
+          formationCandidate={isBacktesting ? backtest.strategyCandidate : undefined}
+          formationSnapshots={backtest.strategy?.snapshots}
           theme={activeTheme}
         />
       ) : isBacktesting ? (
@@ -120,14 +122,17 @@ function ChartPageInner() {
           message="Press play to start replay."
           className="!h-full !bg-transparent"
         />
-      ) : activeError ? (
+      ) : activeError || chartLoadState === "error" ? (
         <EmptyState
           icon={<span aria-hidden="true" className="text-xl">!</span>}
-          message={activeError}
+          message={activeError ?? "Chart data could not be loaded. Refresh to retry."}
           className="!h-full !bg-transparent text-red-300/70"
         />
       ) : (
-        <LoadingState message="Loading chart…" className="!h-full !bg-transparent" />
+        <LoadingState
+          message={chartLoadState === "preparing" ? "Preparing chart data…" : "Loading chart…"}
+          className="!h-full !bg-transparent"
+        />
       )}
 
       <div style={{ position: "absolute", top: 8, left: 10, zIndex: 12 }}>
