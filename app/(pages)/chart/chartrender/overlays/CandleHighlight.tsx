@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import type { ValidationCandidate } from "../../SimilaritySearch/validation";
+import type { ValidationState } from "@/app/(pages)/chart/chartcontext";
 
 interface CandleHighlightOptions {
   chartRef: React.MutableRefObject<any>;
@@ -7,7 +7,7 @@ interface CandleHighlightOptions {
   containerRef: React.MutableRefObject<HTMLDivElement | null>;
   data: any[];
   active: boolean; // only paints when isCreatingStrategy or whatever condition
-  candidate?: ValidationCandidate | null;
+  validation?: ValidationState;
 }
 
 export function useCandleHighlight({
@@ -16,7 +16,7 @@ export function useCandleHighlight({
   containerRef,
   data,
   active,
-  candidate,
+  validation,
 }: CandleHighlightOptions) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const selectionRef = useRef<{ startX: number; endX: number } | null>(null);
@@ -62,8 +62,8 @@ export function useCandleHighlight({
     const timeScale = chart.timeScale();
 
     // ── Validation candidate: dim everything outside the match window ────────
-    if (candidate) {
-      const { candles } = candidate;
+    if (validation?.active && validation.candidate) {
+      const { candles } = validation.candidate;
       if (candles.length) {
         const x1 = timeScale.timeToCoordinate(candles[0].time);
         const x2 = timeScale.timeToCoordinate(candles[candles.length - 1].time);
@@ -147,7 +147,7 @@ export function useCandleHighlight({
     ctx.lineWidth = 1;
     ctx.strokeRect(selLeft, 0, selRight - selLeft, canvas.height);
 
-  }, [chartRef, seriesRef, data, active, candidate]);
+  }, [chartRef, seriesRef, data, active, validation]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -187,7 +187,7 @@ export function useCandleHighlight({
   useEffect(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(paint);
-  }, [active, candidate, paint]);
+  }, [active, validation, paint]);
 
   return { canvasRef, setSelection, clearSelection };
 }

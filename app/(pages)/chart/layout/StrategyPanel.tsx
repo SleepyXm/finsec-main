@@ -7,10 +7,11 @@ import {
   SavedStrategy, StrategyAnnotation, StrategyDetails, updateUserStrategySnapshotAnnotations,
 } from "@/app/components/handlers/annotations";
 import { useUser } from "@/app/components/provider/userprovider";
-import { ActionPanel, cornerStyle, theme } from "@/app/UI";
+import { cornerStyle, theme } from "@/app/UI";
 import { CandleStickChart } from "@/app/(pages)/chart/chartrender/charts/CandleStickChart";
 import { ChartTheme } from "@/app/(pages)/chart/chartrender/themes/themes";
 import { StrategySnapshotsPanel } from "./StrategySnapshotsPanel";
+import { strategyCardBackground, StrategyCaptureSection } from "./StrategyCaptureSection";
 
 export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }) {
   const {
@@ -161,7 +162,7 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
 
   return (
     <div style={{ padding: 12 }}>
-      <ActionPanel
+      <StrategyCaptureSection
         title="New strategy snapshot"
         active={isGenericAnnotating}
         description={!resolved
@@ -205,7 +206,7 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
                   minWidth: 0,
                   padding: 0,
                   border: `1px solid ${theme.dark.borderSoft}`,
-                  background: "var(--ui-card-subtle)",
+                  background: strategyCardBackground,
                   color: "inherit",
                   textAlign: "left",
                   fontFamily: "inherit",

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signup, login } from "@/app/components/handlers/auth";
 import { useUser } from "@/app/components/provider/userprovider";
-import Popup from "@/app/components/errorpopup";
+import Popup from "../components/errorpopup";
 import { AuthChartAnimation } from "@/app/UI/client";
 import { theme, panelStyle, cornerStyle } from "@/app/UI";
 

@@ -1,10 +1,19 @@
 import { StrategyAnnotation, StrategyDetails } from "@/app/components/handlers/annotations";
 import { CandleStickChart } from "@/app/(pages)/chart/chartrender/charts/CandleStickChart";
 import { ChartTheme } from "@/app/(pages)/chart/chartrender/themes/themes";
-import { ActionPanel, cornerStyle, theme } from "@/app/UI";
+import {
+  MonoLabel,
+  TraderBlankButton,
+  cornerStyle,
+  theme,
+  traderInsetPanelStyle,
+} from "@/app/UI";
 import { useChartContext } from "@/app/(pages)/chart/chartcontext";
-import { StrategyValidationControls } from "../SimilaritySearch/controls";
 import { SnapshotTeachingSection } from "./SnapshotTeachingSection";
+import {
+  StrategyCaptureSection,
+  strategyCardBackground,
+} from "./StrategyCaptureSection";
 
 export function StrategySnapshotsPanel({
   strategy,
@@ -35,11 +44,52 @@ export function StrategySnapshotsPanel({
     startAnnotation,
     stopAnnotation,
     validation,
+    startValidation,
+    stopValidation,
+    acceptCandidate,
+    rejectCandidate,
+    adjustCandidateBoundary,
+    chartData,
     strategyTeaching,
   } = useChartContext();
 
+  const isValidatingThis =
+    validation.active && validation.strategyId === strategy.id;
+
   const isAnnotatingThis =
     isCreatingStrategy && annotationStrategyLabel === strategy.title;
+
+  const refSnapshot = strategy.snapshots[strategy.snapshots.length - 1];
+  const usesSnapshotAggregate = strategy.snapshots.length >= 4;
+  const snapshotLengths = strategy.snapshots.map((snapshot) => snapshot.candles.length);
+
+  const aggregateMinLength = usesSnapshotAggregate ? Math.min(...snapshotLengths) : 0;
+  const aggregateMaxLength = usesSnapshotAggregate ? Math.max(...snapshotLengths) : 0;
+
+  const candidateCandles = validation.active ? validation.candidate?.candles : undefined;
+
+  const candidateStartIndex = candidateCandles
+    ? chartData.findIndex((candle) => candle.time === candidateCandles[0].time)
+    : -1;
+
+  const candidateEndIndex = candidateCandles
+    ? chartData.findIndex(
+        (candle) => candle.time === candidateCandles[candidateCandles.length - 1].time,
+      )
+    : -1;
+
+  const canTrimCandidate = (candidateCandles?.length ?? 0) > 5;
+
+  const validationStatus =
+    !validation.active || validation.strategyId !== strategy.id
+      ? "Ready"
+      : validation.candidate
+        ? "Match found"
+        : validation.done
+          ? "Complete"
+          : validation.historyRequest
+            ? "Loading history"
+            : "Scanning";
 
   return (
     <div style={{ padding: 12 }}>
@@ -118,7 +168,7 @@ export function StrategySnapshotsPanel({
         </div>
       )}
 
-      <ActionPanel
+      <StrategyCaptureSection
         title="Add snapshot"
         active={isAnnotatingThis}
         description={`The selection will be saved directly to ${strategy.title.replace(/_/g, " ")}.`}
@@ -134,7 +184,394 @@ export function StrategySnapshotsPanel({
         onSave={onSaveSnapshotAnnotations}
       />
 
-      <StrategyValidationControls strategy={strategy} />
+      <section
+        style={{
+          ...traderInsetPanelStyle(theme.dark),
+          margin: "10px 0 14px",
+          borderColor: isValidatingThis
+            ? theme.dark.accentBorder
+            : theme.dark.borderSoft,
+        }}
+      >
+        <div style={cornerStyle()} />
+
+        <header
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            padding: "9px 10px",
+            borderBottom: `1px solid ${theme.dark.borderSoft}`,
+          }}
+        >
+          <MonoLabel>Validation scan</MonoLabel>
+
+          <span
+            style={{
+              color:
+                validation.active && validation.candidate
+                  ? theme.dark.successText
+                  : isValidatingThis
+                    ? theme.dark.accent
+                    : theme.dark.muted2,
+              fontSize: 9,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+            }}
+          >
+            {validationStatus}
+          </span>
+        </header>
+
+        {!isValidatingThis ? (
+          <div style={{ padding: 10 }}>
+            <div style={{ color: theme.dark.muted2, fontSize: 10, marginBottom: 9 }}>
+              {usesSnapshotAggregate
+                ? `${strategy.snapshots.length}-snapshot aggregate · ${aggregateMinLength}–${aggregateMaxLength} candles`
+                : `Latest snapshot · ${refSnapshot?.candles.length ?? 0} candles`}
+            </div>
+
+            <TraderBlankButton
+              active
+              disabled={!refSnapshot}
+              onClick={() =>
+                refSnapshot &&
+                startValidation(strategy.id, strategy.title, strategy.snapshots)
+              }
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                fontSize: 10,
+                letterSpacing: "0.04em",
+              }}
+            >
+              Validate Strategy
+            </TraderBlankButton>
+          </div>
+        ) : (
+          <div style={{ padding: 10 }}>
+            <div style={{ color: theme.dark.muted2, fontSize: 9, marginBottom: 8 }}>
+              {validation.aggregate
+                ? `${validation.references.length}-snapshot aggregate · ${validation.minLength}–${validation.maxLength} candles`
+                : `Latest snapshot · ${validation.references[0].candles.length} candles`}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                color: theme.dark.muted2,
+                fontSize: 9,
+                marginBottom: 10,
+              }}
+            >
+              <span>History scanned</span>
+              <span style={{ color: theme.dark.text }}>
+                {Math.min(validation.scanned, validation.available)} / {validation.available}
+              </span>
+            </div>
+
+            {validation.candidate ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ color: theme.dark.muted2, fontSize: 9 }}>
+                  Selected range · {validation.candidate.candles.length} candles
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 6,
+                  }}
+                >
+                  <TraderBlankButton
+                    disabled={candidateStartIndex <= 0}
+                    onClick={() =>
+                      adjustCandidateBoundary({
+                        target: "candidate",
+                        boundary: "start",
+                        delta: -1,
+                      })
+                    }
+                    style={{ padding: "6px 7px", fontSize: 9 }}
+                  >
+                    ← Extend start
+                  </TraderBlankButton>
+
+                  <TraderBlankButton
+                    disabled={!canTrimCandidate}
+                    onClick={() =>
+                      adjustCandidateBoundary({
+                        target: "candidate",
+                        boundary: "start",
+                        delta: 1,
+                      })
+                    }
+                    style={{ padding: "6px 7px", fontSize: 9 }}
+                  >
+                    Trim start →
+                  </TraderBlankButton>
+
+                  <TraderBlankButton
+                    disabled={!canTrimCandidate}
+                    onClick={() =>
+                      adjustCandidateBoundary({
+                        target: "candidate",
+                        boundary: "end",
+                        delta: -1,
+                      })
+                    }
+                    style={{ padding: "6px 7px", fontSize: 9 }}
+                  >
+                    ← Trim end
+                  </TraderBlankButton>
+
+                  <TraderBlankButton
+                    disabled={
+                      candidateEndIndex < 0 ||
+                      candidateEndIndex >= chartData.length - 1
+                    }
+                    onClick={() =>
+                      adjustCandidateBoundary({
+                        target: "candidate",
+                        boundary: "end",
+                        delta: 1,
+                      })
+                    }
+                    style={{ padding: "6px 7px", fontSize: 9 }}
+                  >
+                    Extend end →
+                  </TraderBlankButton>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                    border: `1px solid ${theme.dark.borderSoft}`,
+                  }}
+                >
+                  {(["structure", "length", "size"] as const).map((key) => {
+                    const value = validation.candidate!.result.scores[key];
+                    const gate = key === "structure" ? 85 : 70;
+
+                    return (
+                      <div
+                        key={key}
+                        style={{
+                          minWidth: 0,
+                          padding: "9px 8px",
+                          borderRight:
+                            key !== "size"
+                              ? `1px solid ${theme.dark.borderSoft}`
+                              : undefined,
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: theme.dark.muted2,
+                            fontSize: 8,
+                            letterSpacing: "0.06em",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {key}
+                        </div>
+
+                        <div
+                          style={{
+                            color:
+                              value < gate
+                                ? theme.dark.errorText
+                                : key === "structure"
+                                  ? theme.dark.accent
+                                  : theme.dark.text,
+                            fontSize: 15,
+                            marginTop: 4,
+                          }}
+                        >
+                          {value.toFixed(0)}%
+                        </div>
+
+                        <div style={{ color: theme.dark.hint, fontSize: 8, marginTop: 2 }}>
+                          min {gate}%
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {validation.candidate.semantic ? (
+                  <div
+                    style={{
+                      border: `1px solid ${theme.dark.borderSoft}`,
+                      padding: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 9,
+                      }}
+                    >
+                      <span style={{ color: theme.dark.muted2 }}>
+                        Structural semantics
+                      </span>
+
+                      <span
+                        style={{
+                          color: validation.candidate.semantic.qualified
+                            ? theme.dark.successText
+                            : theme.dark.errorText,
+                        }}
+                      >
+                        {validation.candidate.semantic.score.toFixed(0)}%
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                        marginTop: 7,
+                      }}
+                    >
+                      {validation.candidate.semantic.results.map((result) => {
+                        const weak = result.score < 70;
+
+                        const color =
+                          weak && result.importance === "required"
+                            ? theme.dark.errorText
+                            : weak
+                              ? "#f1b86b"
+                              : theme.dark.successText;
+
+                        return (
+                          <div
+                            key={result.id}
+                            style={{
+                              display: "flex",
+                              gap: 6,
+                              fontSize: 8,
+                              padding: "3px 4px",
+                              border: `1px solid ${theme.dark.borderSoft}`,
+                            }}
+                          >
+                            <span style={{ color: theme.dark.text, flex: 1 }}>
+                              {result.label}
+                            </span>
+
+                            <span style={{ color }}>{result.score.toFixed(0)}%</span>
+                          </div>
+                        );
+                      })}
+
+                      {validation.candidate.semantic.execution.map((result) => (
+                        <div
+                          key={result.id}
+                          style={{
+                            display: "flex",
+                            gap: 6,
+                            fontSize: 8,
+                            padding: "3px 4px",
+                            border: `1px solid ${theme.dark.borderSoft}`,
+                          }}
+                        >
+                          <span style={{ color: theme.dark.text, flex: 1 }}>
+                            {result.label}
+                          </span>
+
+                          <span style={{ color: theme.dark.muted2 }}>
+                            {result.role.replace(/_/g, " ")}
+                          </span>
+
+                          <span style={{ color: theme.dark.successText }}>
+                            mapped
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ color: theme.dark.hint, fontSize: 8 }}>
+                    No semantic concepts saved; this match uses candle structure only.
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 6,
+                  }}
+                >
+                  <TraderBlankButton
+                    active
+                    onClick={() => void acceptCandidate()}
+                    style={{ padding: "7px 8px", fontSize: 10 }}
+                  >
+                    Save match
+                  </TraderBlankButton>
+
+                  <TraderBlankButton
+                    onClick={rejectCandidate}
+                    style={{ padding: "7px 8px", fontSize: 10 }}
+                  >
+                    Skip match
+                  </TraderBlankButton>
+                </div>
+              </div>
+            ) : validation.done ? (
+              <div style={{ color: theme.dark.muted2, fontSize: 10, padding: "5px 0" }}>
+                No more matches in available history.
+              </div>
+            ) : (
+              <div
+                style={{
+                  color: theme.dark.muted,
+                  fontSize: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "5px 0",
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: theme.dark.accent,
+                    display: "inline-block",
+                    boxShadow: `0 0 0 3px ${theme.dark.accentSoft}`,
+                  }}
+                />
+
+                {validation.historyRequest
+                  ? "Loading previous history…"
+                  : "Scanning candles…"}
+              </div>
+            )}
+
+            <TraderBlankButton
+              onClick={stopValidation}
+              style={{
+                width: "100%",
+                marginTop: 10,
+                padding: "6px 8px",
+                color: theme.dark.muted,
+                fontSize: 9,
+              }}
+            >
+              End validation
+            </TraderBlankButton>
+          </div>
+        )}
+      </section>
 
       <div
         style={{
@@ -148,7 +585,11 @@ export function StrategySnapshotsPanel({
             validation.active &&
             validation.strategyId === strategy.id &&
             validation.candidate &&
-            index === validation.candidate.referenceIndex;
+            index === (
+              validation.aggregate
+                ? validation.candidate.referenceIndex
+                : strategy.snapshots.length - 1
+            );
 
           const snapshotAnnotations =
             strategyTeaching?.strategyId === strategy.id &&
@@ -165,7 +606,7 @@ export function StrategySnapshotsPanel({
                 border: `1px solid ${
                   selectedReference ? theme.dark.accent : theme.dark.borderSoft
                 }`,
-                background: "var(--ui-card-subtle)",
+                background: strategyCardBackground,
               }}
             >
               <div style={cornerStyle()} />

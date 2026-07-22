@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Trade, TradePatch } from "@/app/components/types/trades";
 import { fetchOpenPositions, updateTrade } from "@/app/components/handlers/positions";
 
@@ -13,9 +13,9 @@ export function usePositions(ticker: string, isBacktest = false) {
       .catch((e) => setError(e.message));
   }, [ticker, isBacktest]);
 
-  const handlePositionClosed = useCallback((tradeId: string) => {
+  function handlePositionClosed(tradeId: string) {
     setPositions((prev) => prev.filter((p) => p.trade_id !== tradeId));
-  }, []);
+  }
 
   async function updatePosition(tradeId: string, patch: TradePatch) {
     try {

@@ -7,27 +7,10 @@ import { RawData } from "@/app/components/types/charts";
 import { deriveBacktestAnalysis, BacktestAnalysis } from "../analysis";
 import { saveBacktestSession } from "../services/backtest";
 import { MAX_TRADE_QUANTITY } from "@/app/components/types/trades";
-import type { StrategySnapshot } from "@/app/components/handlers/annotations";
-import {
-  scoreFormationWindow,
-  type ValidationCandidate,
-} from "@/app/(pages)/chart/SimilaritySearch/validation";
-import { findCurrentFormation } from "@/app/(pages)/chart/SimilaritySearch/forwardpass";
-
-export interface BacktestStrategyConfig {
-  strategyId: string;
-  strategyLabel: string;
-  snapshots: StrategySnapshot[];
-  formationPercent: number;
-}
 
 interface BacktestContextValue {
   session: BacktestSession | null;
-  startSession: (
-    session: BacktestSession,
-    candles: RawData[],
-    strategy?: BacktestStrategyConfig | null,
-  ) => void;
+  startSession: (session: BacktestSession, candles: RawData[]) => void;
   resetSession: () => void;
   resetReplay: () => void;
   candles: RawData[];
@@ -51,8 +34,6 @@ interface BacktestContextValue {
   visibleCandles: RawData[];
   currentCandle: RawData | null;
   analysis: BacktestAnalysis | null;
-  strategy: BacktestStrategyConfig | null;
-  strategyCandidate: ValidationCandidate | null;
 }
 
 const BacktestContext = createContext<BacktestContextValue | null>(null);
@@ -64,7 +45,6 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
   const [playing, setPlaying] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [positions, setPositions] = useState<BacktestPosition[]>([]);
-  const [strategy, setStrategy] = useState<BacktestStrategyConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const snapshotRef = useRef({ cursor: 0, positions: [] as BacktestPosition[] });
   const lastSavedRef = useRef("");
@@ -88,22 +68,6 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
   const analysis = useMemo(() => session
     ? deriveBacktestAnalysis(session.starting_balance, candles, cursor, positions)
     : null, [candles, cursor, positions, session]);
-  const strategyCandidate = useMemo(() => {
-    if (!strategy || !visibleCandles.length) return null;
-    const maxLength = Math.max(
-      0,
-      ...strategy.snapshots.map((snapshot) => snapshot.candles.length),
-    );
-    return findCurrentFormation({
-      visibleCandles,
-      maxLength,
-      score: (window) => scoreFormationWindow(
-        strategy.snapshots,
-        window,
-        strategy.formationPercent,
-      ),
-    });
-  }, [strategy, visibleCandles]);
 
   useEffect(() => {
     snapshotRef.current = { cursor, positions };
@@ -131,18 +95,13 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
     };
   }, [session]);
 
-  function startSession(
-    next: BacktestSession,
-    nextCandles: RawData[],
-    nextStrategy: BacktestStrategyConfig | null = null,
-  ) {
+  function startSession(next: BacktestSession, nextCandles: RawData[]) {
     const nextCursor = Math.max(0, Math.min(next.current_candle ?? 0, nextCandles.length));
     const nextPositions = next.positions ?? [];
     setSession(next);
     setCandles(nextCandles);
     setCursor(nextCursor);
     setPositions(nextPositions);
-    setStrategy(nextStrategy);
     snapshotRef.current = { cursor: nextCursor, positions: nextPositions };
     lastSavedRef.current = JSON.stringify(snapshotRef.current);
     setPlaying(false);
@@ -155,7 +114,6 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
     setCandles([]);
     setCursor(0);
     setPositions([]);
-    setStrategy(null);
     setPlaying(false);
     setError(null);
     lastSavedRef.current = "";
@@ -230,7 +188,6 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
       quantity, setQuantity, positions, openPositions,
       livePnLMap, placeTrade, closeTrade, error,
       visibleCandles, currentCandle, analysis,
-      strategy, strategyCandidate,
     }}>
       {children}
     </BacktestContext.Provider>

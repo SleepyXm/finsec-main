@@ -7,9 +7,7 @@ import { ChartTheme, defaultChartTheme } from "@/app/(pages)/chart/chartrender/t
 import { AppliedIndicator } from "@/app/features/indicators/language/types";
 import { RawData } from "@/app/components/types/charts";
 import { useChartContext } from "@/app/(pages)/chart/chartcontext";
-import type { SemanticMark } from "@/app/UI";
-import type { StrategySnapshot } from "@/app/components/handlers/annotations";
-import type { ValidationCandidate } from "@/app/(pages)/chart/SimilaritySearch/validation";
+import type { SemanticMark } from "./overlays/SemanticMarksOverlay";
 
 type ChartKind = "candlestick" | "line";
 
@@ -29,8 +27,6 @@ type ChartRendererProps = {
   appliedIndicators?: AppliedIndicator[];
   minimal?: boolean;
   semanticMarks?: SemanticMark[];
-  formationCandidate?: ValidationCandidate | null;
-  formationSnapshots?: StrategySnapshot[];
   theme?: ChartTheme;
 };
 
@@ -50,8 +46,6 @@ export function ChartRenderer({
   appliedIndicators = [],
   minimal = false,
   semanticMarks = [],
-  formationCandidate,
-  formationSnapshots = [],
   theme = defaultChartTheme,
 }: ChartRendererProps) {
   const { validation, strategyTeaching, adjustCandidateBoundary } = useChartContext();
@@ -130,8 +124,6 @@ export function ChartRenderer({
       appliedIndicators: teaching ? [] : appliedIndicators,
       fitContent: minimal || Boolean(teaching),
       validation: minimal ? undefined : validation,
-      formationCandidate: minimal ? undefined : formationCandidate,
-      formationSnapshots: minimal ? [] : formationSnapshots,
       adjustCandidateBoundary: minimal ? undefined : adjustCandidateBoundary,
       strategyTeaching: teaching,
       semanticMarks,

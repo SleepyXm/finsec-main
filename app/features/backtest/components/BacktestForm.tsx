@@ -1,22 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { runBacktest } from "../services/backtest";
 import { BacktestSession } from "@/app/components/types/backend";
 import { CHART_INTERVALS, Interval, RawData } from "@/app/components/types/charts";
 import { Label, MonoLabel, TraderBlankButton, buttonStyle, cornerStyle, theme, traderInsetPanelStyle } from "@/app/UI";
-import {
-  getUserStrategy,
-  listUserStrategies,
-  type SavedStrategy,
-} from "@/app/components/handlers/annotations";
-import type { BacktestStrategyConfig } from "./BacktestContext";
-import { NumberStepper } from "@/app/UI/client";
 
 interface Props {
-  onSessionStart: (
-    session: BacktestSession,
-    candles: RawData[],
-    strategy?: BacktestStrategyConfig | null,
-  ) => void;
+  onSessionStart: (session: BacktestSession, candles: RawData[]) => void;
   defaultTicker?: string;
   defaultInterval?: string;
 }
@@ -42,30 +31,9 @@ export default function BacktestForm({ onSessionStart, defaultTicker = "", defau
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState("");
   const [balance, setBalance]   = useState(100000);
-  const [strategies, setStrategies] = useState<SavedStrategy[]>([]);
-  const [strategyId, setStrategyId] = useState("");
-  const [formationPercent, setFormationPercent] = useState(50);
-  const [strategyError, setStrategyError] = useState<string | null>(null);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const today = new Date().toISOString().slice(0, 10);
-
-  useEffect(() => {
-    let cancelled = false;
-    void listUserStrategies()
-      .then((items) => {
-        if (!cancelled) {
-          setStrategies(items);
-          setStrategyError(null);
-        }
-      })
-      .catch((cause) => {
-        if (!cancelled) {
-          setStrategyError(cause instanceof Error ? cause.message : "Could not load strategies.");
-        }
-      });
-    return () => { cancelled = true; };
-  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -89,31 +57,12 @@ export default function BacktestForm({ onSessionStart, defaultTicker = "", defau
       setError("Starting balance must be between 1 and 1,000,000,000,000.");
       return;
     }
-    if (
-      strategyId &&
-      (!Number.isFinite(formationPercent) || formationPercent < 1 || formationPercent > 100)
-    ) {
-      setError("Formation recognition must be between 1% and 100%.");
-      return;
-    }
 
     setTicker(normalizedTicker);
     setLoading(true);
     try {
-      const [res, details] = await Promise.all([
-        runBacktest(normalizedTicker, interval, dateFrom, dateTo, balance),
-        strategyId ? getUserStrategy(strategyId) : Promise.resolve(null),
-      ]);
-      if (details && !details.snapshots.some(({ candles }) => candles.length)) {
-        throw new Error("The selected strategy has no usable snapshots.");
-      }
-      const strategy = details ? {
-        strategyId: details.id,
-        strategyLabel: details.title.replace(/_/g, " "),
-        snapshots: details.snapshots.filter(({ candles }) => candles.length),
-        formationPercent,
-      } : null;
-      onSessionStart(res, res.candles, strategy);
+      const res = await runBacktest(normalizedTicker, interval, dateFrom, dateTo, balance);
+      onSessionStart(res, res.candles);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not start backtest.");
     } finally {
@@ -195,59 +144,17 @@ export default function BacktestForm({ onSessionStart, defaultTicker = "", defau
       {/* Balance */}
       <div>
         <Label t={theme.dark}>Starting Balance ($)</Label>
-        <NumberStepper
+        <input
+          type="number"
           value={balance}
-          onChange={setBalance}
+          onChange={(e) => setBalance(Number(e.target.value))}
           min={1}
           max={1_000_000_000_000}
-          step={0.01}
-          ariaLabel="Starting balance"
-          style={{ width: "100%", height: 34 }}
+          step="0.01"
+          style={inputStyle}
+          required
         />
       </div>
-
-      <div style={{ ...traderInsetPanelStyle(theme.dark), padding: "10px 12px" }}>
-        <div style={cornerStyle()} />
-        <Label t={theme.dark}>Strategy guidance (optional)</Label>
-        <select
-          value={strategyId}
-          onChange={(event) => setStrategyId(event.target.value)}
-          disabled={loading}
-          style={{ ...inputStyle, marginTop: 3 }}
-        >
-          <option value="">None — manual backtest</option>
-          {strategies.map((strategy) => (
-            <option key={strategy.id} value={strategy.id}>
-              {strategy.title.replace(/_/g, " ")} · {strategy.snapshot_count} snapshots
-            </option>
-          ))}
-        </select>
-
-        {strategyId && (
-          <div style={{ marginTop: 10 }}>
-            <Label t={theme.dark}>Recognise formation after (%)</Label>
-            <NumberStepper
-              value={formationPercent}
-              onChange={setFormationPercent}
-              min={1}
-              max={100}
-              step={1}
-              integer
-              ariaLabel="Formation recognition percentage"
-              style={{ width: "100%", height: 34 }}
-            />
-            <p style={{ color: theme.dark.muted2, fontSize: 9, lineHeight: 1.5, margin: "6px 0 0" }}>
-              Replay validates each revealed candle and highlights the strongest forming window.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {strategyError && (
-        <p style={{ color: theme.dark.muted2, fontSize: 10, margin: 0 }}>
-          Strategies unavailable: {strategyError}
-        </p>
-      )}
 
       {error && (
         <p style={{ color: theme.dark.errorText, background: theme.dark.errorBg, padding: 9, fontSize: 10, margin: 0 }}>

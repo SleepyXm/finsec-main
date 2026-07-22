@@ -1,6 +1,6 @@
 ﻿import { useState } from "react";
 import Link from "next/link";
-import { Asset } from "@/app/components/types/assets";
+import { Asset } from "../types/assets";
 
 interface AssetSearchBarProps {
   onSearch: (query: string) => void;

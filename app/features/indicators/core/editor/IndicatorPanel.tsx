@@ -10,7 +10,6 @@ import { FinScriptDiagnostic, InputDescriptor } from "@/app/features/indicators/
 import { FINSCRIPT_EXAMPLES } from "@/app/features/indicators/language/examples"
 import { useChartContext } from "@/app/(pages)/chart/chartcontext"
 import { useSavedIndicators } from "@/app/components/hooks/useIndicators"
-import { NumberStepper } from "@/app/UI/client"
 
 const DEFAULT_RESULT = compileFinScript(DEFAULT_INDICATOR_SCRIPT)
 const DEFAULT_INPUTS = DEFAULT_RESULT.ok
@@ -324,13 +323,15 @@ function IndicatorInput({
           style={controlStyle}
         />
       ) : (
-        <NumberStepper
-          ariaLabel={input.title}
-          step={input.type === "int" ? 1 : 0.1}
-          integer={input.type === "int"}
+        <input
+          aria-label={input.title}
+          type="number"
+          step={input.type === "int" ? 1 : "any"}
           value={Number(value)}
-          onChange={onChange}
-          style={{ width: 82, height: 26 }}
+          onChange={(event) => onChange(input.type === "int"
+            ? Math.trunc(event.target.valueAsNumber)
+            : event.target.valueAsNumber)}
+          style={controlStyle}
         />
       )}
     </label>

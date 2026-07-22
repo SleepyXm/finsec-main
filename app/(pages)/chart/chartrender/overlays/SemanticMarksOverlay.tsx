@@ -1,16 +1,24 @@
 "use client";
 
-import { MutableRefObject, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
-import type {
-  CandidateBoundaryAdjustment,
-} from "../../SimilaritySearch/validation";
+import { CSSProperties, MutableRefObject, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import type { CandidateBoundaryAdjustment, ValidationCandidate } from "@/app/(pages)/chart/chartcontext";
+import { StrategyAnnotation, StrategySnapshot } from "@/app/components/handlers/annotations";
 import { Candle } from "@/app/components/types/charts";
-import {
-  SemanticMarkShapes,
-  type ScreenMark,
-  type SemanticMark,
-  type SeriesOverlayRef,
-} from "@/app/UI";
+import type { SemanticPlacement, SemanticResult } from "../../SimilaritySearch/semantic";
+
+export type SemanticMark = {
+  annotation: StrategyAnnotation;
+  score?: number;
+  status?: "pass" | "weak" | "fail";
+};
+
+type ScreenMark = SemanticMark & {
+  left: number;
+  right: number;
+  top?: number;
+  bottom?: number;
+  y?: number;
+};
 
 export type ChartOverlayRef = MutableRefObject<{
   timeScale: () => {
@@ -19,6 +27,109 @@ export type ChartOverlayRef = MutableRefObject<{
     unsubscribeVisibleLogicalRangeChange: (handler: () => void) => void;
   };
 } | null>;
+
+export type SeriesOverlayRef = MutableRefObject<{
+  coordinateToPrice: (coordinate: number) => number | null;
+  priceToCoordinate: (price: number) => number | null;
+} | null>;
+
+const COLORS = {
+  structure: "#8faadc",
+  entry: "#4fd1a1",
+  exit: "#f1b86b",
+  stop_loss: "#ef6b73",
+  take_profit: "#59b6e6",
+} as const;
+
+const isScored = (
+  placement: SemanticPlacement | SemanticResult,
+): placement is SemanticResult => "score" in placement;
+
+function project(value: number, source: Candle[], target: Candle[]) {
+  const range = (candles: Candle[]) => {
+    const low = Math.min(...candles.map((candle) => candle.low));
+    const high = Math.max(...candles.map((candle) => candle.high));
+    return { low, span: Math.max(Number.EPSILON, high - low) };
+  };
+
+  const from = range(source);
+  const to = range(target);
+
+  return to.low + ((value - from.low) / from.span) * to.span;
+}
+
+export function buildValidationMarks(candidate: ValidationCandidate, references: StrategySnapshot[]) {
+  if (!candidate.semantic || !candidate.candles.length) return [];
+
+  const placements = [
+    ...candidate.semantic.results,
+    ...(candidate.semantic.qualified ? candidate.semantic.execution : []),
+  ];
+
+  return placements.flatMap((placement): SemanticMark[] => {
+    const reference = references[placement.referenceIndex];
+    const annotation =
+      reference?.annotations.find((item) => item.id === placement.id) ??
+      reference?.annotations.find((item) => item.conceptId === placement.conceptId);
+
+    if (!reference || !annotation) return [];
+
+    const last = candidate.candles.length - 1;
+    const ratioLast = Math.max(1, last);
+    const start = Math.max(0, Math.min(last, placement.matchedStartIndex));
+    const end = Math.max(start, Math.min(last, placement.matchedEndIndex));
+
+    let projected: StrategyAnnotation;
+
+    if (annotation.kind === "candle_group") {
+      projected = {
+        ...annotation,
+        candles: candidate.candles.slice(start, end + 1).map(({ open, high, low, close }) => ({
+          open,
+          high,
+          low,
+          close,
+        })),
+      };
+    } else if (annotation.kind === "zone") {
+      projected = {
+        ...annotation,
+        startRatio: start / ratioLast,
+        endRatio: end / ratioLast,
+        priceHigh: project(annotation.priceHigh, reference.candles, candidate.candles),
+        priceLow: project(annotation.priceLow, reference.candles, candidate.candles),
+      };
+    } else if (annotation.kind === "level") {
+      projected = {
+        ...annotation,
+        startRatio: start / ratioLast,
+        endRatio: end / ratioLast,
+        price: project(annotation.price, reference.candles, candidate.candles),
+      };
+    } else {
+      const candleIndex = start;
+      const candle = candidate.candles[candleIndex];
+      const priceAnchor = placement.priceAnchor ?? annotation.priceAnchor;
+
+      projected = {
+        ...annotation,
+        candleIndex,
+        priceAnchor,
+        price: candle[priceAnchor],
+      };
+    }
+
+    const scored = isScored(placement);
+    const weak = scored && placement.score < 70;
+    const required = scored && placement.importance === "required";
+
+    return [{
+      annotation: projected,
+      score: scored ? placement.score : undefined,
+      status: weak ? (required ? "fail" : "weak") : "pass",
+    }];
+  });
+}
 
 export function SemanticMarksOverlay({
   chartRef,
@@ -77,12 +188,6 @@ export function SemanticMarksOverlay({
     }
 
     setDraggingAnnotationId(null);
-  };
-
-  const leaveHover = (annotationId: string) => {
-    if (draggingAnnotationId !== annotationId) {
-      setHoveredAnnotationId((current) => current === annotationId ? null : current);
-    }
   };
 
   useEffect(() => {
@@ -216,37 +321,321 @@ export function SemanticMarksOverlay({
         overflow: "hidden",
       }}
     >
-      <SemanticMarkShapes
-        marks={screenMarks}
-        compact={compact}
-        interactive={interactive}
-        hoveredId={hoveredAnnotationId}
-        draggingId={draggingAnnotationId}
-        onHover={setHoveredAnnotationId}
-        onLeave={leaveHover}
-        beginDrag={beginDrag}
-        finishDrag={finishDrag}
-        nearestCandleIndex={nearestCandleIndex}
-        rootRef={rootRef}
-        seriesRef={seriesRef}
-        data={data}
-        onMoveBoundary={(annotationId, boundary, candleIndex) =>
-          onAdjustBoundary?.({
-            target: "semantic",
-            annotationId,
-            boundary,
-            candleIndex,
-          })
+      {screenMarks.map(({
+        annotation,
+        score,
+        status,
+        left,
+        right,
+        top = 0,
+        bottom = 0,
+        y = 0,
+      }) => {
+        const color =
+          status === "fail"
+            ? "#ef6b73"
+            : status === "weak"
+              ? "#f1b86b"
+              : COLORS[annotation.role];
+
+        const label = `${annotation.label}${
+          compact || score == null ? "" : ` · ${score.toFixed(0)}%`
+        }`;
+
+        const hovered = interactive && hoveredAnnotationId === annotation.id;
+        const dragging = interactive && draggingAnnotationId === annotation.id;
+        const active = hovered || dragging;
+
+        const hoverEvents = interactive
+          ? {
+              onMouseEnter: () => setHoveredAnnotationId(annotation.id),
+              onMouseLeave: () => {
+                if (draggingAnnotationId !== annotation.id) {
+                  setHoveredAnnotationId((current) => (
+                    current === annotation.id ? null : current
+                  ));
+                }
+              },
+            }
+          : {};
+
+        const tag: CSSProperties = {
+          position: "absolute",
+          left: 3,
+          top: 2,
+          color,
+          whiteSpace: "nowrap",
+          fontSize: compact ? 7 : 9,
+          background: active ? "rgba(8,11,16,.98)" : "rgba(8,11,16,.84)",
+          padding: "2px 3px",
+          pointerEvents: "none",
+        };
+
+        if (annotation.kind === "candle_group") {
+          return (
+            <div
+              key={annotation.id}
+              data-annotation-id={annotation.id}
+              data-annotation-kind={annotation.kind}
+              style={{
+                position: "absolute",
+                left: Math.min(left, right),
+                top: Math.min(top, bottom),
+                width: Math.max(3, Math.abs(right - left)),
+                height: Math.max(3, Math.abs(bottom - top)),
+                border: `1px ${status === "weak" ? "dashed" : "solid"} ${color}`,
+                background: `${color}${active ? "32" : "1f"}`,
+                boxShadow: active ? `0 0 0 1px ${color}, 0 0 12px ${color}33` : undefined,
+                pointerEvents: "none",
+                userSelect: "none",
+                zIndex: 2,
+              }}
+            >
+              <span style={tag}>{label}</span>
+
+              {interactive && (
+                <>
+                  <span
+                    data-boundary-hit-zone="start"
+                    onMouseEnter={() => setHoveredAnnotationId(annotation.id)}
+                    onMouseLeave={() => {
+                      if (draggingAnnotationId !== annotation.id) {
+                        setHoveredAnnotationId((current) => (
+                          current === annotation.id ? null : current
+                        ));
+                      }
+                    }}
+                    onPointerDown={(event) => beginDrag(event, annotation.id)}
+                    onPointerMove={(event) => {
+                      if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+
+                      onAdjustBoundary?.({
+                        target: "semantic",
+                        annotationId: annotation.id,
+                        boundary: "start",
+                        candleIndex: nearestCandleIndex(event.clientX),
+                      });
+                    }}
+                    onPointerUp={finishDrag}
+                    onPointerCancel={finishDrag}
+                    style={{
+                      position: "absolute",
+                      left: -8,
+                      top: 0,
+                      bottom: 0,
+                      width: 16,
+                      cursor: "ew-resize",
+                      pointerEvents: "auto",
+                      touchAction: "none",
+                      zIndex: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: "absolute",
+                        left: 3,
+                        top: "50%",
+                        width: 9,
+                        height: 28,
+                        transform: "translateY(-50%)",
+                        border: `1px solid ${color}`,
+                        background: "rgba(8,11,16,.96)",
+                        opacity: active ? 1 : 0,
+                        transition: dragging ? undefined : "opacity 100ms ease",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </span>
+
+                  <span
+                    data-boundary-hit-zone="end"
+                    onMouseEnter={() => setHoveredAnnotationId(annotation.id)}
+                    onMouseLeave={() => {
+                      if (draggingAnnotationId !== annotation.id) {
+                        setHoveredAnnotationId((current) => (
+                          current === annotation.id ? null : current
+                        ));
+                      }
+                    }}
+                    onPointerDown={(event) => beginDrag(event, annotation.id)}
+                    onPointerMove={(event) => {
+                      if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+
+                      onAdjustBoundary?.({
+                        target: "semantic",
+                        annotationId: annotation.id,
+                        boundary: "end",
+                        candleIndex: nearestCandleIndex(event.clientX),
+                      });
+                    }}
+                    onPointerUp={finishDrag}
+                    onPointerCancel={finishDrag}
+                    style={{
+                      position: "absolute",
+                      right: -8,
+                      top: 0,
+                      bottom: 0,
+                      width: 16,
+                      cursor: "ew-resize",
+                      pointerEvents: "auto",
+                      touchAction: "none",
+                      zIndex: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: "absolute",
+                        right: 3,
+                        top: "50%",
+                        width: 9,
+                        height: 28,
+                        transform: "translateY(-50%)",
+                        border: `1px solid ${color}`,
+                        background: "rgba(8,11,16,.96)",
+                        opacity: active ? 1 : 0,
+                        transition: dragging ? undefined : "opacity 100ms ease",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </span>
+                </>
+              )}
+            </div>
+          );
         }
-        onMoveMarker={(annotationId, candleIndex, priceAnchor) =>
-          onAdjustBoundary?.({
-            target: "marker",
-            annotationId,
-            candleIndex,
-            priceAnchor,
-          })
+
+        if (annotation.kind === "marker") {
+          return (
+            <div
+              {...hoverEvents}
+              key={annotation.id}
+              data-annotation-id={annotation.id}
+              data-annotation-kind={annotation.kind}
+              onPointerDown={(event) => {
+                if (interactive) beginDrag(event, annotation.id);
+              }}
+              onPointerMove={(event) => {
+                if (
+                  !interactive ||
+                  !event.currentTarget.hasPointerCapture(event.pointerId)
+                ) {
+                  return;
+                }
+
+                const root = rootRef.current;
+                const series = seriesRef.current;
+
+                if (!root || !series || !data.length) return;
+
+                const candleIndex = nearestCandleIndex(event.clientX);
+                const candle = data[candleIndex];
+                const pointerY = event.clientY - root.getBoundingClientRect().top;
+                const draggedPrice = series.coordinateToPrice(pointerY);
+
+                if (draggedPrice == null || !Number.isFinite(draggedPrice)) return;
+
+                const anchors = ["open", "high", "low", "close"] as const;
+                const priceAnchor = anchors.reduce((closest, anchor) => (
+                  Math.abs(candle[anchor] - draggedPrice) <
+                  Math.abs(candle[closest] - draggedPrice)
+                    ? anchor
+                    : closest
+                ));
+
+                onAdjustBoundary?.({
+                  target: "marker",
+                  annotationId: annotation.id,
+                  candleIndex,
+                  priceAnchor,
+                });
+              }}
+              onPointerUp={finishDrag}
+              onPointerCancel={finishDrag}
+              style={{
+                position: "absolute",
+                left: left - 14,
+                top: y - 14,
+                width: 28,
+                height: 28,
+                pointerEvents: interactive ? "auto" : "none",
+                cursor: interactive ? (dragging ? "grabbing" : "grab") : undefined,
+                touchAction: "none",
+                userSelect: "none",
+                zIndex: 20,
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  left: 9,
+                  top: 9,
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  background: color,
+                  boxShadow: active
+                    ? `0 0 0 3px ${color}55, 0 0 10px ${color}`
+                    : "0 0 0 2px rgba(8,11,16,.85)",
+                  pointerEvents: "none",
+                }}
+              />
+
+              <span style={{ ...tag, left: 27, top: 7 }}>{label}</span>
+            </div>
+          );
         }
-      />
+
+        if (annotation.kind === "zone") {
+          return (
+            <div
+              {...hoverEvents}
+              key={annotation.id}
+              style={{
+                position: "absolute",
+                left: Math.min(left, right),
+                top: Math.min(top, bottom),
+                width: Math.max(3, Math.abs(right - left)),
+                height: Math.max(3, Math.abs(bottom - top)),
+                border: `1px ${status === "weak" ? "dashed" : "solid"} ${color}`,
+                background: `${color}${active ? "32" : "1f"}`,
+                pointerEvents: interactive ? "auto" : "none",
+                zIndex: active ? 4 : 3,
+              }}
+            >
+              <span style={tag}>{label}</span>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            {...hoverEvents}
+            key={annotation.id}
+            style={{
+              position: "absolute",
+              left: Math.min(left, right),
+              top: y - 5,
+              width: Math.max(3, Math.abs(right - left)),
+              height: 10,
+              pointerEvents: interactive ? "auto" : "none",
+              zIndex: active ? 4 : 3,
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 5,
+                borderTop: `${active ? 2 : 1}px dashed ${color}`,
+                pointerEvents: "none",
+              }}
+            />
+
+            <span style={{ ...tag, top: -9 }}>{label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
