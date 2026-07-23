@@ -12,7 +12,10 @@ import { AppliedIndicator } from "@/app/features/indicators/language/types";
 import { PositionTags } from "../overlays/PositionOverlay";
 import { ACCENT, DANGER, SUCCESS } from "@/app/UI";
 import { buildValidationMarks } from "@/app/features/StrategyEngine/validationMarks";
-import type { StrategyChartController } from "@/app/features/StrategyEngine/types";
+import type {
+  ForwardPassState,
+  StrategyChartController,
+} from "@/app/features/StrategyEngine/types";
 
 type ChartPlugins = {
   data?: any[];
@@ -31,6 +34,7 @@ type ChartPlugins = {
   semanticMarks?: SemanticMark[];
   semanticMarksCompact?: boolean;
   strategy?: StrategyChartController;
+  forwardPass?: ForwardPassState | null;
 };
 
 export function resolveBackground(bg: ChartBackground) {
@@ -379,6 +383,14 @@ export function useChart(
   const validation = plugins.strategy?.validation;
   const validationCandidate =
     validation?.active ? validation.candidate : null;
+  const forwardFormation =
+    plugins.forwardPass?.formation ?? null;
+  const forwardCandles = forwardFormation
+    ? data.slice(
+        forwardFormation.startIndex,
+        forwardFormation.endIndex + 1,
+      )
+    : [];
 
   const semanticMarks =
     validation?.active && validationCandidate
@@ -386,7 +398,9 @@ export function useChart(
           validationCandidate,
           validation.semanticReferences,
         )
-      : plugins.semanticMarks ?? [];
+      : forwardFormation
+        ? forwardFormation.marks
+        : plugins.semanticMarks ?? [];
 
   const candidateFrom = validationCandidate?.candles[0]?.time;
   const candidateTo = validationCandidate?.candles[validationCandidate.candles.length - 1]?.time;
@@ -415,6 +429,7 @@ export function useChart(
       plugins.strategy?.isCreatingStrategy,
     ),
     validation,
+    matchCandles: forwardCandles,
   });
 
   const chartElement = (

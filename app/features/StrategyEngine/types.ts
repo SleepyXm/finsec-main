@@ -189,6 +189,34 @@ export type SemanticMark = {
   status?: "pass" | "weak" | "fail";
 };
 
+export type ForwardReferenceMatch = {
+  referenceIndex: number;
+  prefixEndIndex: number;
+  progress: number;
+  confidence: number;
+  structure: number;
+  qualified: boolean;
+};
+
+export type ForwardFormation = {
+  startIndex: number;
+  endIndex: number;
+  status: "forming" | "confirmed";
+  confidence: number;
+  support: number;
+  totalReferences: number;
+  progress: number;
+  referenceMatches: ForwardReferenceMatch[];
+  marks: SemanticMark[];
+};
+
+export type ForwardPassState = {
+  strategyId: string;
+  processedCandles: number;
+  status: "searching" | "forming" | "confirmed" | "invalidated";
+  formation: ForwardFormation | null;
+};
+
 export type StrategyChartController = {
   isCreatingStrategy: boolean;
   annotationStrategyLabel: string | null;

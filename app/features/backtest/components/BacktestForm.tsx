@@ -1,11 +1,23 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { runBacktest } from "../services/backtest";
 import { BacktestSession } from "@/app/components/types/backend";
 import { CHART_INTERVALS, Interval, RawData } from "@/app/components/types/charts";
 import { Label, MonoLabel, TraderBlankButton, buttonStyle, cornerStyle, theme, traderInsetPanelStyle } from "@/app/UI";
+import {
+  getUserStrategy,
+  listUserStrategies,
+} from "@/app/components/handlers/annotations";
+import type {
+  SavedStrategy,
+  StrategyDetails,
+} from "@/app/features/StrategyEngine/types";
 
 interface Props {
-  onSessionStart: (session: BacktestSession, candles: RawData[]) => void;
+  onSessionStart: (
+    session: BacktestSession,
+    candles: RawData[],
+    strategy: StrategyDetails | null,
+  ) => void;
   defaultTicker?: string;
   defaultInterval?: string;
 }
@@ -31,9 +43,43 @@ export default function BacktestForm({ onSessionStart, defaultTicker = "", defau
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState("");
   const [balance, setBalance]   = useState(100000);
+  const [strategies, setStrategies] =
+    useState<SavedStrategy[]>([]);
+  const [strategyId, setStrategyId] =
+    useState("");
+  const [strategiesLoading, setStrategiesLoading] =
+    useState(true);
+  const [strategyError, setStrategyError] =
+    useState<string | null>(null);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const today = new Date().toISOString().slice(0, 10);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void listUserStrategies()
+      .then((items) => {
+        if (cancelled) return;
+        setStrategies(items);
+        setStrategyError(null);
+      })
+      .catch((cause) => {
+        if (cancelled) return;
+        setStrategyError(
+          cause instanceof Error
+            ? cause.message
+            : "Could not load saved strategies.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setStrategiesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,8 +107,22 @@ export default function BacktestForm({ onSessionStart, defaultTicker = "", defau
     setTicker(normalizedTicker);
     setLoading(true);
     try {
-      const res = await runBacktest(normalizedTicker, interval, dateFrom, dateTo, balance);
-      onSessionStart(res, res.candles);
+      const strategy = strategyId
+        ? await getUserStrategy(strategyId)
+        : null;
+      const res = await runBacktest(
+        normalizedTicker,
+        interval,
+        dateFrom,
+        dateTo,
+        balance,
+        strategy?.id ?? null,
+      );
+      onSessionStart(
+        res,
+        res.candles,
+        strategy,
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not start backtest.");
     } finally {
@@ -112,6 +172,57 @@ export default function BacktestForm({ onSessionStart, defaultTicker = "", defau
             );
           })}
         </div>
+      </div>
+
+      <div>
+        <Label t={theme.dark}>Strategy</Label>
+        <select
+          value={strategyId}
+          onChange={(event) =>
+            setStrategyId(event.target.value)
+          }
+          disabled={strategiesLoading}
+          style={inputStyle}
+        >
+          <option value="">
+            {strategiesLoading
+              ? "Loading strategies…"
+              : "No strategy"}
+          </option>
+          {strategies.map((strategy) => (
+            <option
+              key={strategy.id}
+              value={strategy.id}
+            >
+              {strategy.title} · {strategy.snapshot_count}{" "}
+              {strategy.snapshot_count === 1
+                ? "snapshot"
+                : "snapshots"}
+            </option>
+          ))}
+        </select>
+        <div
+          style={{
+            color: theme.dark.muted2,
+            fontSize: 9,
+            marginTop: 5,
+            lineHeight: 1.4,
+          }}
+        >
+          The selected strategy is matched against candles
+          as the replay reveals them.
+        </div>
+        {strategyError && (
+          <div
+            style={{
+              color: theme.dark.errorText,
+              fontSize: 9,
+              marginTop: 5,
+            }}
+          >
+            {strategyError}
+          </div>
+        )}
       </div>
 
       {/* Date range */}

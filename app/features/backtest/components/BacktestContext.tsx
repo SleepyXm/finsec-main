@@ -1,21 +1,35 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import React from "react";
 import { BacktestPosition, BacktestSession } from "@/app/components/types/backend";
 import { RawData } from "@/app/components/types/charts";
 import { deriveBacktestAnalysis, BacktestAnalysis } from "../analysis";
 import { saveBacktestSession } from "../services/backtest";
 import { MAX_TRADE_QUANTITY } from "@/app/components/types/trades";
+import {
+  createForwardPassState,
+  reconcileForwardPass,
+} from "@/app/features/StrategyEngine/forward";
+import type {
+  ForwardPassState,
+  StrategyDetails,
+} from "@/app/features/StrategyEngine/types";
 
 interface BacktestContextValue {
   session: BacktestSession | null;
-  startSession: (session: BacktestSession, candles: RawData[]) => void;
+  activeStrategy: StrategyDetails | null;
+  forwardPass: ForwardPassState | null;
+  startSession: (
+    session: BacktestSession,
+    candles: RawData[],
+    strategy: StrategyDetails | null,
+  ) => void;
   resetSession: () => void;
   resetReplay: () => void;
   candles: RawData[];
   cursor: number;
-  setCursor: React.Dispatch<React.SetStateAction<number>>;
+  setCursor: (cursor: number) => void;
   playing: boolean;
   setPlaying: React.Dispatch<React.SetStateAction<boolean>>;
   quantity: number;
@@ -40,8 +54,12 @@ const BacktestContext = createContext<BacktestContextValue | null>(null);
 
 export function BacktestProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<BacktestSession | null>(null);
+  const [activeStrategy, setActiveStrategy] =
+    useState<StrategyDetails | null>(null);
+  const [forwardPass, setForwardPass] =
+    useState<ForwardPassState | null>(null);
   const [candles, setCandles] = useState<RawData[]>([]);
-  const [cursor, setCursor] = useState(0);
+  const [cursor, setCursorState] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [positions, setPositions] = useState<BacktestPosition[]>([]);
@@ -49,6 +67,8 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
   const snapshotRef = useRef({ cursor: 0, positions: [] as BacktestPosition[] });
   const lastSavedRef = useRef("");
   const savingRef = useRef(false);
+  const forwardPassRef =
+    useRef<ForwardPassState | null>(null);
 
   const visibleCandles = useMemo(() => candles.slice(0, cursor), [candles, cursor]);
   const currentCandle = visibleCandles[visibleCandles.length - 1] ?? null;
@@ -95,15 +115,40 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
     };
   }, [session]);
 
-  function startSession(next: BacktestSession, nextCandles: RawData[]) {
+  function startSession(
+    next: BacktestSession,
+    nextCandles: RawData[],
+    strategy: StrategyDetails | null,
+  ) {
+    const sessionStrategyId =
+      next.strategy_id ?? null;
+    const loadedStrategyId = strategy?.id ?? null;
+
+    if (sessionStrategyId !== loadedStrategyId) {
+      throw new Error(
+        "The selected strategy does not match this backtest.",
+      );
+    }
+
     const nextCursor = Math.max(0, Math.min(next.current_candle ?? 0, nextCandles.length));
     const nextPositions = next.positions ?? [];
     setSession(next);
+    setActiveStrategy(strategy);
     setCandles(nextCandles);
-    setCursor(nextCursor);
+    setCursorState(nextCursor);
     setPositions(nextPositions);
     snapshotRef.current = { cursor: nextCursor, positions: nextPositions };
     lastSavedRef.current = JSON.stringify(snapshotRef.current);
+    const nextForwardPass = strategy
+      ? reconcileForwardPass(
+          null,
+          nextCandles.slice(0, nextCursor),
+          strategy.snapshots,
+          strategy.id,
+        )
+      : null;
+    forwardPassRef.current = nextForwardPass;
+    setForwardPass(nextForwardPass);
     setPlaying(false);
     setError(null);
   }
@@ -111,8 +156,11 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
   function resetSession() {
     if (session) void saveBacktestSession(session.session_id, cursor, positions);
     setSession(null);
+    setActiveStrategy(null);
+    setForwardPass(null);
+    forwardPassRef.current = null;
     setCandles([]);
-    setCursor(0);
+    setCursorState(0);
     setPositions([]);
     setPlaying(false);
     setError(null);
@@ -120,10 +168,36 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
   }
 
   function resetReplay() {
-    setCursor(0);
+    setCursorState(0);
     setPositions([]);
     setPlaying(false);
+    forwardPassRef.current = activeStrategy
+      ? createForwardPassState(activeStrategy.id)
+      : null;
+    setForwardPass(forwardPassRef.current);
   }
+
+  const setCursor = useCallback((nextCursor: number) => {
+    const bounded = Math.max(
+      0,
+      Math.min(nextCursor, candles.length),
+    );
+    const nextForwardPass = activeStrategy
+      ? reconcileForwardPass(
+          forwardPassRef.current,
+          candles.slice(0, bounded),
+          activeStrategy.snapshots,
+          activeStrategy.id,
+        )
+      : null;
+
+    forwardPassRef.current = nextForwardPass;
+    setForwardPass(nextForwardPass);
+    setCursorState(bounded);
+  }, [
+    activeStrategy,
+    candles,
+  ]);
 
   function placeTrade(
     action: "buy" | "sell",
@@ -183,7 +257,8 @@ export function BacktestProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <BacktestContext.Provider value={{
-      session, startSession, resetSession, resetReplay,
+      session, activeStrategy, forwardPass,
+      startSession, resetSession, resetReplay,
       candles, cursor, setCursor, playing, setPlaying,
       quantity, setQuantity, positions, openPositions,
       livePnLMap, placeTrade, closeTrade, error,

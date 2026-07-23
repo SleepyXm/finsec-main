@@ -3,10 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { BacktestResponse, BacktestSummary } from "@/app/components/types/backend";
 import { deleteBacktestSession, getBacktestSession, listBacktests } from "../services/backtest";
+import { getUserStrategy } from "@/app/components/handlers/annotations";
+import type { StrategyDetails } from "@/app/features/StrategyEngine/types";
 import { MonoLabel, TraderBlankButton, cornerStyle, panelStyle, theme } from "@/app/UI";
 
 interface Props {
-  onResume: (backtest: BacktestResponse) => void;
+  onResume: (
+    backtest: BacktestResponse,
+    strategy: StrategyDetails | null,
+  ) => void;
 }
 
 const compactButton = { padding: "5px 8px", fontSize: 9 };
@@ -28,7 +33,13 @@ export default function SavedBacktests({ onResume }: Props) {
     setBusyId(sessionId);
     setError(null);
     try {
-      onResume(await getBacktestSession(sessionId));
+      const backtest =
+        await getBacktestSession(sessionId);
+      const strategy = backtest.strategy_id
+        ? await getUserStrategy(backtest.strategy_id)
+        : null;
+
+      onResume(backtest, strategy);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to resume backtest");
     } finally {
@@ -71,6 +82,11 @@ export default function SavedBacktests({ onResume }: Props) {
                 </div>
                 <div style={{ color: theme.dark.muted2, fontSize: 9, marginTop: 4, lineHeight: 1.5 }}>
                   Candle {item.current_candle.toLocaleString()} · ${item.starting_balance.toLocaleString()}
+                  {item.strategy_id && (
+                    <>
+                      <br />Strategy attached
+                    </>
+                  )}
                   <br />Expires {new Date(item.expires_at).toLocaleString()}
                 </div>
               </div>

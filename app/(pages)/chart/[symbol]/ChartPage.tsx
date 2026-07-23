@@ -132,6 +132,11 @@ function ChartPageInner() {
           }}
           onScrollLeft={isBacktesting ? undefined : loadPreviousPage}
           appliedIndicators={appliedIndicators}
+          forwardPass={
+            isBacktesting
+              ? backtest.forwardPass
+              : null
+          }
           theme={activeTheme}
         />
       ) : isBacktesting ? (

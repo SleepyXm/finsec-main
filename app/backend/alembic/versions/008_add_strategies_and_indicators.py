@@ -69,6 +69,23 @@ def upgrade():
         "strategies",
         ["owner_id", "updated_at"],
     )
+    op.add_column(
+        "backtests",
+        sa.Column(
+            "strategy_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey(
+                "strategies.id",
+                ondelete="SET NULL",
+            ),
+            nullable=True,
+        ),
+    )
+    op.create_index(
+        "ix_backtests_strategy_id",
+        "backtests",
+        ["strategy_id"],
+    )
 
     op.create_table(
         "indicators",
@@ -178,6 +195,9 @@ def downgrade():
     op.drop_index("ix_indicators_owner_updated", table_name="indicators")
     op.drop_index("ix_indicators_owner_id", table_name="indicators")
     op.drop_table("indicators")
+
+    op.drop_index("ix_backtests_strategy_id", table_name="backtests")
+    op.drop_column("backtests", "strategy_id")
 
     op.execute("DROP TRIGGER IF EXISTS trg_strategies_updated_at ON strategies;")
     op.drop_index("ix_strategies_owner_updated", table_name="strategies")

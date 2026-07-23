@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import type { Candle } from "@/app/components/types/charts";
 import type { ValidationState } from "@/app/features/StrategyEngine/types";
 
 interface CandleHighlightOptions {
@@ -8,6 +9,7 @@ interface CandleHighlightOptions {
   data: any[];
   active: boolean; // only paints when isCreatingStrategy or whatever condition
   validation?: ValidationState;
+  matchCandles?: Candle[];
 }
 
 export function useCandleHighlight({
@@ -17,6 +19,7 @@ export function useCandleHighlight({
   data,
   active,
   validation,
+  matchCandles = [],
 }: CandleHighlightOptions) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const selectionRef = useRef<{ startX: number; endX: number } | null>(null);
@@ -61,9 +64,10 @@ export function useCandleHighlight({
 
     const timeScale = chart.timeScale();
 
-    // ── Validation candidate: dim everything outside the match window ────────
-    if (validation?.active && validation.candidate) {
-      const { candles } = validation.candidate;
+    const paintCandleRange = (
+      candles: Candle[],
+      dimOutside: boolean,
+    ) => {
       if (candles.length) {
         const x1 = timeScale.timeToCoordinate(candles[0].time);
         const x2 = timeScale.timeToCoordinate(candles[candles.length - 1].time);
@@ -80,16 +84,15 @@ export function useCandleHighlight({
           const left  = Math.min(x1, x2) - pad;
           const right = Math.max(x1, x2) + pad;
 
-          // dim everything outside
-          ctx.fillStyle = "rgba(5,8,13,0.62)";
-          ctx.fillRect(0, 0, left, canvas.height);
-          ctx.fillRect(right, 0, canvas.width - right, canvas.height);
+          if (dimOutside) {
+            ctx.fillStyle = "rgba(5,8,13,0.62)";
+            ctx.fillRect(0, 0, left, canvas.height);
+            ctx.fillRect(right, 0, canvas.width - right, canvas.height);
+          }
 
-          // subtle accent tint over the window
           ctx.fillStyle = "rgba(143,170,220,0.1)";
           ctx.fillRect(left, 0, right - left, canvas.height);
 
-          // border
           ctx.strokeStyle = "rgba(143,170,220,0.76)";
           ctx.lineWidth = 1;
           ctx.beginPath();
@@ -98,9 +101,22 @@ export function useCandleHighlight({
           ctx.stroke();
         }
       }
+    };
+
+    // ── Validation candidate: dim everything outside the match window ────────
+    if (validation?.active && validation.candidate) {
+      paintCandleRange(
+        validation.candidate.candles,
+        true,
+      );
       return; // skip annotation dim
     }
     // ────────────────────────────────────────────────────────────────────────
+
+    if (matchCandles.length) {
+      paintCandleRange(matchCandles, false);
+      return;
+    }
 
     if (!active) return;
 
@@ -147,7 +163,14 @@ export function useCandleHighlight({
     ctx.lineWidth = 1;
     ctx.strokeRect(selLeft, 0, selRight - selLeft, canvas.height);
 
-  }, [chartRef, seriesRef, data, active, validation]);
+  }, [
+    chartRef,
+    seriesRef,
+    data,
+    active,
+    validation,
+    matchCandles,
+  ]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -187,7 +210,7 @@ export function useCandleHighlight({
   useEffect(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(paint);
-  }, [active, validation, paint]);
+  }, [active, validation, matchCandles, paint]);
 
   return { canvasRef, setSelection, clearSelection };
 }

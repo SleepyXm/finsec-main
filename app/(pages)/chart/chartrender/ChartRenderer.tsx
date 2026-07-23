@@ -7,6 +7,7 @@ import { ChartTheme, defaultChartTheme } from "@/app/(pages)/chart/chartrender/t
 import { AppliedIndicator } from "@/app/features/indicators/language/types";
 import { RawData } from "@/app/components/types/charts";
 import type {
+  ForwardPassState,
   SemanticMark,
   StrategyChartController,
 } from "@/app/features/StrategyEngine/types";
@@ -27,6 +28,7 @@ type ChartRendererProps = {
   appliedIndicators?: AppliedIndicator[];
   minimal?: boolean;
   semanticMarks?: SemanticMark[];
+  forwardPass?: ForwardPassState | null;
   theme?: ChartTheme;
   strategy?: StrategyChartController;
 };
@@ -45,6 +47,7 @@ export function ChartRenderer({
   appliedIndicators = [],
   minimal = false,
   semanticMarks = [],
+  forwardPass = null,
   theme = defaultChartTheme,
   strategy,
 }: ChartRendererProps) {
@@ -122,6 +125,7 @@ export function ChartRenderer({
       fitContent: minimal || Boolean(teaching),
       strategy: minimal ? undefined : strategy,
       semanticMarks,
+      forwardPass: minimal ? null : forwardPass,
       semanticMarksCompact: minimal,
     },
     theme,

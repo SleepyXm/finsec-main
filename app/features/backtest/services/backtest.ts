@@ -19,6 +19,7 @@ async function backtestRequest<T>(path: string, init?: RequestInit): Promise<T> 
 function normaliseBacktestResponse(response: BacktestResponse): BacktestResponse {
   return {
     ...response,
+    strategy_id: response.strategy_id ?? null,
     candles: response.candles.map((candle) => ({
       ...candle,
       volume: candle.volume ?? null,
@@ -33,10 +34,18 @@ export async function runBacktest(
   date_from: string,
   date_to: string,
   starting_balance: number,
+  strategy_id: string | null,
 ) {
   const response = await backtestRequest<BacktestResponse>("/api/backtest/run", {
     method: "POST",
-    body: JSON.stringify({ ticker, interval, date_from, date_to, starting_balance }),
+    body: JSON.stringify({
+      ticker,
+      interval,
+      date_from,
+      date_to,
+      starting_balance,
+      strategy_id,
+    }),
   });
   return normaliseBacktestResponse(response);
 }

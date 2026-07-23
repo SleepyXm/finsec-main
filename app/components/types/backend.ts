@@ -24,6 +24,7 @@ export interface BacktestSession {
   date_from: string;
   date_to: string;
   starting_balance: number;
+  strategy_id: string | null;
   candle_count: number;
   current_candle: number;
   positions: BacktestPosition[];
@@ -43,6 +44,7 @@ export interface BacktestSummary {
   date_from: string;
   date_to: string;
   starting_balance: number;
+  strategy_id: string | null;
   current_candle: number;
   created_at: string;
   updated_at: string;

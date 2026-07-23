@@ -8,6 +8,7 @@ import { useBacktestContext } from "./BacktestContext";
 import OpenPositions from "@/app/components/trading/positions";
 import { useChartContext } from "@/app/(pages)/chart/chartcontext";
 import { PnLChart } from "@/app/(pages)/chart/chartrender/charts/PnLChart";
+import { useStrategyEngine } from "@/app/features/StrategyEngine/StrategyEngineProvider";
 import { TraderBlankButton, cornerStyle, MonoLabel, theme, traderInsetPanelStyle, traderPanelStyle } from "@/app/UI";
 
 function displayDate(value: string) {
@@ -18,7 +19,14 @@ function displayDate(value: string) {
 export default function BacktestPanel() {
   const { shortname, interval } = useChartContext();
   const {
+    stopAnnotation,
+    stopValidation,
+    closeStrategyTeaching,
+  } = useStrategyEngine();
+  const {
     session,
+    activeStrategy,
+    forwardPass,
     startSession,
     resetSession,
     resetReplay,
@@ -34,6 +42,16 @@ export default function BacktestPanel() {
     error,
     analysis,
   } = useBacktestContext();
+  const enterBacktest: typeof startSession = (
+    next,
+    nextCandles,
+    strategy,
+  ) => {
+    stopAnnotation();
+    stopValidation();
+    closeStrategyTeaching();
+    startSession(next, nextCandles, strategy);
+  };
 
   if (!session) {
     return (
@@ -41,9 +59,17 @@ export default function BacktestPanel() {
         <BacktestForm
           defaultTicker={shortname ?? ""}
           defaultInterval={interval ?? "5m"}
-          onSessionStart={startSession}
+          onSessionStart={enterBacktest}
         />
-        <SavedBacktests onResume={(backtest) => startSession(backtest, backtest.candles)} />
+        <SavedBacktests
+          onResume={(backtest, strategy) =>
+            enterBacktest(
+              backtest,
+              backtest.candles,
+              strategy,
+            )
+          }
+        />
       </div>
     );
   }
@@ -79,6 +105,8 @@ export default function BacktestPanel() {
         playing={playing}
         setPlaying={setPlaying}
         onReset={resetReplay}
+        strategy={activeStrategy}
+        forwardPass={forwardPass}
       />
 
       {error && (
