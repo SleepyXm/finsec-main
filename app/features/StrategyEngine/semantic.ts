@@ -1,30 +1,18 @@
-import { StrategyAnnotation, StrategySnapshot } from "@/app/components/handlers/annotations";
-import { Candle } from "@/app/components/types/charts";
+import type { Candle } from "@/app/components/types/charts";
 import { alignCandleStructure, normaliseCandles } from "./similarity";
+import type {
+  SemanticPlacement,
+  SemanticResult,
+  SemanticValidation,
+  StrategyAnnotation,
+  StrategySnapshot,
+} from "./types";
 
-export type SemanticPlacement = {
-  id: string;
-  conceptId: string;
-  label: string;
-  role: StrategyAnnotation["role"];
-  matchedStartIndex: number;
-  matchedEndIndex: number;
-  referenceIndex: number;
-  priceAnchor?: "open" | "high" | "low" | "close";
-};
-
-export type SemanticResult = SemanticPlacement & {
-  importance: StrategyAnnotation["importance"];
-  score: number;
-  passed: boolean;
-};
-
-export type SemanticValidation = {
-  qualified: boolean;
-  score: number;
-  results: SemanticResult[];
-  execution: SemanticPlacement[];
-};
+export type {
+  SemanticPlacement,
+  SemanticResult,
+  SemanticValidation,
+} from "./types";
 
 const GATE = 70;
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
@@ -37,31 +25,13 @@ function bounds(reference: Candle[], annotation: StrategyAnnotation) {
     return { start: index, end: index };
   }
 
-  if (annotation.kind === "candle_group") {
-    const located = reference.findIndex((_, index) =>
-      index + annotation.candles.length <= reference.length &&
-      annotation.candles.every((candle, offset) => {
-        const referenceCandle = reference[index + offset];
-
-        return (
-          referenceCandle.open === candle.open &&
-          referenceCandle.high === candle.high &&
-          referenceCandle.low === candle.low &&
-          referenceCandle.close === candle.close
-        );
-      }),
-    );
-
-    const start = located >= 0 ? located : 0;
-    const end = Math.min(last, start + Math.max(0, annotation.candles.length - 1));
-
-    return { start, end };
-  }
-
-  const start = Math.round(clamp(Math.min(annotation.startRatio, annotation.endRatio)) * last);
+  const start = Math.max(
+    0,
+    Math.min(last, Math.min(annotation.startIndex, annotation.endIndex)),
+  );
   const end = Math.max(
     start,
-    Math.round(clamp(Math.max(annotation.startRatio, annotation.endRatio)) * last),
+    Math.min(last, Math.max(annotation.startIndex, annotation.endIndex)),
   );
 
   return { start, end };
@@ -229,10 +199,10 @@ export function scoreAnnotation(
   const start = Math.max(0, Math.min(last, Math.min(requestedStart, requestedEnd)));
   const end = Math.max(start, Math.min(last, Math.max(requestedStart, requestedEnd)));
 
-  const source =
-    annotation.kind === "candle_group"
-      ? annotation.candles
-      : reference.slice(mapped.source.start, mapped.source.end + 1);
+  const source = reference.slice(
+    mapped.source.start,
+    mapped.source.end + 1,
+  );
 
   const target = normalised.slice(start, end + 1);
   let score = similarity(shape(source), shape(target));

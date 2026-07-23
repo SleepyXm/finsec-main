@@ -6,8 +6,10 @@ import { useChart } from "@/app/(pages)/chart/chartrender/hooks/useChart";
 import { ChartTheme, defaultChartTheme } from "@/app/(pages)/chart/chartrender/themes/themes";
 import { AppliedIndicator } from "@/app/features/indicators/language/types";
 import { RawData } from "@/app/components/types/charts";
-import { useChartContext } from "@/app/(pages)/chart/chartcontext";
-import type { SemanticMark } from "./overlays/SemanticMarksOverlay";
+import type {
+  SemanticMark,
+  StrategyChartController,
+} from "@/app/features/StrategyEngine/types";
 
 type ChartKind = "candlestick" | "line";
 
@@ -19,15 +21,14 @@ type ChartRendererProps = {
   trades?: any[];
   positions?: any[];
   livePnLMap?: Record<string, number>;
-  isCreatingStrategy?: boolean;
   onClosePosition?: (id: string) => void;
   updatePosition?: (id: string, patch: any) => void | Promise<void>;
-  onAnnotation?: (annotation: any) => void;
   onScrollLeft?: () => void;
   appliedIndicators?: AppliedIndicator[];
   minimal?: boolean;
   semanticMarks?: SemanticMark[];
   theme?: ChartTheme;
+  strategy?: StrategyChartController;
 };
 
 export function ChartRenderer({
@@ -38,8 +39,6 @@ export function ChartRenderer({
   trades = [],
   positions = [],
   livePnLMap = {},
-  isCreatingStrategy = false,
-  onAnnotation,
   onScrollLeft,
   onClosePosition,
   updatePosition,
@@ -47,10 +46,10 @@ export function ChartRenderer({
   minimal = false,
   semanticMarks = [],
   theme = defaultChartTheme,
+  strategy,
 }: ChartRendererProps) {
-  const { validation, strategyTeaching, adjustCandidateBoundary } = useChartContext();
-
-  const teaching = minimal ? null : strategyTeaching;
+  const teaching =
+    minimal ? null : strategy?.strategyTeaching;
   const renderedData = teaching?.snapshot.candles ?? data;
 
   const getPositionLabel = useCallback((position: any) => {
@@ -114,8 +113,6 @@ export function ChartRenderer({
       livePnLMap,
       renderTradeUI: teaching ? undefined : renderTradeUI,
       getPositionLabel,
-      isCreatingStrategy,
-      onAnnotation,
       onScrollLeft: teaching ? undefined : onScrollLeft,
       onClosePosition,
       updatePosition,
@@ -123,9 +120,7 @@ export function ChartRenderer({
       enableIndicators: type === "candlestick",
       appliedIndicators: teaching ? [] : appliedIndicators,
       fitContent: minimal || Boolean(teaching),
-      validation: minimal ? undefined : validation,
-      adjustCandidateBoundary: minimal ? undefined : adjustCandidateBoundary,
-      strategyTeaching: teaching,
+      strategy: minimal ? undefined : strategy,
       semanticMarks,
       semanticMarksCompact: minimal,
     },

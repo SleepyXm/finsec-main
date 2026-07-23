@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
-import { AnnotationDraft } from '@/app/components/handlers/annotations';
-import { Candle } from '@/app/components/types/charts';
-import { useChartContext } from "@/app/(pages)/chart/chartcontext";
+import type { Candle } from '@/app/components/types/charts';
+import type { AnnotationDraft } from '@/app/features/StrategyEngine/types';
 import { cornerStyle, MonoLabel, theme, traderInsetPanelStyle, TraderBlankButton } from "@/app/UI";
 
 const LABELS = [
@@ -28,15 +27,15 @@ type PendingAnnotation = Omit<AnnotationDraft, 'label'> & {
   priceLow: number;
 };
 
-export function StrategyOverlay({ chartRef, seriesRef, data, onAnnotation, setSelection, clearSelection }: {
+export function StrategyOverlay({ chartRef, seriesRef, data, annotationStrategyLabel, onAnnotation, setSelection, clearSelection }: {
   chartRef: React.MutableRefObject<any>;
   seriesRef: React.MutableRefObject<any>;
   data: Candle[];
-  onAnnotation?: (annotation: AnnotationDraft) => void;
+  annotationStrategyLabel: string | null;
+  onAnnotation?: (annotation: AnnotationDraft) => void | Promise<void>;
   setSelection: (startX: number, endX: number) => void;
   clearSelection: () => void;
 }) {
-  const { annotationStrategyLabel } = useChartContext();
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [pendingAnnotation, setPendingAnnotation] = useState<PendingAnnotation | null>(null);

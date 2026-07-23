@@ -1,16 +1,13 @@
 "use client";
 
 import { CSSProperties, MutableRefObject, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
-import type { CandidateBoundaryAdjustment, ValidationCandidate } from "@/app/(pages)/chart/chartcontext";
-import { StrategyAnnotation, StrategySnapshot } from "@/app/components/handlers/annotations";
-import { Candle } from "@/app/components/types/charts";
-import type { SemanticPlacement, SemanticResult } from "../../SimilaritySearch/semantic";
+import type { Candle } from "@/app/components/types/charts";
+import type {
+  CandidateBoundaryAdjustment,
+  SemanticMark,
+} from "@/app/features/StrategyEngine/types";
 
-export type SemanticMark = {
-  annotation: StrategyAnnotation;
-  score?: number;
-  status?: "pass" | "weak" | "fail";
-};
+export type { SemanticMark } from "@/app/features/StrategyEngine/types";
 
 type ScreenMark = SemanticMark & {
   left: number;
@@ -40,96 +37,6 @@ const COLORS = {
   stop_loss: "#ef6b73",
   take_profit: "#59b6e6",
 } as const;
-
-const isScored = (
-  placement: SemanticPlacement | SemanticResult,
-): placement is SemanticResult => "score" in placement;
-
-function project(value: number, source: Candle[], target: Candle[]) {
-  const range = (candles: Candle[]) => {
-    const low = Math.min(...candles.map((candle) => candle.low));
-    const high = Math.max(...candles.map((candle) => candle.high));
-    return { low, span: Math.max(Number.EPSILON, high - low) };
-  };
-
-  const from = range(source);
-  const to = range(target);
-
-  return to.low + ((value - from.low) / from.span) * to.span;
-}
-
-export function buildValidationMarks(candidate: ValidationCandidate, references: StrategySnapshot[]) {
-  if (!candidate.semantic || !candidate.candles.length) return [];
-
-  const placements = [
-    ...candidate.semantic.results,
-    ...(candidate.semantic.qualified ? candidate.semantic.execution : []),
-  ];
-
-  return placements.flatMap((placement): SemanticMark[] => {
-    const reference = references[placement.referenceIndex];
-    const annotation =
-      reference?.annotations.find((item) => item.id === placement.id) ??
-      reference?.annotations.find((item) => item.conceptId === placement.conceptId);
-
-    if (!reference || !annotation) return [];
-
-    const last = candidate.candles.length - 1;
-    const ratioLast = Math.max(1, last);
-    const start = Math.max(0, Math.min(last, placement.matchedStartIndex));
-    const end = Math.max(start, Math.min(last, placement.matchedEndIndex));
-
-    let projected: StrategyAnnotation;
-
-    if (annotation.kind === "candle_group") {
-      projected = {
-        ...annotation,
-        candles: candidate.candles.slice(start, end + 1).map(({ open, high, low, close }) => ({
-          open,
-          high,
-          low,
-          close,
-        })),
-      };
-    } else if (annotation.kind === "zone") {
-      projected = {
-        ...annotation,
-        startRatio: start / ratioLast,
-        endRatio: end / ratioLast,
-        priceHigh: project(annotation.priceHigh, reference.candles, candidate.candles),
-        priceLow: project(annotation.priceLow, reference.candles, candidate.candles),
-      };
-    } else if (annotation.kind === "level") {
-      projected = {
-        ...annotation,
-        startRatio: start / ratioLast,
-        endRatio: end / ratioLast,
-        price: project(annotation.price, reference.candles, candidate.candles),
-      };
-    } else {
-      const candleIndex = start;
-      const candle = candidate.candles[candleIndex];
-      const priceAnchor = placement.priceAnchor ?? annotation.priceAnchor;
-
-      projected = {
-        ...annotation,
-        candleIndex,
-        priceAnchor,
-        price: candle[priceAnchor],
-      };
-    }
-
-    const scored = isScored(placement);
-    const weak = scored && placement.score < 70;
-    const required = scored && placement.importance === "required";
-
-    return [{
-      annotation: projected,
-      score: scored ? placement.score : undefined,
-      status: weak ? (required ? "fail" : "weak") : "pass",
-    }];
-  });
-}
 
 export function SemanticMarksOverlay({
   chartRef,
@@ -226,27 +133,27 @@ export function SemanticMarksOverlay({
           const last = Math.max(1, data.length - 1);
 
           if (annotation.kind === "candle_group") {
-            if (!annotation.candles.length) return [];
-
-            const startIndex = data.findIndex((_, index) =>
-              index + annotation.candles.length <= data.length &&
-              annotation.candles.every((candle, offset) => {
-                const chartCandle = data[index + offset];
-
-                return (
-                  chartCandle.open === candle.open &&
-                  chartCandle.high === candle.high &&
-                  chartCandle.low === candle.low &&
-                  chartCandle.close === candle.close
-                );
-              }),
+            const startIndex = Math.max(
+              0,
+              Math.min(data.length - 1, annotation.startIndex),
+            );
+            const endIndex = Math.max(
+              startIndex,
+              Math.min(data.length - 1, annotation.endIndex),
+            );
+            const selectedCandles = data.slice(
+              startIndex,
+              endIndex + 1,
             );
 
-            if (startIndex < 0) return [];
+            if (!selectedCandles.length) return [];
 
-            const endIndex = startIndex + annotation.candles.length - 1;
-            const priceHigh = Math.max(...annotation.candles.map((candle) => candle.high));
-            const priceLow = Math.min(...annotation.candles.map((candle) => candle.low));
+            const priceHigh = Math.max(
+              ...selectedCandles.map((candle) => candle.high),
+            );
+            const priceLow = Math.min(
+              ...selectedCandles.map((candle) => candle.low),
+            );
 
             return [{
               ...mark,
@@ -258,8 +165,12 @@ export function SemanticMarksOverlay({
           }
 
           if (annotation.kind === "zone") {
-            const start = Math.min(annotation.startRatio, annotation.endRatio);
-            const end = Math.max(annotation.startRatio, annotation.endRatio);
+            const start =
+              Math.min(annotation.startIndex, annotation.endIndex) /
+              last;
+            const end =
+              Math.max(annotation.startIndex, annotation.endIndex) /
+              last;
 
             return [{
               ...mark,
@@ -282,8 +193,12 @@ export function SemanticMarksOverlay({
             }];
           }
 
-          const start = Math.min(annotation.startRatio, annotation.endRatio);
-          const end = Math.max(annotation.startRatio, annotation.endRatio);
+          const start =
+            Math.min(annotation.startIndex, annotation.endIndex) /
+            last;
+          const end =
+            Math.max(annotation.startIndex, annotation.endIndex) /
+            last;
 
           return [{
             ...mark,

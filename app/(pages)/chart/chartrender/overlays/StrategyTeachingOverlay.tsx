@@ -1,22 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { useChartContext } from "@/app/(pages)/chart/chartcontext";
-import { StrategyAnnotation } from "@/app/components/handlers/annotations";
-import { Candle } from "@/app/components/types/charts";
+import type { Candle } from "@/app/components/types/charts";
+import { createTeachingAnnotation } from "@/app/features/StrategyEngine/controls";
+import type {
+  StrategyAnnotation,
+  StrategyTeachingState,
+} from "@/app/features/StrategyEngine/types";
 import { theme } from "@/app/UI";
 import { ChartOverlayRef, SemanticMarksOverlay, SeriesOverlayRef } from "./SemanticMarksOverlay";
 
 type Point = { x: number; y: number };
 const annotationId = () => globalThis.crypto?.randomUUID?.() ?? `annotation-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-const conceptId = (label: string) => label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
-export function StrategyTeachingOverlay({ chartRef, seriesRef, data }: {
+export function StrategyTeachingOverlay({
+  chartRef,
+  seriesRef,
+  data,
+  strategyTeaching,
+  setStrategyTeachingAnnotations,
+}: {
   chartRef: ChartOverlayRef;
   seriesRef: SeriesOverlayRef;
   data: Candle[];
+  strategyTeaching: StrategyTeachingState | null;
+  setStrategyTeachingAnnotations: (
+    annotations: StrategyAnnotation[],
+  ) => void;
 }) {
-  const { strategyTeaching, setStrategyTeachingAnnotations } = useChartContext();
   const [start, setStart] = useState<Point | null>(null);
   const [pointer, setPointer] = useState<Point | null>(null);
   if (!strategyTeaching || !data.length) return null;
@@ -31,79 +42,67 @@ export function StrategyTeachingOverlay({ chartRef, seriesRef, data }: {
     return coordinate != null && Math.abs(coordinate - x) < best.distance
       ? { index, distance: Math.abs(coordinate - x) } : best;
   }, { index: 0, distance: Number.POSITIVE_INFINITY }).index;
-  const ratio = (index: number) => index / Math.max(1, data.length - 1);
   const price = (y: number) => Number(seriesRef.current?.coordinateToPrice(y));
 
   const add = (from: Point, to: Point) => {
-  const first = Math.min(nearestIndex(from.x), nearestIndex(to.x));
-  const last = Math.max(nearestIndex(from.x), nearestIndex(to.x));
-  const execution = ["entry", "exit", "stop_loss", "take_profit"].includes(tool);
+    const fromIndex = nearestIndex(from.x);
+    const toIndex = nearestIndex(to.x);
+    const execution = [
+      "entry",
+      "exit",
+      "stop_loss",
+      "take_profit",
+    ].includes(tool);
+    let markerAnchor:
+      | "open"
+      | "high"
+      | "low"
+      | "close"
+      | undefined;
 
-  const base = {
-    id: annotationId(),
-    conceptId: conceptId(activeLabel),
-    label: activeLabel,
-    role: (execution ? tool : "structure") as StrategyAnnotation["role"],
-    importance,
-    trigger,
+    if (execution) {
+      const candle = data[toIndex];
+      const clickedPrice = price(to.y);
+      const anchors = [
+        "open",
+        "high",
+        "low",
+        "close",
+      ] as const;
+
+      markerAnchor = anchors.reduce((closest, anchor) =>
+        Math.abs(candle[anchor] - clickedPrice) <
+        Math.abs(candle[closest] - clickedPrice)
+          ? anchor
+          : closest,
+      );
+    }
+
+    const annotation = createTeachingAnnotation({
+      id: annotationId(),
+      teaching: {
+        tool,
+        label,
+        importance,
+        trigger,
+      },
+      candles: data,
+      firstIndex: execution
+        ? toIndex
+        : Math.min(fromIndex, toIndex),
+      lastIndex: execution
+        ? toIndex
+        : Math.max(fromIndex, toIndex),
+      fromPrice: price(from.y),
+      toPrice: price(to.y),
+      markerAnchor,
+    });
+
+    setStrategyTeachingAnnotations([
+      ...annotations,
+      annotation,
+    ]);
   };
-
-  let annotation: StrategyAnnotation;
-
-  if (tool === "candle_group") {
-    annotation = {
-      ...base,
-      kind: "candle_group",
-      candles: data
-        .slice(first, last + 1)
-        .map(({ open, high, low, close }) => ({
-          open,
-          high,
-          low,
-          close,
-        })),
-    };
-  } else if (tool === "zone") {
-    annotation = {
-      ...base,
-      kind: "zone",
-      startRatio: ratio(first),
-      endRatio: ratio(last),
-      priceHigh: Math.max(price(from.y), price(to.y)),
-      priceLow: Math.min(price(from.y), price(to.y)),
-    };
-  } else if (tool === "level") {
-    annotation = {
-      ...base,
-      kind: "level",
-      startRatio: 0,
-      endRatio: 1,
-      price: price(to.y),
-    };
-  } else {
-    const candleIndex = nearestIndex(to.x);
-    const candle = data[candleIndex];
-    const clickedPrice = price(to.y);
-    const anchors = ["open", "high", "low", "close"] as const;
-
-    const priceAnchor = anchors.reduce((closest, anchor) =>
-      Math.abs(candle[anchor] - clickedPrice) <
-      Math.abs(candle[closest] - clickedPrice)
-        ? anchor
-        : closest,
-    );
-
-    annotation = {
-      ...base,
-      kind: "marker",
-      candleIndex,
-      priceAnchor,
-      price: candle[priceAnchor],
-    };
-  }
-
-  setStrategyTeachingAnnotations([...annotations, annotation]);
-};
 
   return <div
     style={{ position: "absolute", inset: 0, zIndex: 20, cursor: tool === "level" ? "row-resize" : "crosshair" }}

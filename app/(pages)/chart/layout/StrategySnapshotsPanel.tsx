@@ -9,6 +9,7 @@ import {
   traderInsetPanelStyle,
 } from "@/app/UI";
 import { useChartContext } from "@/app/(pages)/chart/chartcontext";
+import { useStrategyEngine } from "@/app/features/StrategyEngine/StrategyEngineProvider";
 import { SnapshotTeachingSection } from "./SnapshotTeachingSection";
 import {
   StrategyCaptureSection,
@@ -49,8 +50,10 @@ export function StrategySnapshotsPanel({
     acceptCandidate,
     rejectCandidate,
     adjustCandidateBoundary,
-    chartData,
     strategyTeaching,
+  } = useStrategyEngine();
+  const {
+    chartData,
   } = useChartContext();
 
   const isValidatingThis =

@@ -6,17 +6,16 @@
  * Strong length/size cannot compensate for weak structure.
  */
  
-import { Candle } from "@/app/components/types/charts";
- 
-export type SimilarityScores = {
-  structure: number;   // 0–100, primary gate ≥ 85
-  length: number;      // 0–100, supporting gate ≥ 70
-  size: number;        // 0–100, supporting gate ≥ 70
-};
- 
-export type SimilarityResult =
-  | { qualified: true;  scores: SimilarityScores }
-  | { qualified: false; scores: SimilarityScores; reason: string };
+import type { Candle } from "@/app/components/types/charts";
+import type {
+  SimilarityResult,
+  SimilarityScores,
+} from "./types";
+
+export type {
+  SimilarityResult,
+  SimilarityScores,
+} from "./types";
  
 const STRUCTURE_GATE = 85;
 const SUPPORT_GATE   = 70;

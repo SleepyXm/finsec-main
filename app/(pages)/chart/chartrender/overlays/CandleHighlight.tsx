@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import type { ValidationState } from "@/app/(pages)/chart/chartcontext";
+import type { ValidationState } from "@/app/features/StrategyEngine/types";
 
 interface CandleHighlightOptions {
   chartRef: React.MutableRefObject<any>;

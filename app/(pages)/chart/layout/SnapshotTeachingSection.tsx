@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { StrategyTeachingTool, useChartContext } from "@/app/(pages)/chart/chartcontext";
 import { StrategyAnnotation, StrategyDetails } from "@/app/components/handlers/annotations";
+import { useStrategyEngine } from "@/app/features/StrategyEngine/StrategyEngineProvider";
+import type { StrategyTeachingTool } from "@/app/features/StrategyEngine/types";
 import { cornerStyle, MonoLabel, theme, traderInsetPanelStyle, TraderBlankButton } from "@/app/UI";
 
 const TOOLS: Array<{ value: StrategyTeachingTool; label: string }> = [
@@ -16,7 +17,7 @@ export function SnapshotTeachingSection({ strategy, onSave }: {
   strategy: StrategyDetails;
   onSave: (index: number, annotations: StrategyAnnotation[]) => Promise<void>;
 }) {
-  const { strategyTeaching, openStrategyTeaching, setStrategyTeaching, setStrategyTeachingAnnotations } = useChartContext();
+  const { strategyTeaching, openStrategyTeaching, setStrategyTeaching, setStrategyTeachingAnnotations } = useStrategyEngine();
   const index = strategyTeaching?.strategyId === strategy.id ? strategyTeaching.snapshotIndex : 0;
   const snapshot = strategy.snapshots[index];
   const draft = strategyTeaching?.strategyId === strategy.id ? strategyTeaching.annotations : snapshot?.annotations ?? [];
@@ -26,7 +27,19 @@ export function SnapshotTeachingSection({ strategy, onSave }: {
   const labels = useMemo(() => Array.from(new Set(strategy.snapshots
     .flatMap((item) => item.annotations).map((item) => item.label))).sort(), [strategy.snapshots]);
   if (!snapshot) return null;
-  const ordered = [...draft].sort((left, right) => left.startRatio - right.startRatio || left.endRatio - right.endRatio);
+  const ordered = [...draft].sort((left, right) => {
+    if (
+      (left.kind !== "zone" && left.kind !== "level") ||
+      (right.kind !== "zone" && right.kind !== "level")
+    ) {
+      return 0;
+    }
+
+    return (
+      left.startIndex - right.startIndex ||
+      left.endIndex - right.endIndex
+    );
+  });
   const move = (next: number) => {
     if (dirty && !window.confirm("Discard unsaved teaching changes?")) return;
     openStrategyTeaching(strategy.id, next, strategy.snapshots[next]);

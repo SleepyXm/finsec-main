@@ -8,7 +8,7 @@ import { theme, cornerStyle } from "@/app/UI";
 import BacktestPanel from "@/app/features/backtest/components/BacktestPanel";
 import { ChartTheme } from "@/app/(pages)/chart/chartrender/themes/themes";
 import StrategyPanel from "./StrategyPanel";
-import { useChartContext } from "../chartcontext";
+import { useStrategyEngine } from "@/app/features/StrategyEngine/StrategyEngineProvider";
 
 export type RightTab =
   | "watchlist" | "add-chart" | "strategy"
@@ -45,7 +45,7 @@ export function RightPanelSection({
   chartTheme,
 }: RightPanelSectionProps) {
   const [hoveredTab, setHoveredTab] = useState<RightTab | null>(null);
-  const { closeStrategyTeaching } = useChartContext();
+  const { closeStrategyTeaching } = useStrategyEngine();
   useEffect(() => {
     if (activeRightTab !== "strategy") closeStrategyTeaching();
   }, [activeRightTab, closeStrategyTeaching]);

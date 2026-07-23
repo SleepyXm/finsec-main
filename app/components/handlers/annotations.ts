@@ -1,35 +1,43 @@
 import { request } from "./auth";
-import { Candle } from "@/app/components/types/charts";
+import type { Candle } from "@/app/components/types/charts";
+import { candleRange } from "@/app/features/StrategyEngine/candleRange";
+import type {
+  AnnotationCandle,
+  AnnotationDraft,
+  SavedStrategy,
+  StrategyAnnotation,
+  StrategyDetails,
+  StrategySnapshot,
+} from "@/app/features/StrategyEngine/types";
 
-export type AnnotationDraft = {
-  label: string;
-  timeStart: number;
-  timeEnd: number;
-  candles: Candle[];
-};
+export type {
+  AnnotationCandle,
+  AnnotationDraft,
+  SavedStrategy,
+  StrategyAnnotation,
+  StrategyDetails,
+  StrategySnapshot,
+} from "@/app/features/StrategyEngine/types";
 
-// Plain OHLC — no time, volume, or buy_price. Used for persisted candle_group candles.
-export type AnnotationCandle = {
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-};
-
-type AnnotationBase = {
+type WireAnnotation = {
   id: string;
   conceptId: string;
   label: string;
+  kind: StrategyAnnotation["kind"];
   role: "structure" | "entry" | "exit" | "stop_loss" | "take_profit";
   importance: "required" | "preferred" | "informational";
   trigger: "presence" | "touch" | "cross" | "close_above" | "close_below" | "rejection";
+  startIndex?: number;
+  endIndex?: number;
+  startRatio?: number;
+  endRatio?: number;
+  priceHigh?: number;
+  priceLow?: number;
+  price?: number;
+  candleIndex?: number;
+  priceAnchor?: "open" | "high" | "low" | "close";
+  candles?: AnnotationCandle[];
 };
-
-export type StrategyAnnotation =
-  | (AnnotationBase & { kind: "candle_group"; candles: AnnotationCandle[] })
-  | (AnnotationBase & { kind: "zone"; startRatio: number; endRatio: number; priceHigh: number; priceLow: number })
-  | (AnnotationBase & { kind: "level"; startRatio: number; endRatio: number; price: number })
-  | (AnnotationBase & { kind: "marker"; candleIndex: number; priceAnchor: "open" | "high" | "low" | "close"; price: number });
 
 export type AnnotationPayload = {
   symbol: string;
@@ -39,138 +47,193 @@ export type AnnotationPayload = {
   candles: AnnotationCandle[];
 };
 
-export type SavedStrategy = {
-  id: string;
-  title: string;
-  snapshot_count: number;
-  created_at: string;
-  updated_at: string;
-  preview: StrategySnapshot;
-};
-
-export type StrategySnapshot = {
+type WireStrategySnapshot = {
   symbol: string;
   annotated_at: string;
   candles: Candle[];
-  annotations: StrategyAnnotation[];
+  annotations?: WireAnnotation[];
 };
 
-export type StrategyDetails = Omit<SavedStrategy, "preview"> & {
-  snapshots: StrategySnapshot[];
+type WireSavedStrategy = Omit<SavedStrategy, "preview"> & {
+  preview: WireStrategySnapshot;
 };
 
-function normaliseStrategySnapshot(snapshot: StrategySnapshot): StrategySnapshot {
+type WireStrategyDetails = Omit<StrategyDetails, "snapshots"> & {
+  snapshots: WireStrategySnapshot[];
+};
+
+function normaliseRange(
+  annotation: WireAnnotation,
+  candles: Candle[],
+) {
+  if (!candles.length) return null;
+
+  if (
+    Number.isInteger(annotation.startIndex) &&
+    Number.isInteger(annotation.endIndex)
+  ) {
+    return candleRange(
+      annotation.startIndex!,
+      annotation.endIndex!,
+      candles.length,
+    );
+  }
+
+  if (
+    annotation.kind === "candle_group" &&
+    annotation.candles?.length
+  ) {
+    const startIndex = candles.findIndex((_, index) =>
+      index + annotation.candles!.length <= candles.length &&
+      annotation.candles!.every((candle, offset) => {
+        const source = candles[index + offset];
+
+        return (
+          source.open === candle.open &&
+          source.high === candle.high &&
+          source.low === candle.low &&
+          source.close === candle.close
+        );
+      }),
+    );
+
+    if (startIndex >= 0) {
+      return {
+        startIndex,
+        endIndex:
+          startIndex + annotation.candles.length - 1,
+      };
+    }
+  }
+
+  if (
+    typeof annotation.startRatio === "number" &&
+    typeof annotation.endRatio === "number"
+  ) {
+    const last = candles.length - 1;
+
+    return candleRange(
+      Math.round(annotation.startRatio * last),
+      Math.round(annotation.endRatio * last),
+      candles.length,
+    );
+  }
+
+  return null;
+}
+
+function normaliseStrategySnapshot(
+  snapshot: WireStrategySnapshot,
+): StrategySnapshot {
   const candles = snapshot.candles.map((candle) => ({
     ...candle,
     volume: candle.volume ?? null,
     buy_price: candle.buy_price ?? null,
   }));
+
   return {
     ...snapshot,
     candles,
-    annotations: (snapshot.annotations ?? []).flatMap((annotation): StrategyAnnotation[] => {
-  if (!candles.length) return [];
+    annotations: (snapshot.annotations ?? []).flatMap(
+      (annotation): StrategyAnnotation[] => {
+        if (!candles.length) return [];
 
-  if (annotation.kind === "candle_group") {
-    if (Array.isArray(annotation.candles) && annotation.candles.length > 0) {
-      return [annotation];
-    }
+        const base = {
+          id: annotation.id,
+          conceptId: annotation.conceptId,
+          label: annotation.label,
+          role: annotation.role,
+          importance: annotation.importance,
+          trigger: annotation.trigger,
+        };
 
-    const legacy = annotation as unknown as {
-      startRatio?: number;
-      endRatio?: number;
-    };
+        if (annotation.kind !== "marker") {
+          const range = normaliseRange(
+            annotation,
+            candles,
+          );
 
-    if (
-      typeof legacy.startRatio !== "number" ||
-      typeof legacy.endRatio !== "number"
-    ) {
-      return [];
-    }
+          if (!range) return [];
 
-    const last = candles.length - 1;
+          if (annotation.kind === "candle_group") {
+            return [{
+              ...base,
+              ...range,
+              kind: "candle_group",
+            }];
+          }
 
-    const start = Math.round(
-      Math.max(
-        0,
-        Math.min(1, Math.min(legacy.startRatio, legacy.endRatio)),
-      ) * last,
-    );
+          if (
+            annotation.kind === "zone" &&
+            typeof annotation.priceHigh === "number" &&
+            typeof annotation.priceLow === "number"
+          ) {
+            return [{
+              ...base,
+              ...range,
+              kind: "zone",
+              priceHigh: annotation.priceHigh,
+              priceLow: annotation.priceLow,
+            }];
+          }
 
-    const end = Math.round(
-      Math.max(
-        0,
-        Math.min(1, Math.max(legacy.startRatio, legacy.endRatio)),
-      ) * last,
-    );
+          if (
+            annotation.kind === "level" &&
+            typeof annotation.price === "number"
+          ) {
+            return [{
+              ...base,
+              ...range,
+              kind: "level",
+              price: annotation.price,
+            }];
+          }
 
-    const selected = candles
-      .slice(start, end + 1)
-      .map(({ open, high, low, close }) => ({
-        open,
-        high,
-        low,
-        close,
-      }));
+          return [];
+        }
 
-    if (!selected.length) return [];
+        const last = candles.length - 1;
+        const candleIndex = Math.max(
+          0,
+          Math.min(
+            last,
+            annotation.candleIndex ??
+              Math.round(
+                (annotation.startRatio ?? 0) * last,
+              ),
+          ),
+        );
+        const candle = candles[candleIndex];
+        const anchors = [
+          "open",
+          "high",
+          "low",
+          "close",
+        ] as const;
+        const priceAnchor =
+          annotation.priceAnchor ??
+          anchors.reduce((closest, anchor) =>
+            Math.abs(
+              candle[anchor] -
+                (annotation.price ?? candle.close),
+            ) <
+            Math.abs(
+              candle[closest] -
+                (annotation.price ?? candle.close),
+            )
+              ? anchor
+              : closest,
+          );
 
-    return [{
-      id: annotation.id,
-      conceptId: annotation.conceptId,
-      label: annotation.label,
-      kind: "candle_group",
-      role: annotation.role,
-      importance: annotation.importance,
-      trigger: annotation.trigger,
-      candles: selected,
-    }];
-  }
-
-  if (annotation.kind !== "marker") {
-    return [annotation];
-  }
-
-  const last = candles.length - 1;
-
-  const legacyRatio = (
-    annotation as unknown as { startRatio?: number }
-  ).startRatio;
-
-  const candleIndex = Math.max(
-    0,
-    Math.min(
-      last,
-      annotation.candleIndex ??
-        Math.round((legacyRatio ?? 0) * last),
+        return [{
+          ...base,
+          kind: "marker",
+          candleIndex,
+          priceAnchor,
+          price: candle[priceAnchor],
+        }];
+      },
     ),
-  );
-
-  const candle = candles[candleIndex];
-  const anchors = ["open", "high", "low", "close"] as const;
-
-  const priceAnchor =
-    annotation.priceAnchor ??
-    anchors.reduce((closest, anchor) =>
-      Math.abs(
-        candle[anchor] -
-          (annotation.price ?? candle.close),
-      ) <
-      Math.abs(
-        candle[closest] -
-          (annotation.price ?? candle.close),
-      )
-        ? anchor
-        : closest,
-    );
-
-  return [{
-    ...annotation,
-    candleIndex,
-    priceAnchor,
-    price: candle[priceAnchor],
-  }];
-}),
   };
 }
 
@@ -207,7 +270,7 @@ export function saveUserAnnotation(payload: AnnotationPayload) {
 }
 
 export async function listUserStrategies() {
-  const strategies = await request<SavedStrategy[]>("/api/user-annotations", { method: "GET" });
+  const strategies = await request<WireSavedStrategy[]>("/api/user-annotations", { method: "GET" });
   return strategies.map((strategy) => ({
     ...strategy,
     preview: normaliseStrategySnapshot(strategy.preview),
@@ -215,7 +278,7 @@ export async function listUserStrategies() {
 }
 
 export async function getUserStrategy(id: string) {
-  const strategy = await request<StrategyDetails>(`/api/user-annotations/${id}`, { method: "GET" });
+  const strategy = await request<WireStrategyDetails>(`/api/user-annotations/${id}`, { method: "GET" });
   return {
     ...strategy,
     snapshots: strategy.snapshots.map(normaliseStrategySnapshot),

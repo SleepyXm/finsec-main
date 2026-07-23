@@ -2,27 +2,33 @@ import {
   buildAnnotationPayload,
   saveUserAnnotation,
   updateUserStrategySnapshotAnnotations,
-  type AnnotationDraft,
 } from "@/app/components/handlers/annotations";
-import { buildValidationMarks } from "@/app/UI/chart/validationMarks";
-import type { ValidationState } from "./validation";
+import type { AnnotationDraft, ValidationState } from "./types";
+import { buildValidationMarks } from "./validationMarks";
 
-type ActiveValidation = Extract<ValidationState, { active: true }>;
+type ActiveValidation = Extract<
+  ValidationState,
+  { active: true }
+>;
 
 export async function saveValidationCandidate(
   validation: ActiveValidation,
   shortname: string,
 ) {
   const candidate = validation.candidate;
+
   if (!candidate) return;
+
   const draft: AnnotationDraft = {
     label: validation.strategyLabel,
     timeStart: candidate.candles[0].time,
-    timeEnd: candidate.candles[candidate.candles.length - 1].time,
+    timeEnd:
+      candidate.candles[candidate.candles.length - 1].time,
     candles: candidate.candles,
   };
   const payload = buildAnnotationPayload(draft, shortname);
   const saved = await saveUserAnnotation(payload);
+
   if (!candidate.semantic) return;
 
   const projected = {
@@ -32,13 +38,16 @@ export async function saveValidationCandidate(
       ...payload.candles[index],
     })),
   };
-  const annotations = buildValidationMarks(projected, validation.snapshots)
-    .map(({ annotation }) => annotation);
+  const annotations = buildValidationMarks(
+    projected,
+    validation.semanticReferences,
+  ).map(({ annotation }) => annotation);
+
   if (!annotations.length) return;
+
   await updateUserStrategySnapshotAnnotations(
     saved.id,
     saved.snapshot_count - 1,
     annotations,
   );
 }
-

@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useChartContext } from "../chartcontext";
 import {
   deleteUserStrategy, deleteUserStrategySnapshot, getUserStrategy, listUserStrategies,
   SavedStrategy, StrategyAnnotation, StrategyDetails, updateUserStrategySnapshotAnnotations,
 } from "@/app/components/handlers/annotations";
+import { useStrategyEngine } from "@/app/features/StrategyEngine/StrategyEngineProvider";
 import { useUser } from "@/app/components/provider/userprovider";
 import { cornerStyle, theme } from "@/app/UI";
 import { CandleStickChart } from "@/app/(pages)/chart/chartrender/charts/CandleStickChart";
@@ -24,7 +24,7 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     openStrategyTeaching,
     closeStrategyTeaching,
     setStrategyTeachingAnnotations,
-  } = useChartContext();
+  } = useStrategyEngine();
   const { user, resolved } = useUser();
   const [items, setItems] = useState<SavedStrategy[]>([]);
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyDetails | null>(null);

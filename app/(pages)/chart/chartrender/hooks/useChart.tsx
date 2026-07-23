@@ -4,18 +4,15 @@ import { ChartBackground, ChartTheme, defaultChartTheme } from "../themes/themes
 import { PriceLines } from "@/app/components/trading/price";
 import { StrategyOverlay } from "../overlays/Strategy";
 import { StrategyTeachingOverlay } from "../overlays/StrategyTeachingOverlay";
-import { buildValidationMarks, SemanticMarksOverlay } from "../overlays/SemanticMarksOverlay";
+import { SemanticMarksOverlay } from "../overlays/SemanticMarksOverlay";
 import type { SemanticMark } from "../overlays/SemanticMarksOverlay";
 import { useCandleHighlight } from "../overlays/CandleHighlight";
 import { useScriptIndicators } from "@/app/features/indicators/hooks/useScriptIndicators";
 import { AppliedIndicator } from "@/app/features/indicators/language/types";
 import { PositionTags } from "../overlays/PositionOverlay";
 import { ACCENT, DANGER, SUCCESS } from "@/app/UI";
-import type {
-  CandidateBoundaryAdjustment,
-  StrategyTeachingState,
-  ValidationState,
-} from "@/app/(pages)/chart/chartcontext";
+import { buildValidationMarks } from "@/app/features/StrategyEngine/validationMarks";
+import type { StrategyChartController } from "@/app/features/StrategyEngine/types";
 
 type ChartPlugins = {
   data?: any[];
@@ -23,8 +20,6 @@ type ChartPlugins = {
   positions?: any[];
   livePnLMap?: Record<string, number>;
   renderTradeUI?: React.ReactNode;
-  isCreatingStrategy?: boolean;
-  onAnnotation?: (annotation: any) => void;
   onScrollLeft?: () => void;
   enableStrategyOverlay?: boolean;
   enableIndicators?: boolean;
@@ -33,11 +28,9 @@ type ChartPlugins = {
   onClosePosition?: (id: string) => void;
   updatePosition?: (id: string, patch: any) => void | Promise<void>;
   fitContent?: boolean;
-  validation?: ValidationState;
-  strategyTeaching?: StrategyTeachingState | null;
   semanticMarks?: SemanticMark[];
   semanticMarksCompact?: boolean;
-  adjustCandidateBoundary?: (adjustment: CandidateBoundaryAdjustment) => void;
+  strategy?: StrategyChartController;
 };
 
 export function resolveBackground(bg: ChartBackground) {
@@ -379,15 +372,20 @@ export function useChart(
     chartRef,
     seriesRef,
     data,
-    plugins.enableIndicators && !plugins.strategyTeaching ? plugins.appliedIndicators ?? [] : [],
+    plugins.enableIndicators && !plugins.strategy?.strategyTeaching ? plugins.appliedIndicators ?? [] : [],
     chartKey,
   );
 
-  const validationCandidate = plugins.validation?.active ? plugins.validation.candidate : null;
+  const validation = plugins.strategy?.validation;
+  const validationCandidate =
+    validation?.active ? validation.candidate : null;
 
   const semanticMarks =
-    plugins.validation?.active && validationCandidate
-      ? buildValidationMarks(validationCandidate, plugins.validation.semanticReferences)
+    validation?.active && validationCandidate
+      ? buildValidationMarks(
+          validationCandidate,
+          validation.semanticReferences,
+        )
       : plugins.semanticMarks ?? [];
 
   const candidateFrom = validationCandidate?.candles[0]?.time;
@@ -412,8 +410,11 @@ export function useChart(
     seriesRef,
     containerRef,
     data,
-    active: Boolean(plugins.enableStrategyOverlay && plugins.isCreatingStrategy),
-    validation: plugins.validation,
+    active: Boolean(
+      plugins.enableStrategyOverlay &&
+      plugins.strategy?.isCreatingStrategy,
+    ),
+    validation,
   });
 
   const chartElement = (
@@ -430,12 +431,15 @@ export function useChart(
         </div>
       )}
 
-      {plugins.enableStrategyOverlay && plugins.isCreatingStrategy && (
+      {plugins.enableStrategyOverlay && plugins.strategy?.isCreatingStrategy && (
         <StrategyOverlay
           chartRef={chartRef}
           seriesRef={seriesRef}
           data={data}
-          onAnnotation={plugins.onAnnotation}
+          annotationStrategyLabel={
+            plugins.strategy.annotationStrategyLabel
+          }
+          onAnnotation={plugins.strategy.handleAnnotation}
           setSelection={setSelection}
           clearSelection={clearSelection}
         />
@@ -449,15 +453,27 @@ export function useChart(
           marks={semanticMarks}
           compact={plugins.semanticMarksCompact}
           interactive={Boolean(validationCandidate)}
-          onAdjustBoundary={plugins.adjustCandidateBoundary}
+          onAdjustBoundary={
+            plugins.strategy?.adjustCandidateBoundary
+          }
         />
       )}
 
-      {plugins.strategyTeaching && (
-        <StrategyTeachingOverlay chartRef={chartRef} seriesRef={seriesRef} data={data} />
+      {plugins.strategy?.strategyTeaching && (
+        <StrategyTeachingOverlay
+          chartRef={chartRef}
+          seriesRef={seriesRef}
+          data={data}
+          strategyTeaching={
+            plugins.strategy.strategyTeaching
+          }
+          setStrategyTeachingAnnotations={
+            plugins.strategy.setStrategyTeachingAnnotations
+          }
+        />
       )}
 
-      {!plugins.strategyTeaching && positions.length > 0 && (
+      {!plugins.strategy?.strategyTeaching && positions.length > 0 && (
         <PositionTags
           positions={positions}
           livePnLMap={plugins.livePnLMap ?? {}}

@@ -12,6 +12,10 @@ import { defaultChartTheme } from "@/app/(pages)/chart/chartrender/themes/themes
 import { ChartTheme } from "@/app/(pages)/chart/chartrender/themes/themes";
 import { getPreferences, savePreferences } from "@/app/components/handlers/profile";
 import { BacktestProvider, useBacktestContext } from "@/app/features/backtest/components/BacktestContext";
+import {
+  StrategyEngineProvider,
+  useStrategyEngine,
+} from "@/app/features/StrategyEngine/StrategyEngineProvider";
 import { EmptyState, LoadingState } from "@/app/UI";
 
 function ChartLoadState({ connected }: { connected: boolean }) {
@@ -26,11 +30,14 @@ function ChartLoadState({ connected }: { connected: boolean }) {
 function ChartPageInner() {
   const {
     shortname, tick, connected, error,
-    chartData, interval, isCandle, setIsCandle, isCreatingStrategy,
-    handleAnnotation, positions, livePnLMap,
+    chartData, interval, isCandle, setIsCandle,
+    positions, livePnLMap,
     accountUnrealisedPnL, placeTrade, closeTrade,
     updatePosition, loadPreviousPage, appliedIndicators, tradeReady, tradePending,
   } = useChartContext();
+  const {
+    chartController,
+  } = useStrategyEngine();
   const backtest = useBacktestContext();
 
   const [quantity,       setQuantity]       = useState(1);
@@ -117,8 +124,12 @@ function ChartPageInner() {
             }
             closeTrade(id, tick?.close ?? 0);
           }}
-          isCreatingStrategy={!isBacktesting && isCreatingStrategy}
-          onAnnotation={handleAnnotation}
+          strategy={{
+            ...chartController,
+            isCreatingStrategy:
+              !isBacktesting &&
+              chartController.isCreatingStrategy,
+          }}
           onScrollLeft={isBacktesting ? undefined : loadPreviousPage}
           appliedIndicators={appliedIndicators}
           theme={activeTheme}
@@ -186,9 +197,11 @@ function ChartPageInner() {
 export default function ChartPage() {
   return (
     <ChartProvider>
-      <BacktestProvider>
-        <ChartPageInner />
-      </BacktestProvider>
+      <StrategyEngineProvider>
+        <BacktestProvider>
+          <ChartPageInner />
+        </BacktestProvider>
+      </StrategyEngineProvider>
     </ChartProvider>
   );
 }
