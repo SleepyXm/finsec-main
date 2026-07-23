@@ -159,9 +159,8 @@ async def append_candle_to_page_one(ticker: str, interval: str, candle: dict):
     Keep page 1 as the newest page.
 
     Updating the current candle and appending to a non-full page are O(1).
-    When page 1 is full, its oldest candle rolls into page 2. Any resulting
-    overflow continues through the existing pages, and a new final page is
-    created only when every page is already full.
+    When page 1 is full, every existing page moves back by one and a fresh
+    page 1 is created. That domino rollover happens only once per 500 candles.
     """
     cache_key = f"chart:{ticker}:{interval}"
     page_one_key = f"{cache_key}:page:1"
@@ -215,56 +214,41 @@ async def append_candle_to_page_one(ticker: str, interval: str, candle: dict):
                 await pipe.execute()
             return
 
-        # Page 1 is full. Read each fixed page once and cascade only its oldest
-        # overflow candle into the following page. Page numbers never move.
+        # Page 1 is full. Read the old pages once, then write them back in
+        # reverse order with their page numbers incremented. The reverse write
+        # prevents any destination from being overwritten before it is copied.
         page_keys = [f"{cache_key}:page:{page}" for page in range(1, total_pages + 1)]
         old_pages = await r.mget(page_keys)
         if any(old_page is None for old_page in old_pages):
-            # Initial page fan-out is still running. The next real snapshot for
-            # this candle will retry after all rollover destinations exist.
+            # Initial page fan-out is still running. The next live tick will
+            # retry after all domino sources are present.
             return
-
-        pages = [json.loads(old_page) for old_page in old_pages]
-        carry = next_candle
-
-        for current_page in pages:
-            current_rows = current_page.get("data", [])
-            current_rows.append(carry)
-
-            if len(current_rows) > PAGE_SIZE:
-                carry = current_rows.pop(0)
-            else:
-                carry = None
-
-            current_page["data"] = current_rows
-
-            if carry is None:
-                break
-
-        if carry is not None:
-            pages.append({
-                "type": "historical",
-                "page": len(pages) + 1,
-                "total_pages": len(pages) + 1,
-                "total_rows": total_rows,
-                "data": [carry],
-            })
-
-        new_total_pages = len(pages)
+        new_total_pages = total_pages + 1
 
         async with r.pipeline(transaction=True) as pipe:
-            for page_number, current_page in enumerate(pages, start=1):
-                current_page["page"] = page_number
-                current_page["total_pages"] = new_total_pages
-                current_page["total_rows"] = total_rows
+            for old_page_number in range(total_pages, 0, -1):
+                old_payload = old_pages[old_page_number - 1]
+                if not old_payload:
+                    continue
+                moved_page = json.loads(old_payload)
+                moved_page["page"] = old_page_number + 1
+                moved_page["total_pages"] = new_total_pages
+                moved_page["total_rows"] = total_rows
                 pipe.set(
-                    f"{cache_key}:page:{page_number}",
-                    json.dumps(current_page),
+                    f"{cache_key}:page:{old_page_number + 1}",
+                    json.dumps(moved_page),
                     ex=PAGE_CACHE_TTL,
                 )
 
-            page_one_payload = json.dumps(pages[0])
-            pipe.set(cache_key, page_one_payload, ex=600)
+            new_page_one = json.dumps({
+                "type": "historical",
+                "page": 1,
+                "total_pages": new_total_pages,
+                "total_rows": total_rows,
+                "data": [next_candle],
+            })
+            pipe.set(cache_key, new_page_one, ex=600)
+            pipe.set(page_one_key, new_page_one, ex=PAGE_CACHE_TTL)
             pipe.set(f"{cache_key}:meta:tp", str(new_total_pages), ex=600)
             await pipe.execute()
 

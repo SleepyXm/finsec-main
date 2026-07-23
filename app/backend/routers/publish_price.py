@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Response
 import asyncio
 from routers.websocket import broadcast_stock_data, fetch_tasks, build_and_cache_chart
-#from routers.websocket_compression import broadcast_stock_data, fetch_tasks, build_and_cache_chart
 from routers.utils.stock_utils import asset_exists, download_asset_worker
 from routers.storage.parquet import is_worker_active, mark_worker_active
 
