@@ -480,6 +480,7 @@ export function SemanticMarksOverlay({
               }}
             >
               <span
+                key="marker-dot"
                 style={{
                   position: "absolute",
                   left: 9,
@@ -495,7 +496,9 @@ export function SemanticMarksOverlay({
                 }}
               />
 
-              <span style={{ ...tag, left: 27, top: 7 }}>{label}</span>
+              <span key="marker-label" style={{ ...tag, left: 27, top: 7 }}>
+                {label}
+              </span>
             </div>
           );
         }
