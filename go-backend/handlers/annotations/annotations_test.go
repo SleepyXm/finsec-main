@@ -104,7 +104,7 @@ func TestSnapshotAnnotationsRoundTrip(t *testing.T) {
 	annotations := []strategyAnnotation{{
 		ID: "entry-1", ConceptID: "breakout_entry", Label: "Breakout entry",
 		Kind: "marker", Role: "entry", Importance: "required", Trigger: "cross",
-		StartRatio: .5, EndRatio: .5, Price: &price, CandleIndex: &index, PriceAnchor: "close",
+		Price: &price, CandleIndex: &index, PriceAnchor: "close",
 	}}
 	if err := updateSnapshotAnnotations(path, 0, annotations); err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestSnapshotAnnotationsRoundTrip(t *testing.T) {
 func TestMarkerRequiresCandleAnchor(t *testing.T) {
 	price := 1.25
 	index := 2
-	marker := strategyAnnotation{ID: "target", ConceptID: "target", Label: "Target", Kind: "marker", Role: "take_profit", Importance: "required", Trigger: "touch", StartRatio: .75, EndRatio: .75, Price: &price}
+	marker := strategyAnnotation{ID: "target", ConceptID: "target", Label: "Target", Kind: "marker", Role: "take_profit", Importance: "required", Trigger: "touch", Price: &price}
 	if validStrategyAnnotations([]strategyAnnotation{marker}) {
 		t.Fatal("marker without candle anchor was accepted")
 	}

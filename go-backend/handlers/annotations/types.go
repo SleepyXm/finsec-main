@@ -17,18 +17,20 @@ type strategyAnnotation struct {
 	Role       string `json:"role"`
 	Importance string `json:"importance"`
 	Trigger    string `json:"trigger"`
-	// zone / level only
-	StartRatio float64  `json:"startRatio,omitempty"`
-	EndRatio   float64  `json:"endRatio,omitempty"`
-	PriceHigh  *float64 `json:"priceHigh,omitempty"`
-	PriceLow   *float64 `json:"priceLow,omitempty"`
+	// ranged annotations
+	StartIndex *int     `json:"startIndex,omitempty"`
+	EndIndex   *int     `json:"endIndex,omitempty"`
+	StartRatio *float64 `json:"startRatio,omitempty"` // legacy
+	EndRatio   *float64 `json:"endRatio,omitempty"`   // legacy
+	// zone only
+	PriceHigh *float64 `json:"priceHigh,omitempty"`
+	PriceLow  *float64 `json:"priceLow,omitempty"`
 	// level / marker only
 	Price *float64 `json:"price,omitempty"`
 	// marker only
-	CandleIndex *int   `json:"candleIndex,omitempty"`
-	PriceAnchor string `json:"priceAnchor,omitempty"`
-	// candle_group only
-	Candles []candle `json:"candles,omitempty"`
+	CandleIndex *int     `json:"candleIndex,omitempty"`
+	PriceAnchor string   `json:"priceAnchor,omitempty"`
+	Candles     []candle `json:"candles,omitempty"` // legacy candle_group identity
 }
 
 type annotationUpdate struct {

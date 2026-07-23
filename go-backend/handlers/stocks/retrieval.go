@@ -20,7 +20,7 @@ import (
 
 func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ticker, err := market.NormalizeTicker(c.Query("ticker_symbol"))
+		ticker, err := market.NormalizeTicker(c.Param("ticker"))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
