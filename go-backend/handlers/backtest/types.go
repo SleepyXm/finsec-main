@@ -9,6 +9,7 @@ import (
 
 type snapshot struct {
 	SessionID       string                   `json:"session_id"`
+	StrategyID      *string                  `json:"strategy_id"`
 	Ticker          string                   `json:"ticker"`
 	Interval        string                   `json:"interval"`
 	DateFrom        time.Time                `json:"date_from"`

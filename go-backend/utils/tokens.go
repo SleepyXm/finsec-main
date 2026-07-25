@@ -108,7 +108,7 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) {
 		60*Cfg.AccessTokenExpireMinutes,
 		"/",
 		"",
-		true,
+		false,
 		true,
 	)
 	c.SetCookie(
@@ -117,13 +117,13 @@ func SetAuthCookies(c *gin.Context, accessToken, refreshToken string) {
 		60*60*24*Cfg.RefreshTokenExpireDays,
 		"/",
 		"",
-		true,
+		false,
 		true,
 	)
 }
 
 func ClearAuthCookies(c *gin.Context) {
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("access_token", "", -1, "/", "", true, true)
-	c.SetCookie("refresh_token", "", -1, "/", "", true, true)
+	c.SetCookie("access_token", "", -1, "/", "", false, true)
+	c.SetCookie("refresh_token", "", -1, "/", "", false, true)
 }

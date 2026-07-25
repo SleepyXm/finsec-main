@@ -27,6 +27,9 @@ type BacktestRequest struct {
 	// StartingBalance is the simulated account balance to begin with.
 	// Defaults to 100,000 if not supplied.
 	StartingBalance float64 `json:"starting_balance"`
+
+	// Strategy ID is optional and can be used to load a backtest with a strategy to test with.
+	StrategyID *string `json:"strategy_id"`
 }
 
 // BacktestCandle represents a single OHLC candle returned to the client.
@@ -60,6 +63,9 @@ type BacktestSession struct {
 
 	// UserID is the ID of the user who created the session.
 	UserID string `json:"user_id"`
+
+	// StrategyID is the optional strategy attached to this backtest.
+	StrategyID *string `json:"strategy_id"`
 
 	// Ticker is the asset symbol used in this session.
 	Ticker string `json:"ticker"`

@@ -134,13 +134,13 @@ func RunBacktest(db *sql.DB) gin.HandlerFunc {
 		}
 		err = tx.QueryRowContext(c, `
 			INSERT INTO backtests (
-				id, user_id, ticker, interval, date_from, date_to, starting_balance
+				id, user_id, ticker, interval, date_from, date_to, starting_balance, strategy_id
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			RETURNING created_at, expires_at
 		`,
 			sessionID, userID, req.Ticker, req.Interval,
-			req.DateFrom, req.DateTo, req.StartingBalance,
+			req.DateFrom, req.DateTo, req.StartingBalance, req.StrategyID,
 		).Scan(&createdAt, &expiresAt)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create backtest"})
@@ -161,7 +161,8 @@ func RunBacktest(db *sql.DB) gin.HandlerFunc {
 		session := structs.BacktestSession{
 			SessionID: sessionID, UserID: userID,
 			Ticker: req.Ticker, Interval: req.Interval,
-			DateFrom: req.DateFrom, DateTo: req.DateTo,
+			StrategyID: req.StrategyID,
+			DateFrom:   req.DateFrom, DateTo: req.DateTo,
 			StartingBalance: req.StartingBalance, CandleCount: len(candles),
 			CreatedAt: createdAt.UTC().Format(time.RFC3339),
 			ExpiresAt: expiresAt.UTC().Format(time.RFC3339),
@@ -174,7 +175,8 @@ func RunBacktest(db *sql.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"session_id": sessionID, "ticker": session.Ticker,
-			"interval": session.Interval, "date_from": session.DateFrom,
+			"strategy_id": session.StrategyID,
+			"interval":    session.Interval, "date_from": session.DateFrom,
 			"date_to": session.DateTo, "starting_balance": session.StartingBalance,
 			"candle_count": len(candles), "current_candle": 0,
 			"positions": []any{}, "created_at": session.CreatedAt,

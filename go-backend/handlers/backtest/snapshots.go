@@ -17,12 +17,12 @@ func loadSnapshot(db *sql.DB, userID string, sessionID string) (snapshot, error)
 	var positions []byte
 	item.SessionID = sessionID
 	err := db.QueryRow(`
-		SELECT ticker, interval, date_from, date_to, starting_balance,
+		SELECT strategy_id, ticker, interval, date_from, date_to, starting_balance,
 		       current_candle, positions, created_at, updated_at, expires_at
 		FROM backtests
 		WHERE id = $1 AND user_id = $2 AND expires_at > NOW()
 	`, sessionID, userID).Scan(
-		&item.Ticker, &item.Interval, &item.DateFrom, &item.DateTo,
+		&item.StrategyID, &item.Ticker, &item.Interval, &item.DateFrom, &item.DateTo,
 		&item.StartingBalance, &item.CurrentCandle, &positions,
 		&item.CreatedAt, &item.UpdatedAt, &item.ExpiresAt,
 	)
@@ -34,7 +34,7 @@ func ListBacktests(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.MustGet("userID").(string)
 		rows, err := db.QueryContext(c, `
-			SELECT id, ticker, interval, date_from, date_to, starting_balance,
+			SELECT id, strategy_id, ticker, interval, date_from, date_to, starting_balance,
 			       current_candle, created_at, updated_at, expires_at
 			FROM backtests
 			WHERE user_id = $1 AND expires_at > NOW()
@@ -50,7 +50,7 @@ func ListBacktests(db *sql.DB) gin.HandlerFunc {
 		for rows.Next() {
 			var item snapshot
 			if err := rows.Scan(
-				&item.SessionID, &item.Ticker, &item.Interval,
+				&item.SessionID, &item.StrategyID, &item.Ticker, &item.Interval,
 				&item.DateFrom, &item.DateTo, &item.StartingBalance,
 				&item.CurrentCandle, &item.CreatedAt, &item.UpdatedAt, &item.ExpiresAt,
 			); err != nil {
