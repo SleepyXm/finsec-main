@@ -385,12 +385,54 @@ export function useChart(
     validation?.active ? validation.candidate : null;
   const forwardFormation =
     plugins.forwardPass?.formation ?? null;
-  const forwardCandles = forwardFormation
-    ? data.slice(
-        forwardFormation.startIndex,
-        forwardFormation.endIndex + 1,
-      )
-    : [];
+  const historicalFormations =
+    plugins.forwardPass?.historicalFormations.filter(
+      (formation) => {
+        const referenceSupport =
+          formation.support / formation.totalReferences >= 0.7;
+        const annotationSupport =
+          formation.totalAnnotations > 0 &&
+          formation.annotationSupport / formation.totalAnnotations >= 0.7;
+
+        return (
+          formation.confidence >= 80 &&
+          (referenceSupport || annotationSupport)
+        );
+      },
+    ) ?? [];
+  const forwardFormations = [
+    ...historicalFormations,
+    ...(forwardFormation && !historicalFormations.some(
+      (formation) =>
+        formation.startIndex === forwardFormation.startIndex &&
+        formation.endIndex === forwardFormation.endIndex &&
+        formation.status === forwardFormation.status,
+    )
+      ? [forwardFormation]
+      : []),
+  ];
+  const forwardCandleRanges = forwardFormations.map(
+    (formation) =>
+      data.slice(
+        formation.startIndex,
+        formation.endIndex + 1,
+      ),
+  );
+  const forwardMarks = forwardFormations.flatMap(
+    (formation) =>
+      formation.marks.map((mark) => ({
+        ...mark,
+        annotation: {
+          ...mark.annotation,
+          id: [
+            formation.startIndex,
+            formation.endIndex,
+            formation.status,
+            mark.annotation.id,
+          ].join(":"),
+        },
+      })),
+  );
 
   const semanticMarks =
     validation?.active && validationCandidate
@@ -398,8 +440,8 @@ export function useChart(
           validationCandidate,
           validation.semanticReferences,
         )
-      : forwardFormation
-        ? forwardFormation.marks
+      : forwardFormations.length
+        ? forwardMarks
         : plugins.semanticMarks ?? [];
 
   const candidateFrom = validationCandidate?.candles[0]?.time;
@@ -429,7 +471,7 @@ export function useChart(
       plugins.strategy?.isCreatingStrategy,
     ),
     validation,
-    matchCandles: forwardCandles,
+    matchCandleRanges: forwardCandleRanges,
   });
 
   const chartElement = (

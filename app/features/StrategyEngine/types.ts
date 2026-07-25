@@ -205,6 +205,8 @@ export type ForwardFormation = {
   confidence: number;
   support: number;
   totalReferences: number;
+  annotationSupport: number;
+  totalAnnotations: number;
   progress: number;
   referenceMatches: ForwardReferenceMatch[];
   marks: SemanticMark[];
@@ -223,6 +225,7 @@ export type ForwardPassState = {
 
   // Confirmed and invalidated examples already encountered.
   historicalFormations: ForwardFormation[];
+  
 
   // Prevents rediscovering previously completed/failed ranges.
   searchFromIndex: number;

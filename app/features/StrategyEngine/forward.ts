@@ -16,6 +16,7 @@ const MINIMUM_FORMATION_CANDLES = 5;
 const LENGTH_GATE = 0.7;
 const MAX_LOOKBACK_CANDLES = 200;
 const FAILURE_MATURITY_RATIO = 0.25;
+const HOLD_CONFIDENCE = 80;
 
 type EvaluatedReference = {
   match: ForwardReferenceMatch;
@@ -33,6 +34,7 @@ export function createForwardPassState(
     processedCandles,
     status: "searching",
     formation: null,
+    
     historicalFormations: [],
     searchFromIndex: 0,
   };
@@ -166,6 +168,14 @@ function evaluateCandidate(
       })
     : [];
 
+  const totalAnnotations = snapshots[
+    representative.match.referenceIndex
+  ].annotations.filter(
+    (annotation) =>
+      annotation.role === "structure" &&
+      annotation.importance !== "informational",
+  ).length;
+
   return {
     startIndex,
     endIndex,
@@ -173,6 +183,10 @@ function evaluateCandidate(
     confidence,
     support: supporting.length,
     totalReferences: snapshots.length,
+    annotationSupport: marks.filter(
+      (mark) => mark.score != null && mark.status === "pass",
+    ).length,
+    totalAnnotations,
     progress,
     referenceMatches: evaluated.map(({ match }) => match),
     marks,

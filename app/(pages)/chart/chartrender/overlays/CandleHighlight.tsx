@@ -9,7 +9,7 @@ interface CandleHighlightOptions {
   data: any[];
   active: boolean; // only paints when isCreatingStrategy or whatever condition
   validation?: ValidationState;
-  matchCandles?: Candle[];
+  matchCandleRanges?: Candle[][];
 }
 
 export function useCandleHighlight({
@@ -19,7 +19,7 @@ export function useCandleHighlight({
   data,
   active,
   validation,
-  matchCandles = [],
+  matchCandleRanges = [],
 }: CandleHighlightOptions) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const selectionRef = useRef<{ startX: number; endX: number } | null>(null);
@@ -113,8 +113,10 @@ export function useCandleHighlight({
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    if (matchCandles.length) {
-      paintCandleRange(matchCandles, false);
+    if (matchCandleRanges.length) {
+      matchCandleRanges.forEach((candles) => {
+        paintCandleRange(candles, false);
+      });
       return;
     }
 
@@ -169,7 +171,7 @@ export function useCandleHighlight({
     data,
     active,
     validation,
-    matchCandles,
+    matchCandleRanges,
   ]);
 
   useEffect(() => {
@@ -210,7 +212,7 @@ export function useCandleHighlight({
   useEffect(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(paint);
-  }, [active, validation, matchCandles, paint]);
+  }, [active, validation, matchCandleRanges, paint]);
 
   return { canvasRef, setSelection, clearSelection };
 }
