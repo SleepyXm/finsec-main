@@ -201,7 +201,7 @@ export type ForwardReferenceMatch = {
 export type ForwardFormation = {
   startIndex: number;
   endIndex: number;
-  status: "forming" | "confirmed";
+  status: "forming" | "confirmed" | "invalidated";
   confidence: number;
   support: number;
   totalReferences: number;
@@ -210,11 +210,22 @@ export type ForwardFormation = {
   marks: SemanticMark[];
 };
 
+
 export type ForwardPassState = {
   strategyId: string;
   processedCandles: number;
-  status: "searching" | "forming" | "confirmed" | "invalidated";
+  status:
+    | "searching"
+    | "forming"
+    | "confirmed"
+    | "invalidated";
   formation: ForwardFormation | null;
+
+  // Confirmed and invalidated examples already encountered.
+  historicalFormations: ForwardFormation[];
+
+  // Prevents rediscovering previously completed/failed ranges.
+  searchFromIndex: number;
 };
 
 export type StrategyChartController = {
