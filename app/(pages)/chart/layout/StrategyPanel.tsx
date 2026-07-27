@@ -7,7 +7,13 @@ import {
 } from "@/app/components/handlers/annotations";
 import { useStrategyEngine } from "@/app/features/StrategyEngine/StrategyEngineProvider";
 import { useUser } from "@/app/components/provider/userprovider";
-import { cornerStyle, theme } from "@/app/UI";
+import {
+  MonoLabel,
+  TraderBlankButton,
+  cornerStyle,
+  theme,
+  traderInsetPanelStyle,
+} from "@/app/UI";
 import { CandleStickChart } from "@/app/(pages)/chart/chartrender/charts/CandleStickChart";
 import { ChartTheme } from "@/app/(pages)/chart/chartrender/themes/themes";
 import { StrategySnapshotsPanel } from "./StrategySnapshotsPanel";
@@ -21,8 +27,12 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     stopAnnotation,
     annotations,
     annotationError,
+    activeStrategy,
+    setActiveStrategy,
+    forwardPass,
     openStrategyTeaching,
     closeStrategyTeaching,
+    stopValidation,
     setStrategyTeachingAnnotations,
   } = useStrategyEngine();
   const { user, resolved } = useUser();
@@ -39,6 +49,7 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     if (!user) {
       setItems([]);
       setSelectedStrategy(null);
+      setActiveStrategy(null);
       return;
     }
     setLoading(true);
@@ -50,7 +61,7 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [setActiveStrategy, user]);
 
   useEffect(() => {
     if (resolved) void loadStrategies();
@@ -64,6 +75,8 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
       .then((strategy) => {
         if (!cancelled) {
           setSelectedStrategy(strategy);
+          setActiveStrategy((current) =>
+            current?.id === strategy.id ? strategy : current);
           const latest = strategy.snapshots.length - 1;
           if (strategy.snapshots[latest]) openStrategyTeaching(strategy.id, latest, strategy.snapshots[latest]);
         }
@@ -75,7 +88,7 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     return () => {
       cancelled = true;
     };
-  }, [annotations.length, openStrategyTeaching, selectedStrategyId]);
+  }, [annotations.length, openStrategyTeaching, selectedStrategyId, setActiveStrategy]);
 
   const openStrategy = async (strategy: SavedStrategy) => {
     setLoadingStrategyId(strategy.id);
@@ -97,6 +110,9 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     setLoadError(null);
     try {
       await deleteUserStrategy(selectedStrategy.id);
+      if (activeStrategy?.id === selectedStrategy.id) {
+        setActiveStrategy(null);
+      }
       closeStrategyTeaching();
       setSelectedStrategy(null);
       await loadStrategies();
@@ -114,16 +130,23 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
     try {
       const result = await deleteUserStrategySnapshot(selectedStrategy.id, index);
       if (result.remaining_snapshot_count === 0) {
+        if (activeStrategy?.id === selectedStrategy.id) {
+          setActiveStrategy(null);
+        }
         closeStrategyTeaching();
         setSelectedStrategy(null);
       } else {
         const nextSnapshots = selectedStrategy.snapshots.filter((_, snapshotIndex) => snapshotIndex !== index);
         const nextIndex = Math.min(index, nextSnapshots.length - 1);
-        setSelectedStrategy((current) => current ? {
-          ...current,
+        const nextStrategy = {
+          ...selectedStrategy,
           snapshot_count: result.remaining_snapshot_count,
           snapshots: nextSnapshots,
-        } : null);
+        };
+        setSelectedStrategy(nextStrategy);
+        if (activeStrategy?.id === selectedStrategy.id) {
+          setActiveStrategy(nextStrategy);
+        }
         if (nextSnapshots[nextIndex]) openStrategyTeaching(selectedStrategy.id, nextIndex, nextSnapshots[nextIndex]);
       }
       await loadStrategies();
@@ -137,26 +160,59 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
   const saveSnapshotAnnotations = async (index: number, next: StrategyAnnotation[]) => {
     if (!selectedStrategy) return;
     const result = await updateUserStrategySnapshotAnnotations(selectedStrategy.id, index, next);
-    setStrategyTeachingAnnotations(result.annotations);
-    setSelectedStrategy((current) => current ? {
-      ...current,
-      snapshots: current.snapshots.map((snapshot, snapshotIndex) =>
+    const nextStrategy = {
+      ...selectedStrategy,
+      snapshots: selectedStrategy.snapshots.map((snapshot, snapshotIndex) =>
         snapshotIndex === index ? { ...snapshot, annotations: result.annotations } : snapshot),
-    } : current);
+    };
+    setStrategyTeachingAnnotations(result.annotations);
+    setSelectedStrategy(nextStrategy);
+    if (activeStrategy?.id === selectedStrategy.id) {
+      setActiveStrategy(nextStrategy);
+    }
   };
 
   if (selectedStrategy) {
+    const isApplied = activeStrategy?.id === selectedStrategy.id;
+
     return (
-      <StrategySnapshotsPanel
-        strategy={selectedStrategy}
-        onBack={() => { closeStrategyTeaching(); setSelectedStrategy(null); }}
-        onDeleteStrategy={() => void deleteStrategySet()}
-        onDeleteSnapshot={(index) => void deleteSnapshot(index)}
-        onSaveSnapshotAnnotations={saveSnapshotAnnotations}
-        deleting={deleting}
-        error={loadError}
-        chartTheme={chartTheme}
-      />
+      <>
+        <section style={{ ...traderInsetPanelStyle(theme.dark), margin: "12px 12px 0", padding: 10 }}>
+          <div style={cornerStyle()} />
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+            <MonoLabel>Live chart</MonoLabel>
+            <span style={{ color: isApplied ? theme.dark.accent : theme.dark.muted2, fontSize: 9 }}>
+              {isApplied ? (forwardPass?.status ?? "loading").toUpperCase() : "INACTIVE"}
+            </span>
+          </div>
+          <TraderBlankButton
+            active={!isApplied}
+            onClick={() => {
+              if (isApplied) {
+                setActiveStrategy(null);
+                return;
+              }
+              stopAnnotation();
+              stopValidation();
+              closeStrategyTeaching();
+              setActiveStrategy(selectedStrategy);
+            }}
+            style={{ width: "100%", padding: "8px 10px", fontSize: 10 }}
+          >
+            {isApplied ? "Stop Live Strategy" : "Apply to Live Chart"}
+          </TraderBlankButton>
+        </section>
+        <StrategySnapshotsPanel
+          strategy={selectedStrategy}
+          onBack={() => { closeStrategyTeaching(); setSelectedStrategy(null); }}
+          onDeleteStrategy={() => void deleteStrategySet()}
+          onDeleteSnapshot={(index) => void deleteSnapshot(index)}
+          onSaveSnapshotAnnotations={saveSnapshotAnnotations}
+          deleting={deleting}
+          error={loadError}
+          chartTheme={chartTheme}
+        />
+      </>
     );
   }
 

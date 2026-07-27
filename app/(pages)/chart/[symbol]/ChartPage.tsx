@@ -36,7 +36,7 @@ function ChartPageInner() {
     updatePosition, loadPreviousPage, appliedIndicators, tradeReady, tradePending,
   } = useChartContext();
   const {
-    chartController,
+    chartController, forwardPass,
   } = useStrategyEngine();
   const backtest = useBacktestContext();
 
@@ -135,7 +135,7 @@ function ChartPageInner() {
           forwardPass={
             isBacktesting
               ? backtest.forwardPass
-              : null
+              : forwardPass
           }
           theme={activeTheme}
         />

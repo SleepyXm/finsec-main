@@ -1,11 +1,15 @@
 "use client";
 
 import {
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useChartContext } from "@/app/(pages)/chart/chartcontext";
@@ -13,18 +17,26 @@ import {
   buildAnnotationPayload,
   saveUserAnnotation,
 } from "@/app/components/handlers/annotations";
+import { reconcileForwardPass } from "./forward";
 import { useStrategyValidation } from "./validation";
 import type {
   AnnotationDraft,
   CandidateBoundaryAdjustment,
+  ForwardPassState,
   StrategyAnnotation,
   StrategyChartController,
+  StrategyDetails,
   StrategySnapshot,
   StrategyTeachingState,
   ValidationState,
 } from "./types";
 
 type StrategyEngineValue = {
+  activeStrategy: StrategyDetails | null;
+  setActiveStrategy: Dispatch<
+    SetStateAction<StrategyDetails | null>
+  >;
+  forwardPass: ForwardPassState | null;
   isCreatingStrategy: boolean;
   annotationStrategyLabel: string | null;
   startAnnotation: (strategyLabel?: string) => void;
@@ -105,10 +117,51 @@ export function StrategyEngineProvider({
     useState<AnnotationDraft[]>([]);
   const [annotationError, setAnnotationError] =
     useState<string | null>(null);
+  const [activeStrategy, setActiveStrategy] =
+    useState<StrategyDetails | null>(null);
+  const [forwardPass, setForwardPass] =
+    useState<ForwardPassState | null>(null);
+  const forwardPassRef =
+    useRef<ForwardPassState | null>(null);
+  const strategyRef =
+    useRef<StrategyDetails | null>(null);
+  const seriesStartRef =
+    useRef<number | null>(null);
   const [
     strategyTeaching,
     updateStrategyTeaching,
   ] = useState<StrategyTeachingState | null>(null);
+
+  useEffect(() => {
+    const observedCandles = chartData.slice(0, -1);
+
+    if (!activeStrategy || !observedCandles.length) {
+      forwardPassRef.current = null;
+      strategyRef.current = activeStrategy;
+      seriesStartRef.current = null;
+      setForwardPass(null);
+      return;
+    }
+
+    const seriesStart = observedCandles[0].time;
+    const canContinue =
+      strategyRef.current === activeStrategy &&
+      seriesStartRef.current === seriesStart;
+    const next = reconcileForwardPass(
+      canContinue ? forwardPassRef.current : null,
+      observedCandles,
+      activeStrategy.snapshots,
+      activeStrategy.id,
+    );
+
+    strategyRef.current = activeStrategy;
+    seriesStartRef.current = seriesStart;
+    forwardPassRef.current = next;
+    setForwardPass(next);
+  }, [
+    activeStrategy,
+    chartData,
+  ]);
 
   const stopAnnotation = useCallback(() => {
     setIsCreatingStrategy(false);
@@ -276,6 +329,9 @@ export function StrategyEngineProvider({
 
   const value = useMemo<StrategyEngineValue>(
     () => ({
+      activeStrategy,
+      setActiveStrategy,
+      forwardPass,
       isCreatingStrategy,
       annotationStrategyLabel,
       startAnnotation,
@@ -298,6 +354,7 @@ export function StrategyEngineProvider({
     }),
     [
       acceptCandidate,
+      activeStrategy,
       adjustCandidateBoundary,
       annotationError,
       annotationStrategyLabel,
@@ -306,6 +363,7 @@ export function StrategyEngineProvider({
       closeStrategyTeaching,
       handleAnnotation,
       isCreatingStrategy,
+      forwardPass,
       openStrategyTeaching,
       rejectCandidate,
       setStrategyTeaching,
