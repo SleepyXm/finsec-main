@@ -18,6 +18,7 @@ import { CandleStickChart } from "@/app/(pages)/chart/chartrender/charts/CandleS
 import { ChartTheme } from "@/app/(pages)/chart/chartrender/themes/themes";
 import { StrategySnapshotsPanel } from "./StrategySnapshotsPanel";
 import { strategyCardBackground, StrategyCaptureSection } from "./StrategyCaptureSection";
+import { clearMarketplaceStrategy } from "@/app/components/handlers/marketplace";
 
 export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }) {
   const {
@@ -195,6 +196,7 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
               stopAnnotation();
               stopValidation();
               closeStrategyTeaching();
+              clearMarketplaceStrategy();
               setActiveStrategy(selectedStrategy);
             }}
             style={{ width: "100%", padding: "8px 10px", fontSize: 10 }}
@@ -218,6 +220,30 @@ export default function StrategyPanel({ chartTheme }: { chartTheme: ChartTheme }
 
   return (
     <div style={{ padding: 12 }}>
+      {activeStrategy && !items.some((item) => item.id === activeStrategy.id) && (
+        <section style={{ ...traderInsetPanelStyle(theme.dark), padding: 10, marginBottom: 14 }}>
+          <div style={cornerStyle()} />
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+            <MonoLabel>Marketplace strategy</MonoLabel>
+            <span style={{ color: theme.dark.accent, fontSize: 9 }}>
+              {(forwardPass?.status ?? "loading").toUpperCase()}
+            </span>
+          </div>
+          <p style={{ color: theme.dark.text, fontSize: 12, marginBottom: 9 }}>
+            {activeStrategy.title.replace(/_/g, " ")}
+          </p>
+          <TraderBlankButton
+            onClick={() => {
+              clearMarketplaceStrategy();
+              setActiveStrategy(null);
+            }}
+            style={{ width: "100%", padding: "7px 9px", fontSize: 9 }}
+          >
+            Remove from chart
+          </TraderBlankButton>
+        </section>
+      )}
+
       <StrategyCaptureSection
         title="New strategy snapshot"
         active={isGenericAnnotating}

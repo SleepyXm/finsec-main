@@ -126,11 +126,11 @@ const Navbar = () => {
 
   const links: NavLinkDef[] = [
     { label: "Home", url: "/" },
+    { label: "Marketplace", url: "/marketplace" },
     ...(user
       ? [
           { label: user.username, url: "/profile" },
           { label: "Dashboard",   url: "/dashboard" },
-          { label: "Marketplace", url: "/marketplace" },
           { label: "Sign out", onClick: handleLogout },
         ]
       : [{ label: "Sign in", url: "/login", cta: true }]),

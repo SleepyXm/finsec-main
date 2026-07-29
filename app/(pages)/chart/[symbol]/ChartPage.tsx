@@ -17,6 +17,7 @@ import {
   useStrategyEngine,
 } from "@/app/features/StrategyEngine/StrategyEngineProvider";
 import { EmptyState, LoadingState } from "@/app/UI";
+import { loadMarketplaceStrategy } from "@/app/components/handlers/marketplace";
 
 function ChartLoadState({ connected }: { connected: boolean }) {
   return (
@@ -36,13 +37,18 @@ function ChartPageInner() {
     updatePosition, loadPreviousPage, appliedIndicators, tradeReady, tradePending,
   } = useChartContext();
   const {
-    chartController, forwardPass,
+    chartController, forwardPass, setActiveStrategy,
   } = useStrategyEngine();
   const backtest = useBacktestContext();
 
   const [quantity,       setQuantity]       = useState(1);
   const [themeModalOpen, setThemeModalOpen] = useState(false);
   const [themeOverrides, setThemeOverrides] = useState<Partial<ChartTheme>>({});
+
+  useEffect(() => {
+    const strategy = loadMarketplaceStrategy();
+    if (strategy) setActiveStrategy(strategy);
+  }, [setActiveStrategy]);
 
   useEffect(() => {
     getPreferences().then((data) => {

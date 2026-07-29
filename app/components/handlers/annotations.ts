@@ -47,7 +47,7 @@ export type AnnotationPayload = {
   candles: AnnotationCandle[];
 };
 
-type WireStrategySnapshot = {
+export type WireStrategySnapshot = {
   symbol: string;
   annotated_at: string;
   candles: Candle[];
@@ -122,7 +122,7 @@ function normaliseRange(
   return null;
 }
 
-function normaliseStrategySnapshot(
+export function normaliseStrategySnapshot(
   snapshot: WireStrategySnapshot,
 ): StrategySnapshot {
   const candles = snapshot.candles.map((candle) => ({
