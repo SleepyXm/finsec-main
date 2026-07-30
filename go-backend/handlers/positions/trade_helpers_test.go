@@ -13,6 +13,19 @@ func TestDecodeTradeActionNormalizesInput(t *testing.T) {
 	if request.Ticker != "NQ=F" || request.Action != "buy" {
 		t.Fatalf("request was not normalized: %#v", request)
 	}
+	if request.OrderType != "market" {
+		t.Fatalf("default order type = %q, expected market", request.OrderType)
+	}
+}
+
+func TestDecodeTradeActionAcceptsLimitOrder(t *testing.T) {
+	request, err := decodeTradeAction([]byte(`{"ticker":"AAPL","action":"sell","order_type":"limit","price":250,"quantity":3}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.OrderType != "limit" || request.Price != 250 {
+		t.Fatalf("limit order was not preserved: %#v", request)
+	}
 }
 
 func TestDecodeTradeActionRejectsMalformedInput(t *testing.T) {
@@ -21,6 +34,7 @@ func TestDecodeTradeActionRejectsMalformedInput(t *testing.T) {
 		`{"ticker":"NQ=F","action":"buy","price":0,"quantity":1}`,
 		`{"ticker":"NQ=F","action":"buy","price":1,"quantity":1000001}`,
 		`{"ticker":"NQ=F","action":"buy","price":1,"quantity":1,"admin":true}`,
+		`{"ticker":"NQ=F","action":"buy","order_type":"stop","price":1,"quantity":1}`,
 		`{"ticker":"../NQ","action":"buy","price":1,"quantity":1}`,
 		`{"ticker":"NQ=F","action":"buy","price":1,"quantity":1}{}`,
 		strings.Repeat("x", maxTradeMessageBytes+1),

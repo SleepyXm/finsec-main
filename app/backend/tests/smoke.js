@@ -29,7 +29,7 @@ export const options = {
 };
 
 export default function () {
-  const url = 'ws://localhost:9000/api/ws/stockdata?ticker_symbol=NQ=F&interval=5m';
+  const url = 'ws://localhost:9000/api/charts/NQ%3DF?interval=5m';
   
   const res = ws.connect(url, {}, function (socket) {
     socket.on('open', () => {

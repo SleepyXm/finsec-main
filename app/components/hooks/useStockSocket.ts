@@ -165,7 +165,9 @@ export function useStockSocket(
     loadPage(nextPage);
   }, [loadPage]);
 
-  const filteredPositions = positions.filter(p => p.symbol === ticker);
+  const filteredPositions = positions.filter(
+    (position) => position.symbol === ticker && position.status === "open",
+  );
   const livePnLMap = computeLivePnL(filteredPositions, tick?.close ?? null);
 
   return { tick, historicalData, connected, livePnLMap, loadingMore, loadPage, loadPreviousPage };

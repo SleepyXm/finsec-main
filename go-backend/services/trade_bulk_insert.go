@@ -25,13 +25,13 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 	defer tx.Rollback()
 
 	valueParts := make([]string, 0, len(entries))
-	args := make([]any, 0, len(entries)*7)
+	args := make([]any, 0, len(entries)*8)
 
 	for i, entry := range entries {
-		base := i*7 + 1
+		base := i*8 + 1
 
 		valueParts = append(valueParts, fmt.Sprintf(
-			"($%d::int, $%d::uuid, $%d::uuid, $%d::text, $%d::text, $%d::numeric, $%d::numeric)",
+			"($%d::int, $%d::uuid, $%d::uuid, $%d::text, $%d::text, $%d::text, $%d::numeric, $%d::numeric)",
 			base,
 			base+1,
 			base+2,
@@ -39,6 +39,7 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 			base+4,
 			base+5,
 			base+6,
+			base+7,
 		))
 
 		args = append(args,
@@ -47,6 +48,7 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 			entry.AccountID,
 			entry.Ticker,
 			entry.Action,
+			entry.OrderType,
 			entry.Quantity,
 			entry.Price,
 		)
@@ -59,6 +61,7 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 			account_id,
 			symbol,
 			side,
+			order_type,
 			quantity,
 			price
 		) AS (
@@ -85,12 +88,12 @@ func (p *WorkerPool) bulkInsert(ctx context.Context, db *sql.DB, entries []Queue
 				'user',
 				symbol,
 				side,
-				'market',
+				order_type,
 				quantity,
 				price,
-				price,
-				'open',
-				NOW()
+				CASE WHEN order_type = 'market' THEN price ELSE NULL END,
+				CASE WHEN order_type = 'market' THEN 'open' ELSE 'pending' END,
+				CASE WHEN order_type = 'market' THEN NOW() ELSE NULL END
 			FROM input_rows
 			RETURNING id
 		)
@@ -175,6 +178,13 @@ func buildQueueConfirms(results []bulkInsertResult) ([]QueueConfirm, error) {
 	confirms := make([]QueueConfirm, 0, len(results))
 
 	for _, result := range results {
+		status := "pending"
+		var entryPrice *float64
+		if result.entry.OrderType == "market" {
+			status = "open"
+			price := result.entry.Price
+			entryPrice = &price
+		}
 		confirm := QueueConfirm{
 			TradeID:    result.entry.TradeID,
 			ConnID:     result.entry.ConnID,
@@ -182,9 +192,9 @@ func buildQueueConfirms(results []bulkInsertResult) ([]QueueConfirm, error) {
 			Side:       tradeSide(result.entry.Action),
 			Quantity:   result.entry.Quantity,
 			Price:      result.entry.Price,
-			EntryPrice: result.entry.Price,
-			OrderType:  "market",
-			Status:     "open",
+			EntryPrice: entryPrice,
+			OrderType:  result.entry.OrderType,
+			Status:     status,
 			QueuedAt:   result.entry.QueuedAt,
 			FlushedAt:  flushedAt,
 		}

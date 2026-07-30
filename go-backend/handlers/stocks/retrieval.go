@@ -2,6 +2,7 @@ package stocks
 
 import (
 	"context"
+	"errors"
 	"finsec-backend/market"
 	"finsec-backend/services"
 	"fmt"
@@ -20,6 +21,11 @@ import (
 
 func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		provider, err := market.NormalizeProvider(c.DefaultQuery("provider", market.FinsecProvider))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		ticker, err := market.NormalizeTicker(c.Param("ticker"))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -31,9 +37,29 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		if !strings.EqualFold(c.GetHeader("Upgrade"), "websocket") ||
+			!strings.Contains(strings.ToLower(c.GetHeader("Connection")), "upgrade") ||
+			c.GetHeader("Sec-WebSocket-Key") == "" ||
+			c.GetHeader("Sec-WebSocket-Version") != "13" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "websocket upgrade required"})
+			return
+		}
+		pythonURL := os.Getenv("PYTHON_URL")
+		broadcastKey := fmt.Sprintf("%s:%s:%s", provider, ticker, interval)
+		if _, opened := pools.Load(broadcastKey); !opened {
+			err = startBroadcast(c.Request.Context(), pythonURL, provider, ticker, interval)
+			if errors.Is(err, errNoMarketData) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "no data available"})
+				return
+			}
+			if err != nil {
+				c.JSON(http.StatusBadGateway, gin.H{"error": "market data provider unavailable"})
+				return
+			}
+		}
 		t0 := time.Now()
 		conn, _, _, err := ws.UpgradeHTTP(c.Request, c.Writer)
-		log.Printf("[upgrade] %s/%s | %v", ticker, interval, time.Since(t0))
+		log.Printf("[upgrade] %s/%s/%s | %v", provider, ticker, interval, time.Since(t0))
 		if err != nil {
 			return
 		}
@@ -41,15 +67,7 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 		wsc := services.NewWSConn(conn)
 		defer wsc.Close()
 		ctx := context.Background()
-		pythonURL := os.Getenv("PYTHON_URL")
-		channel := fmt.Sprintf("price:%s:%s", ticker, interval)
-		broadcastKey := fmt.Sprintf("%s:%s", ticker, interval)
-		if _, started := startedBroadcasts.LoadOrStore(broadcastKey, struct{}{}); !started {
-			http.Post(
-				pythonURL+"/api/internal/broadcast/start?ticker="+ticker+"&interval="+interval,
-				"", nil,
-			)
-		}
+		channel := fmt.Sprintf("price:%s:%s:%s", provider, ticker, interval)
 		pool := getOrCreatePool(broadcastKey, rdb, channel)
 		pool.AddConn(wsc)
 		defer pool.RemoveConn(wsc)
@@ -59,7 +77,7 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 		t4 := time.Now()
 		cached, err := rdb.Get(ctx, chartKey).Result()
 		if err == redis.Nil {
-			cached, _, err = primeChart(ctx, rdb, pythonURL, ticker, interval)
+			cached, _, err = primeChart(ctx, rdb, pythonURL, provider, ticker, interval)
 		}
 		if err == nil {
 			if err := wsc.Write([]byte(cached)); err != nil {
@@ -72,9 +90,9 @@ func StockDataHandler(rdb *redis.Client) gin.HandlerFunc {
 				return
 			}
 		}
-		log.Printf("[write] %s/%s | %v", ticker, interval, time.Since(t4))
+		log.Printf("[write] %s/%s/%s | %v", provider, ticker, interval, time.Since(t4))
 
-		lastKey := fmt.Sprintf("last:price:%s:%s", ticker, interval)
+		lastKey := fmt.Sprintf("last:price:%s:%s:%s", provider, ticker, interval)
 		if last, err := rdb.Get(ctx, lastKey).Result(); err == nil && last != "" {
 			_ = wsc.Write([]byte(last))
 		}
@@ -111,7 +129,7 @@ func MarketOverviewHandler(rdb *redis.Client) gin.HandlerFunc {
 		defer cancel() // this kills all pubsub goroutines when handler exits
 
 		// scan all active tickers from Redis
-		keys, err := rdb.Keys(ctx, "last:price:*:1m").Result()
+		keys, err := rdb.Keys(ctx, "last:price:*:*:1m").Result()
 		if err != nil || len(keys) == 0 {
 			return
 		}
@@ -121,9 +139,14 @@ func MarketOverviewHandler(rdb *redis.Client) gin.HandlerFunc {
 
 		for _, key := range keys {
 			key := key
-			// extract ticker from "last:price:BTC-USD:1m"
-			ticker := strings.TrimPrefix(strings.TrimSuffix(key, ":1m"), "last:price:")
-			channel := fmt.Sprintf("price:%s:1m", ticker)
+			parts := strings.Split(key, ":")
+			if len(parts) != 5 {
+				continue
+			}
+			provider := parts[2]
+			ticker := parts[3]
+			interval := parts[4]
+			channel := fmt.Sprintf("price:%s:%s:%s", provider, ticker, interval)
 
 			// send last known price immediately
 			if last, err := rdb.Get(ctx, key).Result(); err == nil && last != "" {

@@ -50,10 +50,9 @@ async def mark_download_failed(ticker: str, interval: str):
 
 async def download_and_save(ticker: str, interval: str, period: str):
 
-    key = f"{ticker}_{interval}"
     if await is_download_failed(ticker, interval):
         print(f"  Skipping {ticker} {interval} — previously failed")
-        return
+        return False
     
     try:
     
@@ -69,13 +68,13 @@ async def download_and_save(ticker: str, interval: str, period: str):
             )
         except Exception as e:
             print(f"  Failed {ticker} | {interval}: {e}")
-            FAILED_DOWNLOADS.add(f"{ticker}_{interval}")
-            return
+            await mark_download_failed(ticker, interval)
+            return False
 
         if df.empty:
             print(f"  No data returned for {ticker} {interval}")
-            FAILED_DOWNLOADS.add(f"{ticker}_{interval}")
-            return
+            await mark_download_failed(ticker, interval)
+            return False
 
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = [col[0].lower() for col in df.columns]
@@ -91,11 +90,12 @@ async def download_and_save(ticker: str, interval: str, period: str):
 
         df.to_parquet(save_path, index=False, engine="pyarrow")
         print(f"  Saved {len(df)} rows → {save_path}")
+        return True
 
     except Exception as e:
         print(f"  Failed {ticker} {interval}: {e}")
         await mark_download_failed(ticker, interval)
-        return
+        return False
 
 def run_initial_download():
     for ticker in TICKERS:

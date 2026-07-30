@@ -18,7 +18,7 @@ _pool = ConnectionPool.from_url(
 )
 r = redis.Redis(connection_pool=_pool)
 
-fetch_tasks: dict[str, asyncio.Task] = {}
+fetch_tasks: dict[tuple[str, str, str], asyncio.Task] = {}
 _chart_locks: dict[str, asyncio.Lock] = {}
 
 subscriptions = {}
@@ -256,8 +256,8 @@ async def append_candle_to_page_one(ticker: str, interval: str, candle: dict):
 _fetch_state: dict[str, dict] = {}
 REAL_FETCH_EVERY = 4  # every ~30s at 2.2s sleep
 
-def fetch_latest(ticker: str, interval: str) -> dict | None:
-    key = f"{ticker}:{interval}"
+def fetch_latest(provider: str, ticker: str, interval: str) -> dict | None:
+    key = f"{provider}:{ticker}:{interval}"
     state = _fetch_state.get(key, {"tick": 0, "real_candle": None})
 
     state["tick"] += 1
@@ -273,6 +273,7 @@ def fetch_latest(ticker: str, interval: str) -> dict | None:
         close = float(row["close"])
         multiplier = 1.0008 if close < 10_000 else 1.00008
         candle = {
+            "provider": provider,
             "ticker": ticker,
             "time": int(df.index[-1].timestamp()),
             "open": float(row["open"]),
@@ -290,35 +291,48 @@ def fetch_latest(ticker: str, interval: str) -> dict | None:
         return candle
 
     _fetch_state[key] = state
-    return simulate_next(ticker, state["real_candle"],  interval)
+    return simulate_next(provider, ticker, state["real_candle"], interval)
 
-async def broadcast_stock_data(ticker: str, interval: str):
-    channel = f"price:{ticker}:{interval}"
-    last_key = f"last:price:{ticker}:{interval}"
+async def publish_candle(provider: str, ticker: str, interval: str, candle: dict):
+    channel = f"price:{provider}:{ticker}:{interval}"
+    last_key = f"last:price:{provider}:{ticker}:{interval}"
+    payload = json.dumps(candle)
+    await r.publish(channel, payload)
+    await r.set(last_key, payload, ex=300)
+    if candle.get("source") == "real":
+        await append_candle_to_page_one(ticker, interval, candle)
+
+
+async def broadcast_stock_data(provider: str, ticker: str, interval: str):
+    channel = f"price:{provider}:{ticker}:{interval}"
     sleep_s = 1
     while True:
         try:
-            candle = await asyncio.to_thread(fetch_latest, ticker, interval)
+            candle = await asyncio.to_thread(fetch_latest, provider, ticker, interval)
             if candle is None:
-                await r.publish(channel, json.dumps({"error": "no data"}))
-            else:
-                payload = json.dumps(candle)
-                await r.publish(channel, payload)
-                await r.set(last_key, payload, ex=300)
-                # Simulated ticks share the current candle timestamp and are
-                # already replayed from last:price on reconnect. Persist only
-                # real snapshots into page 1 to keep this path inexpensive.
-                if candle.get("source") == "real":
-                    await append_candle_to_page_one(ticker, interval, candle)
+                await r.publish(channel, json.dumps({
+                    "error": "no data",
+                    "provider": provider,
+                    "ticker": ticker,
+                    "terminal": True,
+                }))
+                return
+            await publish_candle(provider, ticker, interval, candle)
         except Exception as e:
-            await r.publish(channel, json.dumps({"error": str(e)}))
+            await r.publish(channel, json.dumps({
+                "error": str(e),
+                "provider": provider,
+                "ticker": ticker,
+                "terminal": True,
+            }))
+            return
         await asyncio.sleep(sleep_s)
 
 
 _sim_state: dict[str, dict] = {}
 
-def simulate_next(ticker: str, real_candle: dict, interval: str) -> dict:
-    key = f"{ticker}:{interval}"
+def simulate_next(provider: str, ticker: str, real_candle: dict, interval: str) -> dict:
+    key = f"{provider}:{ticker}:{interval}"
     state = _sim_state.get(key, {})
 
     # natural range from the real candle
@@ -355,6 +369,7 @@ def simulate_next(ticker: str, real_candle: dict, interval: str) -> dict:
     }
 
     return {
+        "provider": provider,
         "ticker": ticker,
         "time": real_candle["time"],
         "open": real_candle["open"],

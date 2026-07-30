@@ -73,6 +73,7 @@ func main() {
 	pool := services.NewWorkerPool().WithRedis(utils.RDB)
 	pool.StartFlusher(ctx, db)
 	go services.RunBacktestCleanup(ctx, db)
+	go services.RunLimitOrderExecutor(ctx, db, utils.RDB)
 
 	allowedOrigins := []string{}
 	if dev := os.Getenv("DEV_SERVER"); dev != "" {

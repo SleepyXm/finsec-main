@@ -8,9 +8,26 @@ export function usePositions(ticker: string, isBacktest = false) {
 
   useEffect(() => {
     if (isBacktest) return;
-    fetchOpenPositions()
-      .then((all) => setPositions(all.filter((p) => p.symbol === ticker)))
-      .catch((e) => setError(e.message));
+    let active = true;
+
+    async function refreshPositions() {
+      try {
+        const all = await fetchOpenPositions();
+        if (!active) return;
+        setPositions(all.filter((position) => position.symbol === ticker));
+        setError(null);
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : "Failed to load positions");
+      }
+    }
+
+    refreshPositions();
+    const timer = window.setInterval(refreshPositions, 2_500);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [ticker, isBacktest]);
 
   function handlePositionClosed(tradeId: string) {

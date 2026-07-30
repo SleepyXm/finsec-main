@@ -3,13 +3,16 @@ package stocks
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/singleflight"
 
@@ -18,13 +21,15 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var startedBroadcasts sync.Map
-
 // Per ticker/interval, one singleflight group ensures only one
 // chart/cache call fires and everyone else waits for its result
 var chartGroup singleflight.Group
+var broadcastGroup singleflight.Group
 
-var pools sync.Map // key: "ticker:interval" -> *WorkerPool
+var pools sync.Map // key: "provider:ticker:interval" -> *WorkerPool
+
+var errNoMarketData = errors.New("no market data")
+var broadcastClient = &http.Client{Timeout: 15 * time.Second}
 
 func extractPageKey(ticker, interval string, msg []byte) string {
 	idx := bytes.Index(msg, []byte(`"page":`))
@@ -42,10 +47,46 @@ func extractPageKey(ticker, interval string, msg []byte) string {
 	return fmt.Sprintf("chart:%s:%s:page:%s", ticker, interval, msg[numStart:numEnd])
 }
 
+func startBroadcast(
+	ctx context.Context,
+	pythonURL, provider, ticker, interval string,
+) error {
+	key := fmt.Sprintf("%s:%s:%s", provider, ticker, interval)
+	_, err, _ := broadcastGroup.Do(key, func() (any, error) {
+		query := url.Values{
+			"provider": {provider},
+			"ticker":   {ticker},
+			"interval": {interval},
+		}
+		request, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodPost,
+			pythonURL+"/api/internal/broadcast/start?"+query.Encode(),
+			nil,
+		)
+		if err != nil {
+			return nil, err
+		}
+		response, err := broadcastClient.Do(request)
+		if err != nil {
+			return nil, err
+		}
+		defer response.Body.Close()
+		if response.StatusCode == http.StatusNotFound {
+			return nil, errNoMarketData
+		}
+		if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+			return nil, fmt.Errorf("broadcast start returned %s", response.Status)
+		}
+		return nil, nil
+	})
+	return err
+}
+
 func primeChart(
 	ctx context.Context,
 	rdb *redis.Client,
-	pythonURL, ticker, interval string,
+	pythonURL, provider, ticker, interval string,
 ) (string, int, error) {
 	chartKey := fmt.Sprintf("chart:%s:%s", ticker, interval)
 
@@ -63,10 +104,12 @@ func primeChart(
 		}
 
 		// cold path — data comes back in the response body
-		resp, err := http.Post(
-			pythonURL+"/api/internal/chart/cache?ticker="+ticker+"&interval="+interval,
-			"", nil,
-		)
+		query := url.Values{
+			"provider": {provider},
+			"ticker":   {ticker},
+			"interval": {interval},
+		}
+		resp, err := http.Post(pythonURL+"/api/internal/chart/cache?"+query.Encode(), "", nil)
 		if err != nil {
 			return nil, err
 		}
@@ -120,17 +163,19 @@ func getOrCreatePool(key string, rdb *redis.Client, channel string) *services.Wo
 
 func PrewarmFromRedis(rdb *redis.Client, pythonURL string) {
 	ctx := context.Background()
-	keys, _ := rdb.Keys(ctx, "last:price:*:1m").Result()
-	for _, channel := range keys {
-		parts := strings.Split(channel, ":")
-		if len(parts) < 3 {
+	keys, _ := rdb.Keys(ctx, "last:price:*:*:1m").Result()
+	for _, lastKey := range keys {
+		parts := strings.Split(lastKey, ":")
+		if len(parts) != 5 {
 			continue
 		}
-		ticker := parts[2]
-		key := fmt.Sprintf("%s:1m", ticker)
-		startedBroadcasts.LoadOrStore(key, struct{}{})
+		provider := parts[2]
+		ticker := parts[3]
+		interval := parts[4]
+		key := fmt.Sprintf("%s:%s:%s", provider, ticker, interval)
+		channel := fmt.Sprintf("price:%s:%s:%s", provider, ticker, interval)
 		pool := getOrCreatePool(key, rdb, channel)
-		log.Printf("[prewarm] pool ready for %s", ticker)
+		log.Printf("[prewarm] pool ready for %s/%s", provider, ticker)
 		_ = pool
 	}
 }

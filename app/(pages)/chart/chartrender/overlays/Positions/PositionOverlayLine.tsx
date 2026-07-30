@@ -25,6 +25,7 @@ export function DraggablePriceLine({
   field,
   label,
   value,
+  projectedPnl,
   isPreview,
   tone,
   seriesRef,
@@ -37,6 +38,7 @@ export function DraggablePriceLine({
   field: EditableLine;
   label: string;
   value: number;
+  projectedPnl: number;
   isPreview: boolean;
   tone: "stop" | "take";
   seriesRef: PositionSeriesRef;
@@ -101,6 +103,12 @@ export function DraggablePriceLine({
           {isPreview ? " preview" : ""}
         </span>
         <span className={styles.priceLineValue}>{formatPrice(value)}</span>
+        <span className={cx(
+          styles.projectedPnl,
+          projectedPnl >= 0 ? styles.positive : styles.negative,
+        )}>
+          {projectedPnl >= 0 ? "+" : "−"}${Math.abs(projectedPnl).toFixed(2)}
+        </span>
 
         {!isPreview && (
           <button

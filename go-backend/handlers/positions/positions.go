@@ -33,14 +33,14 @@ func GetOpenPositions(db *sql.DB) gin.HandlerFunc {
 			        CASE side WHEN 'buy' THEN 'long' ELSE 'short' END AS side,
 			        quantity,
 			        price,
-			        entry_price,
+			        COALESCE(entry_price, price) AS entry_price,
 			        order_type,
 			        stop_loss,
 			        take_profit,
 			        status,
-			        opened_at
+			        COALESCE(opened_at, created_at) AS opened_at
 			 FROM trades
-			 WHERE account_id = $1 AND status = 'open'`, accountID,
+			 WHERE account_id = $1 AND status IN ('pending', 'open')`, accountID,
 		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch open trades"})

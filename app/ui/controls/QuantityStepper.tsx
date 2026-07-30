@@ -36,7 +36,7 @@ export function QuantityStepper({ value, onChange, min = 1, max = Number.MAX_SAF
   });
 
   return (
-    <div className="grid h-7 grid-cols-[30px_20px] border border-white/10 bg-[#0e1117c7] text-[#EEF2F7]">
+    <div className="grid h-7 grid-cols-[20px_15px] border border-white/10 bg-[#0e1117c7] text-[#EEF2F7]">
       <input
         type="text"
         role="spinbutton"

@@ -21,6 +21,7 @@ import { usePositions } from "@/app/components/hooks/usePositions";
 import { useTrades } from "@/app/components/hooks/useTrades";
 import type { AppliedIndicator } from "@/app/features/indicators/language/types";
 import type { StockTick } from "@/app/components/types/websocket";
+import type { OrderIntent } from "@/app/components/types/trades";
 
 interface ChartContextValue {
   shortname: string;
@@ -46,6 +47,7 @@ interface ChartContextValue {
     tick: Pick<RawData, "buy_price" | "close">,
     symbol: string,
     quantity: number,
+    order?: OrderIntent,
   ) => void;
   closeTrade: (id: string, price: number) => void;
   tradeReady: boolean;

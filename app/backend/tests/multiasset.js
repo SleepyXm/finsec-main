@@ -43,7 +43,7 @@ export default function () {
   const ticker = tickers[Math.floor(Math.random() * tickers.length)];
   const interval = intervals[Math.floor(Math.random() * intervals.length)];
 
-  const url = `ws://localhost:9000/api/ws/stockdata?ticker_symbol=${ticker}&interval=${interval}`;
+  const url = `ws://localhost:9000/api/charts/${ticker}?interval=${interval}`;
 
   const start = Date.now();
 

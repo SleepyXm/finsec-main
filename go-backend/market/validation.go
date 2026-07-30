@@ -6,9 +6,18 @@ import (
 )
 
 const MaxTickerLength = 24
+const FinsecProvider = "finsec"
 
 var intervals = map[string]struct{}{
 	"1m": {}, "5m": {}, "15m": {}, "30m": {}, "1h": {}, "1d": {},
+}
+
+func NormalizeProvider(value string) (string, error) {
+	provider := strings.ToLower(strings.TrimSpace(value))
+	if provider != FinsecProvider {
+		return "", fmt.Errorf("unsupported provider")
+	}
+	return provider, nil
 }
 
 func NormalizeTicker(value string) (string, error) {

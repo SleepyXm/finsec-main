@@ -100,20 +100,23 @@ function ChartPageInner() {
               <TradeButtons
                 data={activePrice}
                 disabled={!isBacktesting && (!tradeReady || tradePending)}
-                onTrade={(action) => {
+                onTrade={(action, selectedQuantity, order) => {
                   if (isBacktesting && backtest.session && backtest.currentCandle) {
                     backtest.placeTrade(
                       action,
                       backtest.currentCandle,
                       backtest.session.ticker,
-                      backtest.quantity,
+                      selectedQuantity,
                     );
                     return;
                   }
-                  if (tick) placeTrade(action, tick, shortname, quantity);
+                  if (tick) {
+                    placeTrade(action, tick, shortname, selectedQuantity, order);
+                  }
                 }}
                 quantity={isBacktesting ? backtest.quantity : quantity}
                 onQuantityChange={isBacktesting ? backtest.setQuantity : setQuantity}
+                allowLimitOrders={!isBacktesting}
               />
             </>
           }

@@ -1,10 +1,11 @@
 package structs
 
 type TradeAction struct {
-	Ticker   string  `json:"ticker"`
-	Action   string  `json:"action"`
-	Price    float64 `json:"price"`
-	Quantity float64 `json:"quantity"`
+	Ticker    string  `json:"ticker"`
+	Action    string  `json:"action"`
+	OrderType string  `json:"order_type"`
+	Price     float64 `json:"price"`
+	Quantity  float64 `json:"quantity"`
 }
 
 type CloseTradeRequest struct {

@@ -65,7 +65,7 @@ def upgrade():
         # UI / theme
         sa.Column('theme', sa.String(50), server_default='dark'),
         sa.Column('color_scheme', postgresql.JSONB, server_default=sa.text("'{}'")),
-        sa.Column('cookie_consent', sa.String(20), nullable=True),
+        sa.Column("cookie_consent", sa.String(16), nullable=True),
 
         # trading defaults
         sa.Column('default_timeframe', sa.String(10), server_default='1h'),
@@ -87,6 +87,12 @@ def upgrade():
 
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
+
+        op.create_check_constraint(
+            "ck_user_preferences_cookie_consent",
+            "user_preferences",
+            "cookie_consent IS NULL OR cookie_consent IN ('accepted', 'declined')",
+        )
     )
 
 

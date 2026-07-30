@@ -34,6 +34,7 @@ type QueueEntry struct {
 	AccountID string  `json:"account_id"`
 	Ticker    string  `json:"ticker"`
 	Action    string  `json:"action"`
+	OrderType string  `json:"order_type"`
 	Quantity  float64 `json:"quantity"`
 	Price     float64 `json:"price"`
 	QueuedAt  string  `json:"queued_at"`
@@ -42,18 +43,18 @@ type QueueEntry struct {
 // QueueConfirm is published to Redis pub/sub after flush and delivered
 // to the matching WebSocket connection on whichever instance owns it.
 type QueueConfirm struct {
-	TradeID    string  `json:"trade_id"`
-	ConnID     string  `json:"conn_id"`
-	Symbol     string  `json:"symbol"`
-	Side       string  `json:"side"`
-	Quantity   float64 `json:"quantity"`
-	Price      float64 `json:"price"`
-	EntryPrice float64 `json:"entry_price"`
-	OrderType  string  `json:"order_type"`
-	Status     string  `json:"status"` // "open" | "error"
-	Error      string  `json:"error,omitempty"`
-	QueuedAt   string  `json:"queued_at"`
-	FlushedAt  string  `json:"flushed_at"`
+	TradeID    string   `json:"trade_id"`
+	ConnID     string   `json:"conn_id"`
+	Symbol     string   `json:"symbol"`
+	Side       string   `json:"side"`
+	Quantity   float64  `json:"quantity"`
+	Price      float64  `json:"price"`
+	EntryPrice *float64 `json:"entry_price"`
+	OrderType  string   `json:"order_type"`
+	Status     string   `json:"status"` // "pending" | "open" | "error"
+	Error      string   `json:"error,omitempty"`
+	QueuedAt   string   `json:"queued_at"`
+	FlushedAt  string   `json:"flushed_at"`
 }
 
 type bulkInsertResult struct {

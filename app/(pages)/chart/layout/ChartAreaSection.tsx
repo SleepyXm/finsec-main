@@ -76,8 +76,10 @@ function ExtraChartInner({
               <TradeButtons
                 data={tick}
                 disabled={!tradeReady || tradePending}
-                onTrade={(action) => {
-                  if (tick) placeTrade(action, tick, shortname, quantity);
+                onTrade={(action, selectedQuantity, order) => {
+                  if (tick) {
+                    placeTrade(action, tick, shortname, selectedQuantity, order);
+                  }
                 }}
                 quantity={quantity}
                 onQuantityChange={setQuantity}

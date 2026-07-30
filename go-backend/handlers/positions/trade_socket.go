@@ -61,7 +61,7 @@ func PlaceTrade(db *sql.DB, _ *redis.Client, pool *services.WorkerPool) gin.Hand
 			entry := services.QueueEntry{
 				TradeID: uuid.NewString(), ConnID: connID, AccountID: accountID,
 				Ticker: request.Ticker, Action: request.Action,
-				Quantity: request.Quantity, Price: request.Price,
+				OrderType: request.OrderType, Quantity: request.Quantity, Price: request.Price,
 			}
 
 			queueContext, cancel := context.WithTimeout(context.Background(), 2*time.Second)

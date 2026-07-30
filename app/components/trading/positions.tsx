@@ -7,6 +7,7 @@ export default function OpenPositions({ positions, livePnLMap, onClose }: OpenPo
     <ul className="space-y-px">
       {positions.map((position) => {
         const id = position.trade_id;
+        const pending = position.status === "pending";
         const livePnL = livePnLMap[id] ?? 0;
         const pos = livePnL >= 0;
 
@@ -15,7 +16,6 @@ export default function OpenPositions({ positions, livePnLMap, onClose }: OpenPo
             key={id}
             className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-zinc-800/50 transition-colors"
           >
-            {/* Left: badge + symbol + meta */}
             <div className="flex items-center gap-2 min-w-0">
               <span className={[
                 "shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded",
@@ -28,24 +28,40 @@ export default function OpenPositions({ positions, livePnLMap, onClose }: OpenPo
               <span className="text-sm font-medium text-zinc-200 truncate">{position.symbol}</span>
               <span className="text-xs text-zinc-600">×{position.quantity}</span>
               <span className="text-xs text-zinc-600 hidden sm:block">
-                entry ${position.entry_price.toFixed(2)}
+                {pending ? "limit" : "entry"} ${position.entry_price.toFixed(2)}
               </span>
+              {pending && (
+                <span className="rounded border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300">
+                  Pending
+                </span>
+              )}
             </div>
 
-            {/* Right: live pnl + close */}
             <div className="flex items-center gap-3 shrink-0">
-              <span className={[
-                "text-sm font-semibold tabular-nums w-20 text-right",
-                pos ? "text-emerald-400" : "text-red-400",
-              ].join(" ")}>
-                {pos ? "+" : "−"}${Math.abs(livePnL).toFixed(2)}
-              </span>
+              {pending ? (
+                <span className="w-20 text-right text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+                  {position.side === "long" ? "Buy limit" : "Sell limit"}
+                </span>
+              ) : (
+                <span className={[
+                  "text-sm font-semibold tabular-nums w-20 text-right",
+                  pos ? "text-emerald-400" : "text-red-400",
+                ].join(" ")}>
+                  {pos ? "+" : "−"}${Math.abs(livePnL).toFixed(2)}
+                </span>
+              )}
               <button
                 onClick={() => onClose(id)}
-                aria-label="Close position"
-                className="w-6 h-6 flex items-center justify-center rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200 text-xs transition-colors"
+                aria-label={pending ? "Cancel limit order" : "Close position"}
+                title={pending ? "Cancel limit order" : "Close position"}
+                className={[
+                  "h-6 flex items-center justify-center rounded text-xs transition-colors",
+                  pending
+                    ? "px-2 border border-amber-400/20 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20"
+                    : "w-6 bg-zinc-800 hover:bg-zinc-700 text-zinc-500 hover:text-zinc-200",
+                ].join(" ")}
               >
-                ✕
+                {pending ? "Cancel" : "✕"}
               </button>
             </div>
           </li>

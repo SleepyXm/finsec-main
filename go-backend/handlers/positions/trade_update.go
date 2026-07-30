@@ -87,11 +87,11 @@ func UpdateTrade(db *sql.DB) gin.HandlerFunc {
 		args = append(args, tradeID, accountID)
 		query := fmt.Sprintf(`
 			UPDATE trades SET %s, updated_at = NOW()
-			WHERE id = $%d AND account_id = $%d AND status = 'open'
+			WHERE id = $%d AND account_id = $%d AND status IN ('pending', 'open')
 			RETURNING id, symbol,
 				CASE side WHEN 'buy' THEN 'long' ELSE 'short' END,
-				quantity, price, entry_price, order_type, stop_loss,
-				take_profit, status, opened_at
+				quantity, price, COALESCE(entry_price, price), order_type, stop_loss,
+				take_profit, status, COALESCE(opened_at, created_at)
 		`, strings.Join(updates, ", "), len(args)-1, len(args))
 
 		var id, symbol, side, orderType, status string

@@ -5,8 +5,8 @@ This revision is intentionally a no-op so later migrations that already depend
 on 012_add_subscriptions_prod can keep their existing down_revision.
 """
 
-revision = '012_add_subscriptions_prod'
-down_revision = '010_add_strategies'
+revision = '025_add_subscriptions_prod'
+down_revision = '014_normalize_account_defaults'
 branch_labels = None
 depends_on = None
 

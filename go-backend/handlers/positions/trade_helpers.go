@@ -46,6 +46,10 @@ func decodeTradeAction(raw []byte) (structs.TradeAction, error) {
 	if request.Action == "" {
 		return request, fmt.Errorf("action must be buy or sell")
 	}
+	request.OrderType = normalizeOrderType(request.OrderType)
+	if request.OrderType == "" {
+		return request, fmt.Errorf("order_type must be market or limit")
+	}
 	if !validPositiveNumber(request.Price, maxTradePrice) {
 		return request, fmt.Errorf("price must be a positive finite number")
 	}
@@ -61,6 +65,17 @@ func normalizeAction(action string) string {
 		return "buy"
 	case "sell":
 		return "sell"
+	default:
+		return ""
+	}
+}
+
+func normalizeOrderType(orderType string) string {
+	switch strings.ToLower(strings.TrimSpace(orderType)) {
+	case "", "market":
+		return "market"
+	case "limit":
+		return "limit"
 	default:
 		return ""
 	}

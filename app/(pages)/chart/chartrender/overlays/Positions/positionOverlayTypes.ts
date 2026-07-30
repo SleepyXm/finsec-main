@@ -4,7 +4,14 @@ import type { Trade, TradePatch } from "@/app/components/types/trades";
 export type EditableLine = "stop_loss" | "take_profit";
 export type PositionWithExtras = Pick<
   Trade,
-  "trade_id" | "symbol" | "side" | "entry_price" | EditableLine
+  | "trade_id"
+  | "symbol"
+  | "side"
+  | "quantity"
+  | "entry_price"
+  | "order_type"
+  | "status"
+  | EditableLine
 >;
 export type PositionPatch = Pick<TradePatch, EditableLine>;
 export type Draft = Record<EditableLine, number | null>;

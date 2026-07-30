@@ -50,3 +50,13 @@ func TestNormalizeInterval(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeProvider(t *testing.T) {
+	actual, err := NormalizeProvider(" Finsec ")
+	if err != nil || actual != "finsec" {
+		t.Fatalf("NormalizeProvider returned %q, %v", actual, err)
+	}
+	if actual, err := NormalizeProvider("other"); err == nil {
+		t.Fatalf("NormalizeProvider unexpectedly returned %q", actual)
+	}
+}

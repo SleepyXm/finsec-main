@@ -18,11 +18,6 @@ func CloseTrade(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		var request structs.CloseTradeRequest
-		if err := c.ShouldBindJSON(&request); err != nil || !validPositiveNumber(request.ExitPrice, maxTradePrice) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "exit_price must be a positive finite number"})
-			return
-		}
 
 		var accountID string
 		if err := db.QueryRowContext(c, `SELECT id FROM user_accounts WHERE user_id = $1`, userID).Scan(&accountID); err != nil {
@@ -42,7 +37,8 @@ func CloseTrade(db *sql.DB) gin.HandlerFunc {
 		defer tx.Rollback()
 
 		var symbol, action, status string
-		var quantity, entryPrice float64
+		var quantity float64
+		var entryPrice sql.NullFloat64
 		var savedExit, savedPnL sql.NullFloat64
 		var savedClosedAt sql.NullTime
 		err = tx.QueryRowContext(c, `
@@ -65,8 +61,40 @@ func CloseTrade(db *sql.DB) gin.HandlerFunc {
 			writeClosedTrade(c, tradeID, symbol, positionSide(action), savedExit.Float64, savedPnL.Float64, savedClosedAt.Time)
 			return
 		}
+		if status == "pending" {
+			result, err := tx.ExecContext(c, `
+				UPDATE trades SET status = 'cancelled', closed_at = NOW(), updated_at = NOW()
+				WHERE id = $1 AND account_id = $2 AND status = 'pending'
+			`, tradeID, accountID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not cancel order"})
+				return
+			}
+			cancelled, _ := result.RowsAffected()
+			if cancelled != 1 {
+				c.JSON(http.StatusConflict, gin.H{"error": "Order was already changed"})
+				return
+			}
+			if err = tx.Commit(); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not commit cancellation"})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"message": "Limit order cancelled", "data": gin.H{
+				"trade_id": tradeID, "symbol": symbol, "status": "cancelled",
+			}})
+			return
+		}
+		var request structs.CloseTradeRequest
+		if err := c.ShouldBindJSON(&request); err != nil || !validPositiveNumber(request.ExitPrice, maxTradePrice) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "exit_price must be a positive finite number"})
+			return
+		}
 		if status != "open" {
 			c.JSON(http.StatusConflict, gin.H{"error": "Trade is not open"})
+			return
+		}
+		if !entryPrice.Valid {
+			c.JSON(http.StatusConflict, gin.H{"error": "Trade has no execution price"})
 			return
 		}
 
@@ -74,7 +102,7 @@ func CloseTrade(db *sql.DB) gin.HandlerFunc {
 		if action == "sell" {
 			direction = -1
 		}
-		realisedPnL := roundMoney((request.ExitPrice - entryPrice) * direction * quantity)
+		realisedPnL := roundMoney((request.ExitPrice - entryPrice.Float64) * direction * quantity)
 		closedAt := time.Now().UTC()
 		result, err := tx.ExecContext(c, `
 			UPDATE trades SET status = 'closed', exit_price = $1,

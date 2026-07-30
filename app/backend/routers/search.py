@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query
 import httpx
+from routers.providers import FINSEC_PROVIDER
 
 search_router = APIRouter()
 
@@ -22,7 +23,10 @@ async def search_assets(q: str = Query(..., description="")):
             response.raise_for_status()
             data = response.json()
             return {
-                "quotes": data.get("quotes", [])
+                "quotes": [
+                    {**quote, "provider": FINSEC_PROVIDER}
+                    for quote in data.get("quotes", [])
+                ]
             }
         except httpx.RequestError as e:
             return {"error": f"Request failed: {str(e)}"}

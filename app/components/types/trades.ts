@@ -1,6 +1,10 @@
 export const MAX_TRADE_QUANTITY = 1_000_000;
 
 export type OrderType = "market" | "limit";
+export type OrderIntent = {
+  orderType: OrderType;
+  limitPrice?: number;
+};
 
 export type Trade = {
   id?: string;
@@ -13,7 +17,7 @@ export type Trade = {
   order_type?: OrderType;
   stop_loss?: number | null;
   take_profit?: number | null;
-  status: string;
+  status: "pending" | "open" | "closed" | "cancelled";
   opened_at: string;
 };
 
@@ -28,8 +32,15 @@ export interface OpenPositionsProps {
   accountUnrealisedPnL?: number;
 }
 
-export type TradeSuccessConfirm = Omit<Trade, "id" | "status" | "opened_at"> & {
-  status: "open";
+export type TradeSuccessConfirm = {
+  trade_id: string;
+  symbol: string;
+  side: "long" | "short";
+  quantity: number;
+  price: number;
+  entry_price: number | null;
+  order_type: OrderType;
+  status: "pending" | "open";
   queued_at?: string;
   flushed_at: string;
 };

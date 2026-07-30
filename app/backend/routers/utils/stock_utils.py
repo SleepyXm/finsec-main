@@ -4,7 +4,7 @@ import numpy as np
 import re
 import json
 import asyncio
-from ..storage.parquet import BASE_DIR, download_and_save, INTERVAL_CONFIG
+from ..storage.parquet import BASE_DIR, download_and_save, INTERVAL_CONFIG, mark_worker_done
 from ..storage.retrieveparquet import load_parquet
 from helpers.redis import redis_client
 
@@ -167,15 +167,20 @@ def asset_exists(ticker: str, interval: str) -> bool:
 
 async def download_asset_worker(ticker: str):
     print(f"[Worker] Starting download for {ticker}")
-    for interval, config in INTERVAL_CONFIG.items():
-        await download_and_save(ticker, interval, config["period"])
-    print(f"[Worker] Completed download for {ticker}")
     try:
+        for interval, config in INTERVAL_CONFIG.items():
+            saved = await download_and_save(ticker, interval, config["period"])
+            if not saved:
+                print(f"[Worker] Stopped download for {ticker} after {interval} returned no data")
+                return
+        print(f"[Worker] Completed download for {ticker}")
         info = yf.Ticker(ticker).info
         name = info.get("longName") or info.get("shortName") or ticker
         await redis_client.set(f"meta:name:{ticker}", name)
     except Exception:
         await redis_client.set(f"meta:name:{ticker}", ticker)
+    finally:
+        await mark_worker_done(ticker)
 
 def df_to_chart(df: pd.DataFrame) -> list[dict]:
     return [

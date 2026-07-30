@@ -19,18 +19,20 @@ export function openTradeSocket(handlers: TradeSocketHandlers): WebSocket {
   socket.onmessage = (event) => {
     try {
       const confirm = JSON.parse(String(event.data)) as Record<string, unknown>;
-      if (confirm.status !== "open" && confirm.status !== "error") {
+      if (confirm.status !== "pending" && confirm.status !== "open" && confirm.status !== "error") {
         handlers.onConfirm({ status: "error", error: "Invalid trade confirmation" });
         return;
       }
       if (
-        confirm.status === "open"
+        (confirm.status === "pending" || confirm.status === "open")
         && (
           typeof confirm.trade_id !== "string"
           || typeof confirm.symbol !== "string"
           || (confirm.side !== "long" && confirm.side !== "short")
           || typeof confirm.quantity !== "number"
-          || typeof confirm.entry_price !== "number"
+          || typeof confirm.price !== "number"
+          || (confirm.order_type !== "market" && confirm.order_type !== "limit")
+          || (confirm.status === "open" && typeof confirm.entry_price !== "number")
           || typeof confirm.flushed_at !== "string"
         )
       ) {
@@ -48,6 +50,7 @@ export function openTradeSocket(handlers: TradeSocketHandlers): WebSocket {
 export function postTrade(socket: WebSocket | null, payload: {
   ticker: string;
   action: "buy" | "sell";
+  order_type: "market" | "limit";
   price: number;
   quantity: number;
 }): boolean {
@@ -56,9 +59,9 @@ export function postTrade(socket: WebSocket | null, payload: {
   return true;
 }
 
-export async function deleteTrade(tradeId: string, exitPrice: number): Promise<void> {
+export async function deleteTrade(tradeId: string, exitPrice?: number): Promise<void> {
   await request(`/api/trade/${tradeId}`, {
     method: "DELETE",
-    body: JSON.stringify({ exit_price: exitPrice }),
+    body: JSON.stringify(exitPrice == null ? {} : { exit_price: exitPrice }),
   });
 }
