@@ -2,6 +2,7 @@ package services
 
 import (
 	"log"
+	"slices"
 )
 
 func NewWorkerPool() *WorkerPool {
@@ -19,19 +20,14 @@ func NewWorkerPool() *WorkerPool {
 func (p *WorkerPool) fanOut() {
 	for msg := range p.msgCh {
 		p.mu.Lock()
-
-		workers := make([]*Worker, len(p.workers))
-		copy(workers, p.workers)
-
-		p.mu.Unlock()
-
-		for _, w := range workers {
+		for _, w := range p.workers {
 			select {
 			case w.msgCh <- msg:
 			default:
 				log.Printf("[wspool] worker=%s backed up, skipping message", w.name)
 			}
 		}
+		p.mu.Unlock()
 	}
 }
 
@@ -126,12 +122,23 @@ func (p *WorkerPool) RemoveConn(c *WSConn) {
 
 		for i, wc := range w.conns {
 			if wc == c {
-				w.conns = append(w.conns[:i], w.conns[i+1:]...)
+				w.conns = slices.Delete(w.conns, i, i+1)
 				w.count--
 
 				log.Printf("[wspool] [%s] connection removed | now at %d", w.name, w.count)
 
 				w.mu.Unlock()
+				for i := len(p.workers) - 1; i > 0; i-- {
+					idleWorker := p.workers[i]
+					idleWorker.mu.Lock()
+					idle := idleWorker.count == 0
+					idleWorker.mu.Unlock()
+					if idle {
+						p.workers = slices.Delete(p.workers, i, i+1)
+						close(idleWorker.msgCh)
+						log.Printf("[wspool] removed idle worker %q | total workers: %d", idleWorker.name, len(p.workers))
+					}
+				}
 				return
 			}
 		}
