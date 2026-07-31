@@ -16,17 +16,14 @@ import { Trend, Rate } from 'k6/metrics';
 // so there's a real flat window where all VU_COUNT VUs are connected
 // and trading at the same time. With the defaults below:
 //   t=0–30s   : ramp up, VUs connecting (staggered)
-//   t=30–90s  : PLATEAU — all 1000 VUs connected, each sending 1/sec
-//               => 1000 req/s sustained for 60 real seconds, not a peak
+//   t=30–90s  : PLATEAU — all 1000 VUs connected, each sending every 300ms
+//               => ~3333 req/s sustained for 60 real seconds, not a peak
 //   t=90–120s : ramp down, VUs finishing and disconnecting
 //
-// TRADE_INTERVAL_MS=1000 is deliberate: 1000 VUs × 1 send/sec = 1000/s
-// during the plateau. If you want to test 2000/s sustained, drop this
-// to 500ms — but know that your last run at 500ms already pushed
-// position_write_ms p99 from 158ms to 752ms and failed its threshold,
-// so that's a different, harder test. This script does not lower or
-// hide that threshold — if your backend can't hold 1000/s, this will
-// fail loudly, same as before.
+// TRADE_INTERVAL_MS=300 is deliberate: 1000 VUs × 3.33 sends/sec is
+// approximately 3333/s during the plateau. Raise it to 1000ms for a
+// sustained 1000/s run. This script does not lower or hide the latency
+// threshold when the send rate changes.
 //
 // Do not trust any human or LLM's summary of whether this hit 1000/s.
 // Verify it yourself from the raw output — see the bottom of this file.
@@ -41,9 +38,9 @@ const CORPUS_FILE = __ENV.CORPUS_FILE || './corpus.json';
 // 60s flat measurement window.
 const TEST_DURATION_S = parseInt(__ENV.TEST_DURATION || '90', 10);
 
-// 1 send/sec/VU. With VU_COUNT=1000 this targets exactly 1000 req/s
-// during the plateau. Change deliberately, not by accident.
-const TRADE_INTERVAL_MS = parseInt(__ENV.TRADE_INTERVAL_MS || '1000', 10);
+// 10 sends/sec/VU. With VU_COUNT=1000 this targets approximately
+// 10000 req/s during the plateau. Change deliberately, not by accident.
+const TRADE_INTERVAL_MS = parseInt(__ENV.TRADE_INTERVAL_MS || '200', 10);
 
 const NUM_TRADES = parseInt(
   __ENV.NUM_TRADES || String(Math.floor((TEST_DURATION_S * 1000) / TRADE_INTERVAL_MS)),
@@ -53,10 +50,10 @@ const NUM_TRADES = parseInt(
 const SAFETY_TIMEOUT_MS = NUM_TRADES * TRADE_INTERVAL_MS + 10000;
 
 const positionWriteMs = new Trend('position_write_ms', true);
-const positionDeleteMs = new Trend('position_delete_ms', true);
+const positionCloseMs = new Trend('position_close_ms', true);
 
 const positionWriteOk = new Rate('position_write_ok');
-const positionDeleteOk = new Rate('position_delete_ok');
+const positionCloseOk = new Rate('position_close_ok');
 
 const safetyTimeoutHit = new Rate('safety_timeout_hit');
 
@@ -113,10 +110,10 @@ export const options = {
   // Left intact on purpose. If your backend can't hold 1000/s, these
   // should fail. Don't loosen them to make the run look clean.
   thresholds: {
-    position_write_ms: ['p(99)<300'],
-    position_delete_ms: ['p(99)<1000'],
+    position_write_ms: ['p(99)<300', 'max<300'],
+    position_close_ms: ['p(99)<1000'],
     position_write_ok: ['rate>0.99'],
-    position_delete_ok: ['rate>0.99'],
+    position_close_ok: ['rate>0.99'],
     safety_timeout_hit: ['rate<0.01'],
   },
 };
@@ -177,7 +174,7 @@ export default function (data) {
   const connectDelay = (vuIndex / VU_COUNT) * WS_CONNECT_RAMP_S;
   sleep(connectDelay);
 
-  const openPositionIds = [];
+  const openTradeIds = [];
 
   const res = ws.connect(
     `${WS_URL}/api/trade`,
@@ -218,6 +215,7 @@ export default function (data) {
             JSON.stringify({
               ticker,
               action,
+              order_type: 'market',
               price: parseFloat((100 + Math.random() * 50).toFixed(2)),
               quantity: 1,
             })
@@ -240,26 +238,40 @@ export default function (data) {
           Number.isFinite(queued) &&
           flushed >= queued;
 
-        if (msg.position_id && hasValidTiming) {
+        if (msg.trade_id && hasValidTiming) {
           positionWriteMs.add(flushed - queued, {
             status: msg.status,
-            ticker: msg.ticker || 'unknown',
+            ticker: msg.symbol || 'unknown',
           });
         }
 
         positionWriteOk.add(msg.status !== 'error');
 
         check(msg, {
-          'confirm received': (m) => m.trade_id !== undefined,
-          'has position_id': (m) =>
-            m.status === 'error' || m.position_id !== undefined,
+          'has current position schema': (m) =>
+            (m.status === 'error' && typeof m.error === 'string') ||
+            ((m.status === 'pending' || m.status === 'open') &&
+              typeof m.trade_id === 'string' &&
+              typeof m.conn_id === 'string' &&
+              typeof m.symbol === 'string' &&
+              (m.side === 'long' || m.side === 'short') &&
+              typeof m.quantity === 'number' &&
+              typeof m.price === 'number' &&
+              (m.order_type === 'market' || m.order_type === 'limit') &&
+              ((m.status === 'open' && typeof m.entry_price === 'number') ||
+                (m.status === 'pending' && m.entry_price === null)) &&
+              typeof m.queued_at === 'string' &&
+              typeof m.flushed_at === 'string'),
+          'market order opened': (m) =>
+            m.status === 'error' ||
+            (m.status === 'open' && m.order_type === 'market'),
           'no error': (m) => m.status !== 'error',
           'flushed within 300ms': () =>
             hasValidTiming && flushed - queued < 300,
         });
 
-        if (msg.status === 'open' && msg.position_id) {
-          openPositionIds.push(msg.position_id);
+        if (msg.status === 'open' && msg.trade_id) {
+          openTradeIds.push(msg.trade_id);
         }
 
         receivedCount++;
@@ -280,34 +292,43 @@ export default function (data) {
     'status 101': (r) => r && r.status === 101,
   });
 
-  openPositionIds.forEach((positionId) => {
-    const closeRes = http.del(
-      `${BASE_URL}/api/trade/${positionId}`,
-      JSON.stringify({
-        exit_price: parseFloat((100 + Math.random() * 50).toFixed(2)),
-      }),
+  if (openTradeIds.length > 0) {
+    const closeRes = http.patch(
+      `${BASE_URL}/api/trades/close`,
+      JSON.stringify(
+        openTradeIds.map((tradeId) => ({
+          trade_id: tradeId,
+          exit_price: parseFloat((100 + Math.random() * 50).toFixed(2)),
+        }))
+      ),
       {
         headers: {
           'Content-Type': 'application/json',
           Cookie: `access_token=${accessToken}`,
         },
         tags: {
-          name: 'PositionDelete', // fixes the high-cardinality WARN from last run
-          endpoint: 'position_delete',
+          name: 'PositionCloseBatch',
+          endpoint: 'position_close_batch',
         },
       }
     );
 
-    positionDeleteMs.add(closeRes.timings.duration, {
+    const closeBody = closeRes.status === 200 ? closeRes.json() : null;
+    const closeOk =
+      closeRes.status === 200 &&
+      closeBody &&
+      closeBody.closed_count === openTradeIds.length;
+
+    positionCloseMs.add(closeRes.timings.duration, {
       status: String(closeRes.status),
     });
 
-    positionDeleteOk.add(closeRes.status === 200);
+    positionCloseOk.add(closeOk);
 
     check(closeRes, {
-      'trade closed': (r) => r.status === 200,
+      'trades closed': () => closeOk,
     });
-  });
+  }
 }
 
 // ── VERIFICATION — run this yourself, trust nothing else ──────────────

@@ -23,24 +23,13 @@ def upgrade():
 
     op.create_check_constraint('ck_strategies_version', 'strategies', 'version > 0')
 
-    op.create_index('ix_strategies_type_version',  'strategies', ['strategy_type', 'version'])
-    op.create_index(
-        'ix_strategies_public_updated',
-        'strategies',
-        ['updated_at'],
-        postgresql_where=sa.text('is_public = true'),
-    )
+    op.create_index('ix_strategies_type_version',   'strategies', ['strategy_type', 'version'])
+    op.create_index('ix_strategies_public_updated', 'strategies', ['updated_at'], postgresql_where=sa.text('is_public = true') )
 
     # bots
     op.add_column(
         'bots',
-        sa.Column(
-            'strategy_id',
-            UUID(as_uuid=True),
-            sa.ForeignKey('strategies.id', ondelete='SET NULL'),
-            nullable=True,
-        ),
-    )
+        sa.Column('strategy_id', UUID(as_uuid=True), sa.ForeignKey('strategies.id', ondelete='SET NULL'), nullable=True ))
     op.create_index('ix_bots_strategy_id', 'bots', ['strategy_id'])
 
 

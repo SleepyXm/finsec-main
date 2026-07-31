@@ -5,7 +5,7 @@ import sqlalchemy as sa
 
 
 revision = "014_normalize_account_defaults"
-down_revision = "010_add_strategies"
+down_revision = "011_optimize_trade_indexes"
 branch_labels = None
 depends_on = None
 

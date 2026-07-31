@@ -6,7 +6,11 @@ import { check } from 'k6';
 const stages = [
   { duration: '10s', target: 1000  },  // stage 1 — trickle
   { duration: '40s', target: 10000 },  // stage 2 — sustained
+  //{ duration: '360s', target: 100000 }, // stage 3 — max, if you would like the pc to be abliterated, go ahead.
 ];
+
+const SESSION_DURATION_MS = 50_000;
+const GRACEFUL_SHUTDOWN = '55s';
 
 export const options = {
   scenarios: {
@@ -14,7 +18,8 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 0,
       stages,
-      gracefulRampDown: '0s',
+      gracefulRampDown: GRACEFUL_SHUTDOWN,
+      gracefulStop: GRACEFUL_SHUTDOWN,
     },
   },
   summaryTrendStats: [
@@ -34,6 +39,7 @@ export default function () {
   const res = ws.connect(url, {}, function (socket) {
     socket.on('open', () => {
       check(socket, { 'connected': () => true }); // once on open, fine
+      socket.setTimeout(() => socket.close(), SESSION_DURATION_MS);
     });
 
     socket.on('message', (data) => {
