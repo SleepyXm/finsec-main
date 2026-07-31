@@ -60,8 +60,8 @@ export function postTrade(socket: WebSocket | null, payload: {
 }
 
 export async function deleteTrade(tradeId: string, exitPrice?: number): Promise<void> {
-  await request(`/api/trade/${tradeId}`, {
-    method: "DELETE",
+  await request(`/api/trade/${tradeId}/close`, {
+    method: "PATCH",
     body: JSON.stringify(exitPrice == null ? {} : { exit_price: exitPrice }),
   });
 }
