@@ -57,3 +57,19 @@ func TestMoneyAndSideHelpers(t *testing.T) {
 		t.Fatal("out-of-range number was accepted")
 	}
 }
+
+func TestCloseTradeBatchValidation(t *testing.T) {
+	trade := closeTradeBatchItem{
+		TradeID: "00000000-0000-0000-0000-000000000001", ExitPrice: 100,
+	}
+	if !validCloseTradeBatch([]closeTradeBatchItem{trade}) {
+		t.Fatal("valid close batch was rejected")
+	}
+	if validCloseTradeBatch([]closeTradeBatchItem{trade, trade}) {
+		t.Fatal("duplicate trade was accepted")
+	}
+	trade.ExitPrice = 0
+	if validCloseTradeBatch([]closeTradeBatchItem{trade}) {
+		t.Fatal("invalid exit price was accepted")
+	}
+}

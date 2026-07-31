@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	flushEvery   = 150 * time.Millisecond
-	maxBatchSize = 500
+	flushEvery   = 75 * time.Millisecond
+	maxBatchSize = 1000
 
 	tradeBatchTTL = 30 * time.Second
 )

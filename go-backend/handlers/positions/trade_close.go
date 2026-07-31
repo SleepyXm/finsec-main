@@ -2,6 +2,7 @@ package positions
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -9,6 +10,57 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+const maxCloseBatch = 1000
+
+type closeTradeBatchItem struct {
+	TradeID   string  `json:"trade_id"`
+	ExitPrice float64 `json:"exit_price"`
+}
+
+const closeTradeBatchSQL = `
+	WITH requested AS (
+		SELECT trade_id, exit_price
+		FROM jsonb_to_recordset($1::jsonb) AS item(trade_id uuid, exit_price numeric)
+	),
+	closed AS (
+		UPDATE trades AS trade
+		SET status = 'closed',
+		    exit_price = requested.exit_price,
+		    realised_pnl = ROUND(
+				(requested.exit_price - trade.entry_price) *
+				CASE trade.side WHEN 'buy' THEN 1 ELSE -1 END * trade.quantity,
+				2
+			),
+		    closed_at = NOW(), updated_at = NOW()
+		FROM requested
+		WHERE trade.id = requested.trade_id AND trade.account_id = $2
+		  AND trade.status = 'open' AND trade.entry_price IS NOT NULL
+		RETURNING trade.realised_pnl
+	),
+	totals AS (
+		SELECT COUNT(*)::integer AS trade_count,
+		       COALESCE(SUM(realised_pnl), 0) AS pnl,
+		       COUNT(*) FILTER (WHERE realised_pnl > 0)::integer AS wins,
+		       COUNT(*) FILTER (WHERE realised_pnl < 0)::integer AS losses,
+		       MAX(realised_pnl) AS best_trade,
+		       MIN(realised_pnl) AS worst_trade
+		FROM closed
+	),
+	updated_account AS (
+		UPDATE user_accounts AS account
+		SET balance = account.balance + totals.pnl,
+		    net_pnl = account.net_pnl + totals.pnl,
+		    trade_count = account.trade_count + totals.trade_count,
+		    wins = account.wins + totals.wins,
+		    losses = account.losses + totals.losses,
+		    best_trade = GREATEST(account.best_trade, totals.best_trade),
+		    worst_trade = LEAST(account.worst_trade, totals.worst_trade)
+		FROM totals
+		WHERE account.id = $2 AND totals.trade_count > 0
+	)
+	SELECT trade_count FROM totals
+`
 
 func CloseTrade(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -132,6 +184,71 @@ func CloseTrade(db *sql.DB) gin.HandlerFunc {
 		}
 		writeClosedTrade(c, tradeID, symbol, positionSide(action), request.ExitPrice, realisedPnL, closedAt)
 	}
+}
+
+func CloseTrades(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var trades []closeTradeBatchItem
+		if err := c.ShouldBindJSON(&trades); err != nil || !validCloseTradeBatch(trades) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "trades must contain 1 to 1000 unique trades with valid ids and exit prices"})
+			return
+		}
+
+		userID := c.MustGet("userID").(string)
+		var accountID string
+		if err := db.QueryRowContext(c, `SELECT id FROM user_accounts WHERE user_id = $1`, userID).Scan(&accountID); err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Account not found"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not fetch account"})
+			}
+			return
+		}
+
+		payload, err := json.Marshal(trades)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Could not encode trades"})
+			return
+		}
+		tx, err := db.BeginTx(c, nil)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		var closedCount int
+		if err = tx.QueryRowContext(c, closeTradeBatchSQL, string(payload), accountID).Scan(&closedCount); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not close trades"})
+			return
+		}
+		if closedCount != len(trades) {
+			c.JSON(http.StatusConflict, gin.H{"error": "One or more trades could not be closed"})
+			return
+		}
+		if err = tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not commit transaction"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Trades closed", "closed_count": closedCount})
+	}
+}
+
+func validCloseTradeBatch(trades []closeTradeBatchItem) bool {
+	if len(trades) == 0 || len(trades) > maxCloseBatch {
+		return false
+	}
+	seen := make(map[string]struct{}, len(trades))
+	for _, trade := range trades {
+		if validateTradeID(trade.TradeID) != nil || !validPositiveNumber(trade.ExitPrice, maxTradePrice) {
+			return false
+		}
+		if _, exists := seen[trade.TradeID]; exists {
+			return false
+		}
+		seen[trade.TradeID] = struct{}{}
+	}
+	return true
 }
 
 func writeClosedTrade(c *gin.Context, tradeID, symbol, side string, exitPrice, pnl float64, closedAt time.Time) {
