@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Finsec Strategy Loader</title>
+    <meta name="manifest.type" content="browser_action" />
+  </head>
+  <body>
+    <div id="app">
+      <main>
+        <div class="heading">
+          <p class="eyebrow">FINSEC</p>
+          <h1>Strategy loader</h1>
+          <p class="intro">
+            Upload a Finsec strategy CSV. Each data row becomes one Pine
+            snapshot input.
+          </p>
+        </div>
+
+        <label class="upload" for="strategy-file">
+          <span>Upload strategy</span>
+          <input
+            id="strategy-file"
+            type="file"
+            accept=".csv,text/csv"
+          />
+        </label>
+
+        <section class="pending" aria-labelledby="pending-title">
+          <div class="pending-heading">
+            <h2 id="pending-title">Pending upload</h2>
+            <span id="pending-state" class="state">Empty</span>
+          </div>
+          <p id="file-name" class="file-name">No strategy is stored.</p>
+          <p id="dataset-summary" class="dataset-summary">0 snapshots</p>
+          <p id="character-count" class="character-count">Longest row: 0 / 40,960 characters</p>
+        </section>
+
+        <p class="instruction">
+          In TradingView, open the Finsec indicator’s
+          <strong>Settings → Inputs</strong> before applying. Its text areas
+          must be numbered <strong>Finsec snapshot 001</strong>,
+          <strong>002</strong>, and so on.
+        </p>
+
+        <div class="actions">
+          <button id="apply" class="primary" type="button" disabled>
+            Apply to TradingView
+          </button>
+          <button id="discard" class="secondary" type="button" disabled>
+            Discard upload
+          </button>
+        </div>
+
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </main>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

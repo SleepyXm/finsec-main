@@ -38,9 +38,9 @@ const CORPUS_FILE = __ENV.CORPUS_FILE || './corpus.json';
 // 60s flat measurement window.
 const TEST_DURATION_S = parseInt(__ENV.TEST_DURATION || '90', 10);
 
-// 10 sends/sec/VU. With VU_COUNT=1000 this targets approximately
-// 10000 req/s during the plateau. Change deliberately, not by accident.
-const TRADE_INTERVAL_MS = parseInt(__ENV.TRADE_INTERVAL_MS || '200', 10);
+// 3.33 sends/sec/VU. With VU_COUNT=1000 this targets approximately
+// 3333.33 req/s during the plateau. Change deliberately, not by accident.
+const TRADE_INTERVAL_MS = parseInt(__ENV.TRADE_INTERVAL_MS || '300', 10);
 
 const NUM_TRADES = parseInt(
   __ENV.NUM_TRADES || String(Math.floor((TEST_DURATION_S * 1000) / TRADE_INTERVAL_MS)),
