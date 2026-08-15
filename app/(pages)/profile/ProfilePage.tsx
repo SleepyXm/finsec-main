@@ -1,5 +1,6 @@
 "use client";
 import { logout } from "@/app/components/handlers/auth";
+import { authorizeBroker, disconnectBroker, fetchBrokerConnection, type BrokerConnection, type BrokerEnvironment } from "@/app/components/handlers/accounts";
 import { useEffect, useState } from "react";
 import { useUser } from "@/app/components/provider/userprovider";
 import { useRouter } from "next/navigation";
@@ -39,12 +40,60 @@ function displayBalance(balance?: string, currencyValue?: string) {
 
 export default function Profile() {
   const [activeTab, setActiveTab] = useState<ProfileTab>("account");
+  const [saxo, setSaxo] = useState<BrokerConnection | null>(null);
+  const [ig, setIg] = useState<BrokerConnection | null>(null);
+  const [saxoEnvironment, setSaxoEnvironment] = useState<BrokerEnvironment>("demo");
+  const [igEnvironment, setIgEnvironment] = useState<BrokerEnvironment>("demo");
+  const [saxoError, setSaxoError] = useState<string | null>(null);
+  const [igError, setIgError] = useState<string | null>(null);
+  const [saxoLoading, setSaxoLoading] = useState(false);
+  const [igLoading, setIgLoading] = useState(false);
+  const [igIdentifier, setIgIdentifier] = useState("");
+  const [igPassword, setIgPassword] = useState("");
+  const [igAPIKey, setIgAPIKey] = useState("");
   const { user, account, resolved, setUser, setAccount } = useUser();
   const router = useRouter();
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedTab = params.get("tab");
+    const broker = params.get("broker");
+    if (TABS.includes(requestedTab as ProfileTab)) setActiveTab(requestedTab as ProfileTab);
+    if (broker === "saxo" && params.get("status") === "error") {
+      setSaxoError("Saxo authorization was not completed.");
+    }
+    if (broker === "ig" && params.get("status") === "error") {
+      setIgError("IG authorization was not completed.");
+    }
+  }, []);
+
+  useEffect(() => {
     if (resolved && !user) router.replace("/login");
   }, [resolved, router, user]);
+
+  useEffect(() => {
+    if (!user || activeTab !== "connections") return;
+
+    setSaxoLoading(true);
+    fetchBrokerConnection("saxo")
+      .then((connection) => {
+        setSaxo(connection);
+        if (connection.environment) setSaxoEnvironment(connection.environment);
+        setSaxoError(null);
+      })
+      .catch((error) => setSaxoError(error instanceof Error ? error.message : "Could not load Saxo connection."))
+      .finally(() => setSaxoLoading(false));
+
+    setIgLoading(true);
+    fetchBrokerConnection("ig")
+      .then((connection) => {
+        setIg(connection);
+        if (connection.environment) setIgEnvironment(connection.environment);
+        setIgError(null);
+      })
+      .catch((error) => setIgError(error instanceof Error ? error.message : "Could not load IG connection."))
+      .finally(() => setIgLoading(false));
+  }, [activeTab, user]);
 
   if (!user) {
     return (
@@ -60,6 +109,85 @@ export default function Profile() {
     setUser(null);
     setAccount(null);
     router.push("/login");
+  };
+
+  const handleSaxoConnect = async () => {
+    setSaxoLoading(true);
+    setSaxoError(null);
+    try {
+      const result = await authorizeBroker({ broker: "saxo", environment: saxoEnvironment });
+      if (result.status === "authorization_required") {
+        window.location.assign(result.authorization_url);
+        return;
+      }
+      setSaxo(await fetchBrokerConnection("saxo"));
+    } catch (error) {
+      setSaxoError(error instanceof Error ? error.message : "Could not start Saxo authorization.");
+    } finally {
+      setSaxoLoading(false);
+    }
+  };
+
+  const handleSaxoDisconnect = async () => {
+    setSaxoLoading(true);
+    setSaxoError(null);
+    try {
+      await disconnectBroker("saxo");
+      setSaxo({
+        status: "disconnected", environment: null, account_id: null, connected_at: null,
+      });
+    } catch (error) {
+      setSaxoError(error instanceof Error ? error.message : "Could not disconnect Saxo.");
+    } finally {
+      setSaxoLoading(false);
+    }
+  };
+
+  const handleIGConnect = async () => {
+    if (!igIdentifier.trim() || !igPassword || !igAPIKey.trim()) {
+      setIgError("IG identifier, password, and API key are required.");
+      return;
+    }
+
+    setIgLoading(true);
+    setIgError(null);
+    try {
+      const result = await authorizeBroker({
+        broker: "ig", environment: igEnvironment,
+        identifier: igIdentifier.trim(), password: igPassword, api_key: igAPIKey.trim(),
+      });
+      if (result.status === "authorization_required") {
+        window.location.assign(result.authorization_url);
+        return;
+      }
+
+      setIg(await fetchBrokerConnection("ig"));
+      setSaxo({
+        status: "disconnected", environment: null, account_id: null, connected_at: null,
+      });
+      setIgIdentifier("");
+      setIgPassword("");
+      setIgAPIKey("");
+    } catch (error) {
+      setIgError(error instanceof Error ? error.message : "Could not connect IG.");
+    } finally {
+      setIgLoading(false);
+    }
+  };
+
+  const handleIGDisconnect = async () => {
+    setIgLoading(true);
+    setIgError(null);
+    try {
+      await disconnectBroker("ig");
+      setIg({
+        status: "disconnected", environment: null, account_id: null, connected_at: null,
+      });
+    } catch (error) {
+      setIgError(error instanceof Error ? error.message : "Could not disconnect IG.");
+    } finally {
+      setIgLoading(false);
+    }
   };
 
   const sessions: Array<{ device: string; location: string }> = [];
@@ -110,13 +238,90 @@ export default function Profile() {
 
           {activeTab === "connections" && (
             <TabSection title="Connections" subtitle="Link your broker and trading services.">
+              <SectionDivider label="Saxo" />
+              {saxo?.status !== "connected" && (
+                <InfoRow label="Environment">
+                  <select
+                    value={saxoEnvironment}
+                    onChange={(event) => setSaxoEnvironment(event.target.value as BrokerEnvironment)}
+                    disabled={saxoLoading}
+                    className="rounded-md border border-white/20 bg-[#131821] px-3 py-1 text-sm text-zinc-200"
+                  >
+                    <option value="demo">Demo</option>
+                    <option value="live">Live</option>
+                  </select>
+                </InfoRow>
+              )}
               <ConnectionCard
-                name="Broker"
-                connected={false}
-                onConnect={() => {}}
-                onDisconnect={() => {}}
-                comingSoon
+                name="Saxo"
+                connected={saxo?.status === "connected"}
+                onConnect={saxoLoading ? undefined : () => void handleSaxoConnect()}
+                onDisconnect={saxoLoading ? undefined : () => void handleSaxoDisconnect()}
               />
+              {saxo?.account_id && <InfoRow label="Account" value={saxo.account_id} />}
+              {saxo?.status === "reconnect_required" && (
+                <InfoRow label="Session" value="Authorization expired. Reconnect to continue." />
+              )}
+              {saxoLoading && <InfoRow label="Saxo" value="Checking connection…" />}
+              {saxoError && <InfoRow label="Saxo error" value={saxoError} />}
+
+              <SectionDivider label="IG" />
+              {ig?.status !== "connected" && (
+                <>
+                  <InfoRow label="Environment">
+                    <select
+                      value={igEnvironment}
+                      onChange={(event) => setIgEnvironment(event.target.value as BrokerEnvironment)}
+                      disabled={igLoading}
+                      className="rounded-md border border-white/20 bg-[#131821] px-3 py-1 text-sm text-zinc-200"
+                    >
+                      <option value="demo">Demo</option>
+                      <option value="live">Live</option>
+                    </select>
+                  </InfoRow>
+                  <InfoRow label="Identifier">
+                    <input
+                      value={igIdentifier}
+                      onChange={(event) => setIgIdentifier(event.target.value)}
+                      disabled={igLoading}
+                      autoComplete="username"
+                      className="rounded-md border border-white/20 bg-[#131821] px-3 py-1 text-sm text-zinc-200"
+                    />
+                  </InfoRow>
+                  <InfoRow label="Password">
+                    <input
+                      type="password"
+                      value={igPassword}
+                      onChange={(event) => setIgPassword(event.target.value)}
+                      disabled={igLoading}
+                      autoComplete="current-password"
+                      className="rounded-md border border-white/20 bg-[#131821] px-3 py-1 text-sm text-zinc-200"
+                    />
+                  </InfoRow>
+                  <InfoRow label="API key">
+                    <input
+                      type="password"
+                      value={igAPIKey}
+                      onChange={(event) => setIgAPIKey(event.target.value)}
+                      disabled={igLoading}
+                      autoComplete="off"
+                      className="rounded-md border border-white/20 bg-[#131821] px-3 py-1 text-sm text-zinc-200"
+                    />
+                  </InfoRow>
+                </>
+              )}
+              <ConnectionCard
+                name="IG"
+                connected={ig?.status === "connected"}
+                onConnect={igLoading ? undefined : () => void handleIGConnect()}
+                onDisconnect={igLoading ? undefined : () => void handleIGDisconnect()}
+              />
+              {ig?.account_id && <InfoRow label="Account" value={ig.account_id} />}
+              {ig?.status === "reconnect_required" && (
+                <InfoRow label="Session" value="Authorization expired. Reconnect to continue." />
+              )}
+              {igLoading && <InfoRow label="IG" value="Checking connection…" />}
+              {igError && <InfoRow label="IG error" value={igError} />}
             </TabSection>
           )}
 

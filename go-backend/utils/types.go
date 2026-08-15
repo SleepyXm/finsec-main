@@ -15,6 +15,9 @@ type Config struct {
 	RedisAddr                string
 	PythonUrl                string
 	InternalSecret           string
+	SaxoAppKey               string
+	SaxoAppSecret            string
+	SaxoRedirectURI          string
 }
 
 type Claims struct {

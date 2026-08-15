@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 import httpx
-from routers.providers import FINSEC_PROVIDER
+from routers.utils.stock_utils import FINSEC_PROVIDER
 
 search_router = APIRouter()
 

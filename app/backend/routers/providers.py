@@ -1,20 +1,11 @@
 from fastapi import APIRouter
+from routers.externalproviders import external_provider_router
+from routers.publish_price import price_router
+from routers.search import search_router
+from routers.stocks.stocks import stock_router
 
 provider_router = APIRouter()
-
-FINSEC_PROVIDER = "finsec"
-PROVIDERS = [
-    {"id": FINSEC_PROVIDER, "name": "Finsec"},
-]
-
-
-def normalize_provider(value: str) -> str:
-    provider = value.strip().lower()
-    if provider != FINSEC_PROVIDER:
-        raise ValueError("Unsupported provider")
-    return provider
-
-
-@provider_router.get("/providers")
-async def list_providers():
-    return {"providers": PROVIDERS}
+provider_router.include_router(stock_router)
+provider_router.include_router(search_router)
+provider_router.include_router(price_router)
+provider_router.include_router(external_provider_router)

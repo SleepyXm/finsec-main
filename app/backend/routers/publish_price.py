@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException, Response
 import asyncio
-from routers.providers import normalize_provider
 from routers.websocket import broadcast_stock_data, fetch_tasks, build_and_cache_chart, fetch_latest, publish_candle
-from routers.utils.stock_utils import INTERVALS, asset_exists, download_asset_worker, normalize_ticker
+from routers.utils.stock_utils import INTERVALS, asset_exists, download_asset_worker, normalize_provider, normalize_ticker
 from routers.storage.parquet import is_download_failed, is_worker_active, mark_download_failed, mark_worker_active
 
 price_router = APIRouter()

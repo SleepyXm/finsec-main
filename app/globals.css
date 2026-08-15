@@ -1,9 +1,9 @@
 @import "tailwindcss";
-@import "./styles/tokens.css";
-@import "./styles/base.css";
-@import "./styles/motion.css";
-@import "./styles/layout.css";
-@import "./styles/features/auth.css";
-@import "./styles/features/charts.css";
-@import "./styles/features/trading.css";
-@import "./styles/responsive.css";
+@import "./UI/styles/tokens.css";
+@import "./UI/styles/base.css";
+@import "./UI/styles/motion.css";
+@import "./UI/styles/layout.css";
+@import "./UI/styles/features/auth.css";
+@import "./UI/styles/features/charts.css";
+@import "./UI/styles/features/trading.css";
+@import "./UI/styles/responsive.css";

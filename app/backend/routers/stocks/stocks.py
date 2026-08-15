@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from routers.utils.stock_utils import (
+    FINSEC_PROVIDER,
     INTERVALS,
     PERIODS,
     asset_exists,
@@ -93,7 +94,7 @@ async def get_intraday_data(
 
     # Merge any tick that arrived after the last cache flush
     try:
-        latest_json = await redis_client.get(f"last:price:finsec:{ticker}:{interval}")
+        latest_json = await redis_client.get(f"last:price:{FINSEC_PROVIDER}:{ticker}:{interval}")
         if latest_json:
             chart = merge_latest_candle(chart, json.loads(latest_json))
     except Exception:

@@ -28,6 +28,9 @@ func Load() {
 		RedisAddr:                requireEnv("REDIS_URL"),
 		PythonUrl:                requireEnv("PYTHON_URL"),
 		InternalSecret:           requireEnv("INTERNAL_SECRET"),
+		SaxoAppKey:               os.Getenv("SAXO_APP_KEY"),
+		SaxoAppSecret:            os.Getenv("SAXO_APP_SECRET"),
+		SaxoRedirectURI:          os.Getenv("SAXO_REDIRECT_URI"),
 	}
 }
 

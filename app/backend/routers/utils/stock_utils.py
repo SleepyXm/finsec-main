@@ -8,6 +8,7 @@ from ..storage.parquet import BASE_DIR, download_and_save, INTERVAL_CONFIG, mark
 from ..storage.retrieveparquet import load_parquet
 from helpers.redis import redis_client
 
+FINSEC_PROVIDER = "finsec"
 INTERVALS = {"1m", "5m", "15m", "30m", "1h", "1d"}
 PERIODS   = {"1d", "5d", "1mo", "3mo"}
 
@@ -77,6 +78,12 @@ async def fetch_and_cache_live_intraday(ticker: str, interval: str) -> list[dict
 
 
 # ── rest of file unchanged ────────────────────────────────────────────────────
+
+def normalize_provider(value: str) -> str:
+    provider = value.strip().lower()
+    if provider != FINSEC_PROVIDER:
+        raise ValueError("Unsupported provider")
+    return provider
 
 def normalize_ticker(value: str) -> str:
     ticker = value.strip().upper()

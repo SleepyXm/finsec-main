@@ -5,7 +5,7 @@ import sqlalchemy as sa
 
 
 revision = "014_normalize_account_defaults"
-down_revision = "011_optimize_trade_indexes"
+down_revision = "012_add_broker_to_user_accounts"
 branch_labels = None
 depends_on = None
 

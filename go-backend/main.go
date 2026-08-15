@@ -17,6 +17,7 @@ import (
 	"finsec-backend/utils"
 
 	"finsec-backend/handlers/stocks"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -108,7 +109,7 @@ func main() {
 	routes.RegisterAnnotationRoutes(api.Group("/"), db)
 	routes.RegisterIndicatorRoutes(api.Group("/"), db)
 	routes.RegisterProfileRoutes(api.Group("/"), db)
-	routes.RegisterAccounteRoutes(api.Group("/account"), db)
+	routes.RegisterAccountRoutes(api.Group("/account"), db)
 	routes.RegisterProductRoutes(api.Group("/products"), db)
 
 	router.Run(":9000")
