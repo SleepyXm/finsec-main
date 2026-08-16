@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -47,6 +46,7 @@ type brokerSession struct {
 	Broker       string    `json:"broker"`
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token,omitempty"`
+	APIKey       string    `json:"api_key,omitempty"`
 	Environment  string    `json:"environment"`
 	AccountKey   string    `json:"account_key,omitempty"`
 	AccountID    string    `json:"account_id"`
@@ -138,73 +138,6 @@ func Disconnect(db *sql.DB, rdb *redis.Client) gin.HandlerFunc {
 	}
 }
 
-func Chart(db *sql.DB, rdb *redis.Client) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		broker := brokerName(c)
-		if !supportedBroker(broker) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Unsupported broker"})
-			return
-		}
-
-		conn, err := loadBrokerConnection(c, db, c.GetString("userID"))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not load broker connection"})
-			return
-		}
-
-		if !conn.Broker.Valid || conn.Broker.String != broker {
-			c.JSON(http.StatusConflict, gin.H{"error": brokerReconnectMessage(broker)})
-			return
-		}
-
-		key := brokerSessionKey(broker, conn.AccountID)
-		session, err := loadSession(c, rdb, key)
-		if err != nil {
-			c.JSON(http.StatusConflict, gin.H{"error": brokerReconnectMessage(broker)})
-			return
-		}
-
-		if broker == "ig" && time.Until(session.ExpiresAt) < 30*time.Second {
-			session, err = igRefresh(c, session)
-			if err != nil {
-				_ = rdb.Del(c, key).Err()
-				c.JSON(http.StatusConflict, gin.H{"error": brokerReconnectMessage(broker)})
-				return
-			}
-
-			if err := saveSession(c, rdb, key, session); err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save broker session"})
-				return
-			}
-		}
-
-		if broker == "saxo" && !session.ExpiresAt.After(time.Now()) {
-			_ = rdb.Del(c, key).Err()
-			c.JSON(http.StatusConflict, gin.H{"error": brokerReconnectMessage(broker)})
-			return
-		}
-
-		payload, ok := chartPayload(c, broker, session)
-		if !ok {
-			return
-		}
-
-		body, status, err := forwardChartToPython(c, broker, payload)
-		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": brokerChartUnavailableMessage(broker)})
-			return
-		}
-
-		if status == http.StatusUnauthorized || status == http.StatusForbidden {
-			_ = rdb.Del(c, key).Err()
-			c.JSON(http.StatusConflict, gin.H{"error": brokerReconnectMessage(broker)})
-			return
-		}
-
-		c.Data(status, "application/json", body)
-	}
-}
-
 func brokerName(c *gin.Context) string {
 	return strings.ToLower(strings.TrimSpace(c.Param("broker")))
 }
@@ -219,56 +152,6 @@ func brokerReconnectMessage(broker string) string {
 	}
 
 	return "IG reconnection required"
-}
-
-func brokerChartUnavailableMessage(broker string) string {
-	if broker == "saxo" {
-		return "Saxo chart service is unavailable"
-	}
-
-	return "IG chart service is unavailable"
-}
-
-func chartPayload(c *gin.Context, broker string, session brokerSession) (gin.H, bool) {
-	interval := strings.TrimSpace(c.DefaultQuery("interval", "5m"))
-
-	switch broker {
-	case "saxo":
-		uic := strings.TrimSpace(c.Query("uic"))
-		assetType := strings.TrimSpace(c.Query("asset_type"))
-
-		if uic == "" || assetType == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "uic and asset_type are required"})
-			return nil, false
-		}
-
-		return gin.H{
-			"environment":  session.Environment,
-			"access_token": session.AccessToken,
-			"account_key":  session.AccountKey,
-			"uic":          uic,
-			"asset_type":   assetType,
-			"interval":     interval,
-		}, true
-
-	case "ig":
-		epic := strings.TrimSpace(c.Query("epic"))
-		if epic == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "epic is required"})
-			return nil, false
-		}
-
-		return gin.H{
-			"environment":  session.Environment,
-			"access_token": session.AccessToken,
-			"account_id":   session.AccountID,
-			"api_key":      "",
-			"epic":         epic,
-			"interval":     interval,
-		}, true
-	}
-
-	return nil, false
 }
 
 func brokerSessionKey(broker, accountID string) string {
@@ -430,31 +313,6 @@ func writeBrokerStatus(c *gin.Context, rdb *redis.Client, conn brokerConnection,
 	}
 
 	c.JSON(http.StatusOK, response)
-}
-
-func forwardChartToPython(ctx context.Context, broker string, payload any) ([]byte, int, error) {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	endpoint := strings.TrimRight(utils.Cfg.PythonUrl, "/") + "/api/internal/" + broker + "/chart"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, 0, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Internal-Secret", utils.Cfg.InternalSecret)
-
-	resp, err := brokerPythonClient.Do(req)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
-	return respBody, resp.StatusCode, err
 }
 
 func authorizeSaxo(c *gin.Context, db *sql.DB, rdb *redis.Client) {
@@ -770,6 +628,7 @@ func igLogin(ctx context.Context, environment, identifier, password, apiKey stri
 		Broker:       "ig",
 		AccessToken:  result.OAuthToken.AccessToken,
 		RefreshToken: result.OAuthToken.RefreshToken,
+		APIKey:       apiKey,
 		Environment:  environment,
 		AccountID:    result.CurrentAccountID,
 		ExpiresAt:    time.Now().UTC().Add(time.Duration(expiresIn) * time.Second),

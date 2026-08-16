@@ -19,10 +19,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var pythonBrokerClient = &http.Client{Timeout: 15 * time.Second}
-var AssetType = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]{1,39}$`)
+var assetTypePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]{1,39}$`)
 
-func BrokerChart(db *sql.DB, rdb *redis.Client) gin.HandlerFunc {
+func Chart(db *sql.DB, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		broker := strings.ToLower(strings.TrimSpace(c.Param("broker")))
 		if broker != "saxo" && broker != "ig" {
@@ -41,26 +40,18 @@ func BrokerChart(db *sql.DB, rdb *redis.Client) gin.HandlerFunc {
 			return
 		}
 
-		connection, err := loadConnection(c, db, c.GetString("userID"))
+		connection, err := loadBrokerConnection(c, db, c.GetString("userID"))
 		if err != nil || !connection.Broker.Valid || connection.Broker.String != broker {
 			c.JSON(http.StatusConflict, gin.H{"error": name + " reconnection required"})
 			return
 		}
 
-		key := "broker:" + broker + ":" + connection.AccountID
-		value, err := rdb.Get(c, key).Result()
-		if err == redis.Nil {
-			c.JSON(http.StatusConflict, gin.H{"error": name + " reconnection required"})
-			return
-		}
+		key := brokerSessionKey(broker, connection.AccountID)
+		session, err := loadSession(c, rdb, key)
 		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Could not access " + name + " connection"})
-			return
-		}
-
-		session, err := decryptSession(value)
-		if err != nil {
-			_ = rdb.Del(c, key).Err()
+			if err != redis.Nil {
+				_ = rdb.Del(c, key).Err()
+			}
 			c.JSON(http.StatusConflict, gin.H{"error": name + " reconnection required"})
 			return
 		}
@@ -94,7 +85,7 @@ func BrokerChart(db *sql.DB, rdb *redis.Client) gin.HandlerFunc {
 		case "saxo":
 			uic, err := strconv.Atoi(c.Query("uic"))
 			assetType := strings.TrimSpace(c.Query("asset_type"))
-			if err != nil || uic <= 0 || !AssetType.MatchString(assetType) {
+			if err != nil || uic <= 0 || !assetTypePattern.MatchString(assetType) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Valid Saxo UIC and asset type are required"})
 				return
 			}
@@ -109,7 +100,7 @@ func BrokerChart(db *sql.DB, rdb *redis.Client) gin.HandlerFunc {
 				return
 			}
 			payload["account_id"] = session.AccountID
-			payload["api_key"] = ""
+			payload["api_key"] = session.APIKey
 			payload["epic"] = epic
 		}
 
@@ -147,7 +138,7 @@ func requestChart(ctx context.Context, broker string, payload gin.H) ([]byte, in
 	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("X-Internal-Secret", utils.Cfg.InternalSecret)
-	response, err := pythonBrokerClient.Do(request)
+	response, err := brokerPythonClient.Do(request)
 	if err != nil {
 		return nil, 0, err
 	}
