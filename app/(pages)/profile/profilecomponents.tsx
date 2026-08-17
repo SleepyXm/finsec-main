@@ -23,13 +23,13 @@ export function InfoRow({ label, value, action, actionLabel, actionVariant = "de
     children?: ReactNode; }) 
     {
   return (
-    <div className="flex items-center justify-between border-2 border-black dark:border-white/20 rounded-lg p-3 gap-4">
-      <span className="font-medium text-sm shrink-0">{label}</span>
+    <div className="flex items-center justify-between border-2 border-white/10 rounded-lg p-3 gap-4">
+      <span className="font-medium text-sm shrink-0 text-zinc-500">{label}</span>
       <div className="flex items-center gap-3 ml-auto">
         {children ? (
           children
         ) : (
-          <span className="text-sm text-black/60 dark:text-zinc-400">
+          <span className="text-sm text-zinc-500">
             {value}
           </span>
         )}
@@ -56,9 +56,9 @@ export function TabSection({ title, subtitle, children,}:
   return (
     <>
       <div className="mt-6 mb-1">
-        <h2 className="text-2xl font-semibold">{title}</h2>
+        <h2 className="text-2xl font-semibold text-white/70">{title}</h2>
         {subtitle && (
-          <p className="text-sm text-black/40 dark:text-zinc-500 mt-0.5">
+          <p className="text-sm  text-zinc-500 mt-0.5">
             {subtitle}
           </p>
         )}
@@ -88,17 +88,17 @@ export function ConnectionCard({ name, icon, connected, connectedAs, onConnect, 
       className={`flex items-center justify-between border-2 rounded-lg p-3 transition-all duration-200 ${
         comingSoon
           ? "border-black/10 dark:border-white/5 opacity-40"
-          : "border-black dark:border-white/20"
+          : "border-white/20"
       }`}
     >
       <div className="flex items-center gap-3">
         {icon && (
-          <div className="w-8 h-8 flex items-center justify-center text-black dark:text-zinc-300">
+          <div className="w-8 h-8 flex items-center justify-center text-zinc-300">
             {icon}
           </div>
         )}
         <div>
-          <p className="text-sm font-medium">{name}</p>
+          <p className="text-sm font-medium text-zinc-500">{name}</p>
           {connected && connectedAs && (
             <p className="text-xs text-black/40 dark:text-zinc-500">
               @{connectedAs}
@@ -131,7 +131,7 @@ export function ConnectionCard({ name, icon, connected, connectedAs, onConnect, 
           ) : (
             <button
               onClick={onConnect}
-              className="text-xs px-3 py-1 rounded-md border-2 border-black dark:border-white/30 text-black dark:text-zinc-300 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all duration-200"
+              className="text-xs px-3 py-1 rounded-md border-2 border-white/30 text-zinc-500 hover:bg-black hover:text-white transition-all duration-200"
             >
               Connect
             </button>
