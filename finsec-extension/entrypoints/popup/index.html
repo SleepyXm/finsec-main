@@ -54,6 +54,68 @@
         </div>
 
         <p id="status" class="status" role="status" aria-live="polite"></p>
+
+        <dialog
+          id="terms-dialog"
+          class="terms-dialog"
+          aria-labelledby="terms-title"
+        >
+          <div class="terms-dialog-content">
+            <h2 id="terms-title">Terms and conditions</h2>
+            <div class="terms-copy">
+              <p>
+                Finsec Strategy Loader is a local, user-directed data-entry
+                utility. It reads only the strategy CSV selected by the user
+                and transfers its rows into visible Finsec indicator inputs on
+                the active TradingView tab.
+              </p>
+              <p>
+                The extension does not collect or extract TradingView market
+                data, access brokerage accounts or credentials, monitor account
+                activity, create or route orders, execute trades, or act on the
+                user’s behalf. Strategy application occurs only when the user
+                expressly requests it.
+              </p>
+              <p>
+                Finsec indicator output is informational. A forming or
+                confirmed match is not financial advice, a guarantee of
+                performance, or an instruction to trade. The user remains
+                solely responsible for every trading or investment decision.
+              </p>
+              <p>
+                Uploaded data is stored temporarily for the active browser
+                session and removed from extension storage after successful
+                application. Data saved by a third-party platform remains
+                subject to that platform’s storage, privacy, and usage terms.
+              </p>
+              <p>
+                Finsec is not affiliated with, endorsed by, or acting on behalf
+                of TradingView or any brokerage provider. Users are responsible
+                for complying with the terms of each third-party service they
+                use.
+              </p>
+            </div>
+
+            <label class="terms-consent" for="terms-consent">
+              <input id="terms-consent" type="checkbox" />
+              <span>I agree to the terms and conditions.</span>
+            </label>
+
+            <div class="terms-actions">
+              <button id="terms-cancel" class="secondary" type="button">
+                Cancel
+              </button>
+              <button
+                id="terms-apply"
+                class="primary"
+                type="button"
+                disabled
+              >
+                Agree and apply
+              </button>
+            </div>
+          </div>
+        </dialog>
       </main>
     </div>
     <script type="module" src="./main.ts"></script>

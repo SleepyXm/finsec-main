@@ -1,0 +1,813 @@
+//@version=6
+indicator(
+     "Finsec Structure Matcher",
+     "Finsec Matcher",
+     overlay = true,
+     max_bars_back = 500,
+     max_boxes_count = 100,
+     max_lines_count = 100,
+     max_labels_count = 100,
+     calc_bars_count = 500)
+
+const int MINIMUM_FORMATION_CANDLES = 5
+const int SNAPSHOT_CAPACITY = 25
+const float FINSEC_LENGTH_GATE = 0.70
+const string MATCHING_GROUP = "Matching"
+const string FORMATION_GROUP = "Current formation"
+const string ANNOTATION_GROUP = "Current annotations"
+const string SNAPSHOT_GROUP = "Finsec snapshots"
+
+int searchCandlesInput = input.int(
+     200,
+     "Search candles",
+     minval = MINIMUM_FORMATION_CANDLES,
+     maxval = 500,
+     group = MATCHING_GROUP,
+     tooltip = "Maximum candidate length ending at the current candle.")
+int scanStepInput = input.int(
+     2,
+     "Scan step",
+     minval = 1,
+     maxval = 20,
+     group = MATCHING_GROUP,
+     tooltip = "1 checks every candidate length. Higher values reduce TradingView runtime.")
+int requiredExamplesInput = input.int(
+     0,
+     "Required examples",
+     minval = 0,
+     maxval = SNAPSHOT_CAPACITY,
+     group = MATCHING_GROUP,
+     tooltip = "0 uses a strict majority of the loaded examples.")
+float structureGateInput = input.float(
+     85.0,
+     "Structure gate",
+     minval = 0.0,
+     maxval = 100.0,
+     step = 1.0,
+     group = MATCHING_GROUP)
+float lengthGateInput = input.float(
+     70.0,
+     "Length gate",
+     minval = 0.0,
+     maxval = 100.0,
+     step = 1.0,
+     group = MATCHING_GROUP)
+float sizeGateInput = input.float(
+     70.0,
+     "Size gate",
+     minval = 0.0,
+     maxval = 100.0,
+     step = 1.0,
+     group = MATCHING_GROUP)
+
+bool showFormationInput = input.bool(true, "Show formation", group = FORMATION_GROUP)
+color formingColorInput = input.color(color.orange, "Forming colour", group = FORMATION_GROUP)
+color confirmedColorInput = input.color(color.lime, "Confirmed colour", group = FORMATION_GROUP)
+int formationTransparencyInput = input.int(
+     88,
+     "Fill transparency",
+     minval = 0,
+     maxval = 100,
+     group = FORMATION_GROUP)
+bool showFormationDetailsInput = input.bool(true, "Show formation details", group = FORMATION_GROUP)
+
+bool showAnnotationsInput = input.bool(true, "Show annotations", group = ANNOTATION_GROUP)
+color structureColorInput = input.color(color.aqua, "Structure colour", group = ANNOTATION_GROUP)
+color entryColorInput = input.color(color.blue, "Entry colour", group = ANNOTATION_GROUP)
+color exitColorInput = input.color(color.gray, "Exit colour", group = ANNOTATION_GROUP)
+color stopLossColorInput = input.color(color.red, "Stop-loss colour", group = ANNOTATION_GROUP)
+color takeProfitColorInput = input.color(color.green, "Take-profit colour", group = ANNOTATION_GROUP)
+int annotationTransparencyInput = input.int(
+     82,
+     "Fill transparency",
+     minval = 0,
+     maxval = 100,
+     group = ANNOTATION_GROUP)
+
+string snapshot001Input = input.text_area("", "Finsec snapshot 001", group = SNAPSHOT_GROUP)
+string snapshot002Input = input.text_area("", "Finsec snapshot 002", group = SNAPSHOT_GROUP)
+string snapshot003Input = input.text_area("", "Finsec snapshot 003", group = SNAPSHOT_GROUP)
+string snapshot004Input = input.text_area("", "Finsec snapshot 004", group = SNAPSHOT_GROUP)
+string snapshot005Input = input.text_area("", "Finsec snapshot 005", group = SNAPSHOT_GROUP)
+string snapshot006Input = input.text_area("", "Finsec snapshot 006", group = SNAPSHOT_GROUP)
+string snapshot007Input = input.text_area("", "Finsec snapshot 007", group = SNAPSHOT_GROUP)
+string snapshot008Input = input.text_area("", "Finsec snapshot 008", group = SNAPSHOT_GROUP)
+string snapshot009Input = input.text_area("", "Finsec snapshot 009", group = SNAPSHOT_GROUP)
+string snapshot010Input = input.text_area("", "Finsec snapshot 010", group = SNAPSHOT_GROUP)
+string snapshot011Input = input.text_area("", "Finsec snapshot 011", group = SNAPSHOT_GROUP)
+string snapshot012Input = input.text_area("", "Finsec snapshot 012", group = SNAPSHOT_GROUP)
+string snapshot013Input = input.text_area("", "Finsec snapshot 013", group = SNAPSHOT_GROUP)
+string snapshot014Input = input.text_area("", "Finsec snapshot 014", group = SNAPSHOT_GROUP)
+string snapshot015Input = input.text_area("", "Finsec snapshot 015", group = SNAPSHOT_GROUP)
+string snapshot016Input = input.text_area("", "Finsec snapshot 016", group = SNAPSHOT_GROUP)
+string snapshot017Input = input.text_area("", "Finsec snapshot 017", group = SNAPSHOT_GROUP)
+string snapshot018Input = input.text_area("", "Finsec snapshot 018", group = SNAPSHOT_GROUP)
+string snapshot019Input = input.text_area("", "Finsec snapshot 019", group = SNAPSHOT_GROUP)
+string snapshot020Input = input.text_area("", "Finsec snapshot 020", group = SNAPSHOT_GROUP)
+string snapshot021Input = input.text_area("", "Finsec snapshot 021", group = SNAPSHOT_GROUP)
+string snapshot022Input = input.text_area("", "Finsec snapshot 022", group = SNAPSHOT_GROUP)
+string snapshot023Input = input.text_area("", "Finsec snapshot 023", group = SNAPSHOT_GROUP)
+string snapshot024Input = input.text_area("", "Finsec snapshot 024", group = SNAPSHOT_GROUP)
+string snapshot025Input = input.text_area("", "Finsec snapshot 025", group = SNAPSHOT_GROUP)
+
+type FinsecAnnotation
+    string label
+    string kind
+    string role
+    string importance
+    string trigger
+    int startIndex
+    int endIndex
+    float priceHigh
+    float priceLow
+    float price
+    string priceAnchor
+
+type FinsecExample
+    array<float> signal
+    int candleCount
+    array<FinsecAnnotation> annotations
+
+extractCandlesJson(string csvRow) =>
+    string remainder = csvRow
+    bool valid = true
+
+    for fieldIndex = 0 to 5
+        int commaIndex = str.pos(remainder, ",")
+        if commaIndex < 0
+            valid := false
+        else
+            remainder := str.substring(remainder, commaIndex + 1)
+
+    string candlesJson = ""
+    if valid and str.length(remainder) >= 2 and str.substring(remainder, 0, 1) == "\""
+        int annotationsBoundary = str.pos(remainder, "]\",")
+        int jsonEnd = annotationsBoundary >= 0 ? annotationsBoundary + 1 : str.length(remainder) - 1
+        if jsonEnd > 1
+            candlesJson := str.substring(remainder, 1, jsonEnd)
+            candlesJson := str.replace_all(candlesJson, "\"\"", "\"")
+            candlesJson := str.replace_all(candlesJson, " ", "")
+            candlesJson := str.replace_all(candlesJson, "\n", "")
+            candlesJson := str.replace_all(candlesJson, "\r", "")
+            candlesJson := str.replace_all(candlesJson, "\t", "")
+
+    candlesJson
+
+extractAnnotationsJson(string csvRow) =>
+    string remainder = csvRow
+    bool valid = true
+
+    for fieldIndex = 0 to 5
+        int commaIndex = str.pos(remainder, ",")
+        if commaIndex < 0
+            valid := false
+        else
+            remainder := str.substring(remainder, commaIndex + 1)
+
+    string annotationsJson = ""
+    int annotationsBoundary = valid ? str.pos(remainder, "]\",") : -1
+    if annotationsBoundary >= 0
+        string annotationsField = str.substring(remainder, annotationsBoundary + 3)
+        int fieldLength = str.length(annotationsField)
+        if fieldLength >= 2 and str.substring(annotationsField, 0, 1) == "\""
+            annotationsJson := str.substring(annotationsField, 1, fieldLength - 1)
+            annotationsJson := str.replace_all(annotationsJson, "\"\"", "\"")
+        else if fieldLength > 0
+            annotationsJson := annotationsField
+
+        annotationsJson := str.replace_all(annotationsJson, "\n", "")
+        annotationsJson := str.replace_all(annotationsJson, "\r", "")
+        annotationsJson := str.replace_all(annotationsJson, "\t", "")
+
+    annotationsJson
+
+jsonString(string json, string field) =>
+    string token = "\"" + field + "\":\""
+    int tokenIndex = str.pos(json, token)
+    string value = ""
+    if tokenIndex >= 0
+        string remainder = str.substring(json, tokenIndex + str.length(token))
+        int valueEnd = str.pos(remainder, "\"")
+        if valueEnd >= 0
+            value := str.substring(remainder, 0, valueEnd)
+
+    value
+
+jsonNumber(string json, string field) =>
+    string token = "\"" + field + "\":"
+    int tokenIndex = str.pos(json, token)
+    float value = na
+    if tokenIndex >= 0
+        string remainder = str.substring(json, tokenIndex + str.length(token))
+        int valueEnd = str.length(remainder)
+        int commaIndex = str.pos(remainder, ",")
+        int braceIndex = str.pos(remainder, "}")
+        int bracketIndex = str.pos(remainder, "]")
+        valueEnd := commaIndex >= 0 ? math.min(valueEnd, commaIndex) : valueEnd
+        valueEnd := braceIndex >= 0 ? math.min(valueEnd, braceIndex) : valueEnd
+        valueEnd := bracketIndex >= 0 ? math.min(valueEnd, bracketIndex) : valueEnd
+        if valueEnd > 0
+            value := str.tonumber(str.substring(remainder, 0, valueEnd))
+
+    value
+
+parseCandleSignal(string candlesJson) =>
+    array<float> signal = array.new<float>()
+    array<string> candleParts = str.split(candlesJson, "\"open\":")
+    bool valid = str.length(candlesJson) > 0 and array.size(candleParts) > 1
+
+    if valid
+        for partIndex = 1 to array.size(candleParts) - 1
+            string part = array.get(candleParts, partIndex)
+            string highToken = ",\"high\":"
+            string lowToken = ",\"low\":"
+            string closeToken = ",\"close\":"
+            int highIndex = str.pos(part, highToken)
+            int lowIndex = str.pos(part, lowToken)
+            int closeIndex = str.pos(part, closeToken)
+            int closeEnd = str.pos(part, "}")
+
+            if highIndex < 0 or lowIndex < 0 or closeIndex < 0 or closeEnd < 0
+                valid := false
+            else
+                float openValue = str.tonumber(str.substring(part, 0, highIndex))
+                float highValue = str.tonumber(str.substring(part, highIndex + str.length(highToken), lowIndex))
+                float lowValue = str.tonumber(str.substring(part, lowIndex + str.length(lowToken), closeIndex))
+                float closeValue = str.tonumber(str.substring(part, closeIndex + str.length(closeToken), closeEnd))
+
+                if na(openValue) or na(highValue) or na(lowValue) or na(closeValue)
+                    valid := false
+                else
+                    array.push(signal, openValue)
+                    array.push(signal, highValue)
+                    array.push(signal, lowValue)
+                    array.push(signal, closeValue)
+
+    if not valid
+        array.clear(signal)
+
+    [signal, valid]
+
+findSignalStart(array<float> fullSignal, array<float> groupSignal) =>
+    int fullCandles = int(array.size(fullSignal) / 4)
+    int groupCandles = int(array.size(groupSignal) / 4)
+    int foundStart = -1
+
+    if groupCandles > 0 and groupCandles <= fullCandles
+        for candleStart = 0 to fullCandles - groupCandles
+            bool matches = foundStart < 0
+            if matches
+                for signalIndex = 0 to array.size(groupSignal) - 1
+                    float fullValue = array.get(fullSignal, candleStart * 4 + signalIndex)
+                    float groupValue = array.get(groupSignal, signalIndex)
+                    if math.abs(fullValue - groupValue) > 0.000001
+                        matches := false
+
+            if matches
+                foundStart := candleStart
+
+    foundStart
+
+extractNestedCandlesJson(string annotationJson) =>
+    string token = "\"candles\":["
+    int tokenIndex = str.pos(annotationJson, token)
+    string candlesJson = ""
+    if tokenIndex >= 0
+        string remainder = str.substring(annotationJson, tokenIndex + str.length(token))
+        int candlesEnd = str.pos(remainder, "]")
+        if candlesEnd >= 0
+            candlesJson := "[" + str.substring(remainder, 0, candlesEnd) + "]"
+
+    candlesJson
+
+parseAnnotations(string annotationsJson, array<float> signal, int candleCount) =>
+    array<FinsecAnnotation> annotations = array.new<FinsecAnnotation>()
+    array<string> annotationParts = str.split(annotationsJson, "{\"id\":")
+
+    if array.size(annotationParts) > 1
+        for annotationIndex = 1 to array.size(annotationParts) - 1
+            string annotationJson = array.get(annotationParts, annotationIndex)
+            string label = jsonString(annotationJson, "label")
+            string kind = jsonString(annotationJson, "kind")
+            string role = jsonString(annotationJson, "role")
+            string importance = jsonString(annotationJson, "importance")
+            string trigger = jsonString(annotationJson, "trigger")
+            string priceAnchor = jsonString(annotationJson, "priceAnchor")
+            float startValue = jsonNumber(annotationJson, "startIndex")
+            float endValue = jsonNumber(annotationJson, "endIndex")
+            float candleValue = jsonNumber(annotationJson, "candleIndex")
+            int startIndex = na(startValue) ? int(na) : int(startValue)
+            int endIndex = na(endValue) ? int(na) : int(endValue)
+
+            if kind == "marker" and not na(candleValue)
+                startIndex := int(candleValue)
+                endIndex := startIndex
+            else if kind == "candle_group" and (na(startIndex) or na(endIndex))
+                string groupCandlesJson = extractNestedCandlesJson(annotationJson)
+                [groupSignal, groupValid] = parseCandleSignal(groupCandlesJson)
+                int groupStart = groupValid ? findSignalStart(signal, groupSignal) : -1
+                if groupStart >= 0
+                    startIndex := groupStart
+                    endIndex := groupStart + int(array.size(groupSignal) / 4) - 1
+
+            bool recognisedKind = kind == "candle_group" or kind == "zone" or kind == "level" or kind == "marker"
+            bool validRange = not na(startIndex) and not na(endIndex) and startIndex >= 0 and endIndex >= startIndex and startIndex < candleCount
+            if recognisedKind and validRange
+                array.push(
+                     annotations,
+                     FinsecAnnotation.new(
+                          label,
+                          kind,
+                          role,
+                          importance,
+                          trigger,
+                          startIndex,
+                          math.min(endIndex, candleCount - 1),
+                          jsonNumber(annotationJson, "priceHigh"),
+                          jsonNumber(annotationJson, "priceLow"),
+                          jsonNumber(annotationJson, "price"),
+                          priceAnchor))
+
+    annotations
+
+parseExample(string csvRow) =>
+    string candlesJson = extractCandlesJson(csvRow)
+    [signal, valid] = parseCandleSignal(candlesJson)
+
+    int candleCount = valid ? int(array.size(signal) / 4) : 0
+    if candleCount < MINIMUM_FORMATION_CANDLES
+        array.clear(signal)
+        candleCount := 0
+
+    array<FinsecAnnotation> annotations = candleCount > 0
+         ? parseAnnotations(extractAnnotationsJson(csvRow), signal, candleCount)
+         : array.new<FinsecAnnotation>()
+
+    FinsecExample.new(signal, candleCount, annotations)
+
+candidateValue(int signalIndex, int candidateLength, float anchor) =>
+    int candleIndex = int(math.floor(signalIndex / 4))
+    int channelIndex = signalIndex % 4
+    int historyOffset = candidateLength - candleIndex - 1
+    float rawValue = switch channelIndex
+        0 => open[historyOffset]
+        1 => high[historyOffset]
+        2 => low[historyOffset]
+        => close[historyOffset]
+
+    ((rawValue - anchor) / anchor) * 100.0
+
+candidateSpan(int candidateLength, float anchor) =>
+    float highestValue = na
+    float lowestValue = na
+
+    for candleIndex = 0 to candidateLength - 1
+        int historyOffset = candidateLength - candleIndex - 1
+        float normalisedHigh = ((high[historyOffset] - anchor) / anchor) * 100.0
+        float normalisedLow = ((low[historyOffset] - anchor) / anchor) * 100.0
+        highestValue := na(highestValue) ? normalisedHigh : math.max(highestValue, normalisedHigh)
+        lowestValue := na(lowestValue) ? normalisedLow : math.min(lowestValue, normalisedLow)
+
+    highestValue - lowestValue
+
+candidateRawBounds(int candidateLength, int startIndex, int endIndex) =>
+    float highestValue = na
+    float lowestValue = na
+
+    for candleIndex = startIndex to endIndex
+        int historyOffset = candidateLength - candleIndex - 1
+        highestValue := na(highestValue) ? high[historyOffset] : math.max(highestValue, high[historyOffset])
+        lowestValue := na(lowestValue) ? low[historyOffset] : math.min(lowestValue, low[historyOffset])
+
+    [highestValue, lowestValue]
+
+referenceBounds(FinsecExample example, int prefixLength) =>
+    float highestValue = na
+    float lowestValue = na
+
+    for candleIndex = 0 to prefixLength - 1
+        float referenceHigh = array.get(example.signal, candleIndex * 4 + 1)
+        float referenceLow = array.get(example.signal, candleIndex * 4 + 2)
+        highestValue := na(highestValue) ? referenceHigh : math.max(highestValue, referenceHigh)
+        lowestValue := na(lowestValue) ? referenceLow : math.min(lowestValue, referenceLow)
+
+    [highestValue, lowestValue]
+
+mappedCandidateIndex(int sourceIndex, int sourceLength, int candidateLength) =>
+    sourceLength <= 1
+         ? 0
+         : int(math.round(sourceIndex * (candidateLength - 1.0) / (sourceLength - 1.0)))
+
+projectAnnotationPrice(
+     float sourcePrice,
+     float sourceHigh,
+     float sourceLow,
+     float candidateHigh,
+     float candidateLow) =>
+    float sourceSpan = sourceHigh - sourceLow
+    sourceSpan == 0.0
+         ? candidateLow
+         : candidateLow + ((sourcePrice - sourceLow) / sourceSpan) * (candidateHigh - candidateLow)
+
+candidateAnchorPrice(int candidateLength, int candidateIndex, string priceAnchor) =>
+    int historyOffset = candidateLength - candidateIndex - 1
+    switch priceAnchor
+        "open" => open[historyOffset]
+        "high" => high[historyOffset]
+        "low" => low[historyOffset]
+        => close[historyOffset]
+
+annotationColor(string role) =>
+    switch role
+        "entry" => entryColorInput
+        "exit" => exitColorInput
+        "stop_loss" => stopLossColorInput
+        "take_profit" => takeProfitColorInput
+        => structureColorInput
+
+clearAnnotationDrawings(
+     array<box> annotationBoxes,
+     array<line> annotationLines,
+     array<label> annotationLabels) =>
+    while array.size(annotationBoxes) > 0
+        box.delete(array.pop(annotationBoxes))
+    while array.size(annotationLines) > 0
+        line.delete(array.pop(annotationLines))
+    while array.size(annotationLabels) > 0
+        label.delete(array.pop(annotationLabels))
+
+referenceSpan(FinsecExample example, int prefixLength) =>
+    float highestValue = na
+    float lowestValue = na
+
+    for candleIndex = 0 to prefixLength - 1
+        float referenceHigh = array.get(example.signal, candleIndex * 4 + 1)
+        float referenceLow = array.get(example.signal, candleIndex * 4 + 2)
+        highestValue := na(highestValue) ? referenceHigh : math.max(highestValue, referenceHigh)
+        lowestValue := na(lowestValue) ? referenceLow : math.min(lowestValue, referenceLow)
+
+    highestValue - lowestValue
+
+resampledReferenceValue(FinsecExample example, int sourceLength, int targetLength, int targetIndex) =>
+    float sourcePosition = targetLength == 1 ? 0.0 : targetIndex * (sourceLength - 1.0) / (targetLength - 1.0)
+    int lowerIndex = int(math.floor(sourcePosition))
+    int upperIndex = math.min(lowerIndex + 1, sourceLength - 1)
+    float fraction = sourcePosition - lowerIndex
+    float lowerValue = array.get(example.signal, lowerIndex)
+    float upperValue = array.get(example.signal, upperIndex)
+
+    lowerValue * (1.0 - fraction) + upperValue * fraction
+
+evaluateExample(FinsecExample example, int candidateLength, float anchor, float observedSpan) =>
+    int prefixLength = math.min(example.candleCount, candidateLength)
+    int sourceLength = prefixLength * 4
+    int targetLength = candidateLength * 4
+    float sumReference = 0.0
+    float sumObserved = 0.0
+    float sumReferenceSquared = 0.0
+    float sumObservedSquared = 0.0
+    float sumProducts = 0.0
+
+    for signalIndex = 0 to targetLength - 1
+        float referenceValue = sourceLength == targetLength
+             ? array.get(example.signal, signalIndex)
+             : resampledReferenceValue(example, sourceLength, targetLength, signalIndex)
+        float observedValue = candidateValue(signalIndex, candidateLength, anchor)
+        sumReference += referenceValue
+        sumObserved += observedValue
+        sumReferenceSquared += referenceValue * referenceValue
+        sumObservedSquared += observedValue * observedValue
+        sumProducts += referenceValue * observedValue
+
+    float sampleCount = targetLength
+    float covariance = sampleCount * sumProducts - sumReference * sumObserved
+    float referenceVariance = sampleCount * sumReferenceSquared - sumReference * sumReference
+    float observedVariance = sampleCount * sumObservedSquared - sumObserved * sumObserved
+    float denominator = math.sqrt(math.max(0.0, referenceVariance * observedVariance))
+    float structureScore = denominator == 0.0 ? 0.0 : math.max(0.0, math.min(100.0, covariance / denominator * 100.0))
+    float lengthScore = math.min(prefixLength, candidateLength) * 100.0 / math.max(prefixLength, candidateLength)
+    float expectedSpan = referenceSpan(example, prefixLength)
+    float sizeScore = expectedSpan == 0.0 and observedSpan == 0.0
+         ? 100.0
+         : expectedSpan == 0.0 or observedSpan == 0.0
+             ? 0.0
+             : math.min(expectedSpan, observedSpan) * 100.0 / math.max(expectedSpan, observedSpan)
+    float progress = prefixLength * 1.0 / example.candleCount
+    bool qualified = structureScore >= structureGateInput and lengthScore >= lengthGateInput and sizeScore >= sizeGateInput
+
+    [qualified, structureScore, progress]
+
+findBestMatch(array<FinsecExample> examples, int maximumCandidateLength, int requiredExamples) =>
+    int bestLength = 0
+    int bestSupport = 0
+    int bestCompletedSupport = 0
+    int bestRepresentativeIndex = -1
+    float bestConfidence = na
+    float bestProgress = na
+    bool bestConfirmed = false
+
+    for candidateLength = MINIMUM_FORMATION_CANDLES to maximumCandidateLength by scanStepInput
+        float anchor = open[candidateLength - 1]
+        if not na(anchor) and anchor != 0.0
+            float observedSpan = candidateSpan(candidateLength, anchor)
+            int support = 0
+            int completedSupport = 0
+            int representativeIndex = -1
+            float confidenceTotal = 0.0
+            float progressTotal = 0.0
+            float representativeScore = na
+
+            for exampleIndex = 0 to array.size(examples) - 1
+                FinsecExample example = array.get(examples, exampleIndex)
+                [qualified, structureScore, progress] = evaluateExample(example, candidateLength, anchor, observedSpan)
+                if qualified
+                    support += 1
+                    completedSupport += progress >= 1.0 ? 1 : 0
+                    confidenceTotal += structureScore
+                    progressTotal += progress
+                    if na(representativeScore) or structureScore > representativeScore
+                        representativeIndex := exampleIndex
+                        representativeScore := structureScore
+
+            if support > 0
+                float confidence = confidenceTotal / support
+                float progress = progressTotal / support
+                bool confirmed = completedSupport >= requiredExamples
+                bool better = bestLength == 0 or support > bestSupport or
+                     support == bestSupport and confirmed and not bestConfirmed or
+                     support == bestSupport and confirmed == bestConfirmed and confidence > bestConfidence or
+                     support == bestSupport and confirmed == bestConfirmed and confidence == bestConfidence and progress > bestProgress
+
+                if better
+                    bestLength := candidateLength
+                    bestSupport := support
+                    bestCompletedSupport := completedSupport
+                    bestRepresentativeIndex := representativeIndex
+                    bestConfidence := confidence
+                    bestProgress := progress
+                    bestConfirmed := confirmed
+
+    [bestLength, bestSupport, bestCompletedSupport, bestRepresentativeIndex, bestConfidence, bestProgress, bestConfirmed]
+
+var array<FinsecExample> examples = array.new<FinsecExample>()
+var int invalidRows = 0
+var int longestReference = 0
+
+if barstate.isfirst
+    array<string> rawExamples = array.from(
+         snapshot001Input, snapshot002Input, snapshot003Input, snapshot004Input, snapshot005Input,
+         snapshot006Input, snapshot007Input, snapshot008Input, snapshot009Input, snapshot010Input,
+         snapshot011Input, snapshot012Input, snapshot013Input, snapshot014Input, snapshot015Input,
+         snapshot016Input, snapshot017Input, snapshot018Input, snapshot019Input, snapshot020Input,
+         snapshot021Input, snapshot022Input, snapshot023Input, snapshot024Input, snapshot025Input)
+
+    for rawExample in rawExamples
+        if str.length(str.trim(rawExample)) > 0
+            FinsecExample example = parseExample(rawExample)
+            if example.candleCount >= MINIMUM_FORMATION_CANDLES
+                array.push(examples, example)
+                longestReference := math.max(longestReference, example.candleCount)
+            else
+                invalidRows += 1
+
+int loadedExamples = array.size(examples)
+int requiredExamples = loadedExamples == 0
+     ? 0
+     : requiredExamplesInput == 0
+         ? int(math.floor(loadedExamples / 2)) + 1
+         : math.min(requiredExamplesInput, loadedExamples)
+int referenceBound = longestReference == 0 ? 0 : int(math.floor(longestReference / FINSEC_LENGTH_GATE))
+int maximumCandidateLength = math.min(searchCandlesInput, referenceBound, bar_index + 1)
+
+int matchLength = 0
+int matchSupport = 0
+int matchCompletedSupport = 0
+int matchRepresentativeIndex = -1
+float matchConfidence = na
+float matchProgress = na
+bool matchConfirmed = false
+
+if barstate.islast and loadedExamples > 0 and maximumCandidateLength >= MINIMUM_FORMATION_CANDLES
+    [bestLength, bestSupport, bestCompletedSupport, bestRepresentativeIndex, bestConfidence, bestProgress, bestConfirmed] = findBestMatch(
+         examples,
+         maximumCandidateLength,
+         requiredExamples)
+    matchLength := bestLength
+    matchSupport := bestSupport
+    matchCompletedSupport := bestCompletedSupport
+    matchRepresentativeIndex := bestRepresentativeIndex
+    matchConfidence := bestConfidence
+    matchProgress := bestProgress
+    matchConfirmed := bestConfirmed
+
+bool confirmedMatch = barstate.islast and matchLength > 0 and matchConfirmed
+bool formingMatch = barstate.islast and matchLength > 0 and not matchConfirmed
+float matchNormalisedClose = matchLength > 0
+     ? ((close - open[matchLength - 1]) / open[matchLength - 1]) * 100.0
+     : na
+
+var box formationBox = na
+var array<box> currentAnnotationBoxes = array.new<box>()
+var array<line> currentAnnotationLines = array.new<line>()
+var array<label> currentAnnotationLabels = array.new<label>()
+
+if barstate.islast
+    clearAnnotationDrawings(
+         currentAnnotationBoxes,
+         currentAnnotationLines,
+         currentAnnotationLabels)
+
+    if showFormationInput and matchLength > 0
+        [formationHigh, formationLow] = candidateRawBounds(matchLength, 0, matchLength - 1)
+        int formationLeft = bar_index - matchLength + 1
+        int formationRight = bar_index + 1
+        color formationColor = confirmedMatch ? confirmedColorInput : formingColorInput
+        string formationState = confirmedMatch ? "CONFIRMED" : "FORMING"
+        string formationText = showFormationDetailsInput
+             ? formationState + "\n" +
+                  str.tostring(matchConfidence, "#.0") + "% similarity · " +
+                  str.tostring(matchSupport) + " / " + str.tostring(requiredExamples) + " examples\n" +
+                  str.tostring(matchProgress * 100.0, "#.0") + "% complete"
+             : ""
+
+        if na(formationBox)
+            formationBox := box.new(
+                 left = formationLeft,
+                 top = formationHigh,
+                 right = formationRight,
+                 bottom = formationLow,
+                 border_color = formationColor,
+                 border_width = 2,
+                 bgcolor = color.new(formationColor, formationTransparencyInput),
+                 text = formationText,
+                 text_color = formationColor,
+                 text_size = size.small,
+                 text_halign = text.align_left,
+                 text_valign = text.align_top)
+        else
+            box.set_left(formationBox, formationLeft)
+            box.set_right(formationBox, formationRight)
+            box.set_top(formationBox, formationHigh)
+            box.set_bottom(formationBox, formationLow)
+            box.set_border_color(formationBox, formationColor)
+            box.set_bgcolor(formationBox, color.new(formationColor, formationTransparencyInput))
+            box.set_text(formationBox, formationText)
+            box.set_text_color(formationBox, formationColor)
+    else if not na(formationBox)
+        box.delete(formationBox)
+        formationBox := na
+
+    if showAnnotationsInput and matchLength > 0 and matchRepresentativeIndex >= 0
+        FinsecExample representative = array.get(examples, matchRepresentativeIndex)
+        int prefixLength = math.min(representative.candleCount, matchLength)
+        int formationLeft = bar_index - matchLength + 1
+        [candidateHigh, candidateLow] = candidateRawBounds(matchLength, 0, matchLength - 1)
+        [sourceHigh, sourceLow] = referenceBounds(representative, prefixLength)
+
+        if array.size(representative.annotations) > 0
+            for annotationIndex = 0 to array.size(representative.annotations) - 1
+                FinsecAnnotation annotation = array.get(representative.annotations, annotationIndex)
+
+                if annotation.startIndex < prefixLength
+                    int sourceStart = math.max(0, annotation.startIndex)
+                    int sourceEnd = math.min(prefixLength - 1, annotation.endIndex)
+                    int mappedStart = mappedCandidateIndex(sourceStart, prefixLength, matchLength)
+                    int mappedEnd = mappedCandidateIndex(sourceEnd, prefixLength, matchLength)
+                    int annotationLeft = formationLeft + mappedStart
+                    int annotationRight = formationLeft + mappedEnd + 1
+                    color visualColor = annotationColor(annotation.role)
+                    int visualWidth = annotation.importance == "required" ? 2 : 1
+                    string annotationText = annotation.trigger == "presence" or str.length(annotation.trigger) == 0
+                         ? annotation.label
+                         : annotation.label + " · " + annotation.trigger
+
+                    if annotation.kind == "candle_group"
+                        [groupHigh, groupLow] = candidateRawBounds(matchLength, mappedStart, mappedEnd)
+                        box groupBox = box.new(
+                             left = annotationLeft,
+                             top = groupHigh,
+                             right = annotationRight,
+                             bottom = groupLow,
+                             border_color = visualColor,
+                             border_width = visualWidth,
+                             bgcolor = color.new(visualColor, annotationTransparencyInput),
+                             text = annotationText,
+                             text_color = visualColor,
+                             text_size = size.tiny,
+                             text_halign = text.align_left,
+                             text_valign = text.align_top)
+                        array.push(currentAnnotationBoxes, groupBox)
+                    else if annotation.kind == "zone" and not na(annotation.priceHigh) and not na(annotation.priceLow)
+                        float zoneHigh = projectAnnotationPrice(
+                             annotation.priceHigh,
+                             sourceHigh,
+                             sourceLow,
+                             candidateHigh,
+                             candidateLow)
+                        float zoneLow = projectAnnotationPrice(
+                             annotation.priceLow,
+                             sourceHigh,
+                             sourceLow,
+                             candidateHigh,
+                             candidateLow)
+                        box zoneBox = box.new(
+                             left = annotationLeft,
+                             top = math.max(zoneHigh, zoneLow),
+                             right = annotationRight,
+                             bottom = math.min(zoneHigh, zoneLow),
+                             border_color = visualColor,
+                             border_width = visualWidth,
+                             bgcolor = color.new(visualColor, annotationTransparencyInput),
+                             text = annotationText,
+                             text_color = visualColor,
+                             text_size = size.tiny,
+                             text_halign = text.align_left,
+                             text_valign = text.align_top)
+                        array.push(currentAnnotationBoxes, zoneBox)
+                    else if annotation.kind == "level" and not na(annotation.price)
+                        float levelPrice = projectAnnotationPrice(
+                             annotation.price,
+                             sourceHigh,
+                             sourceLow,
+                             candidateHigh,
+                             candidateLow)
+                        line levelLine = line.new(
+                             x1 = annotationLeft,
+                             y1 = levelPrice,
+                             x2 = annotationRight,
+                             y2 = levelPrice,
+                             xloc = xloc.bar_index,
+                             color = visualColor,
+                             width = visualWidth)
+                        label levelLabel = label.new(
+                             x = annotationRight,
+                             y = levelPrice,
+                             text = annotationText,
+                             xloc = xloc.bar_index,
+                             yloc = yloc.price,
+                             color = visualColor,
+                             style = label.style_label_left,
+                             textcolor = color.white,
+                             size = size.tiny)
+                        array.push(currentAnnotationLines, levelLine)
+                        array.push(currentAnnotationLabels, levelLabel)
+                    else if annotation.kind == "marker"
+                        float markerPrice = candidateAnchorPrice(
+                             matchLength,
+                             mappedStart,
+                             annotation.priceAnchor)
+                        label markerLabel = label.new(
+                             x = annotationLeft,
+                             y = markerPrice,
+                             text = annotationText,
+                             xloc = xloc.bar_index,
+                             yloc = yloc.price,
+                             color = visualColor,
+                             style = label.style_label_left,
+                             textcolor = color.white,
+                             size = size.tiny)
+                        array.push(currentAnnotationLabels, markerLabel)
+
+plot(matchConfidence, "Match confidence", display = display.data_window)
+plot(matchSupport, "Supporting examples", display = display.data_window)
+plot(matchCompletedSupport, "Completed supporting examples", display = display.data_window)
+plot(matchLength, "Matched candles", display = display.data_window)
+plot(matchProgress * 100.0, "Average progress", display = display.data_window)
+plot(matchNormalisedClose, "Normalised close", display = display.data_window)
+
+alertcondition(
+     confirmedMatch,
+     "Finsec confirmed match",
+     "Finsec found a confirmed structure match on the current chart.")
+
+var table statusTable = table.new(
+     position.top_right,
+     2,
+     7,
+     bgcolor = color.new(color.black, 15),
+     border_color = color.new(color.gray, 55),
+     border_width = 1)
+
+if barstate.islast
+    color statusColor = confirmedMatch ? color.lime : formingMatch ? color.orange : color.silver
+    string statusText = confirmedMatch ? "CONFIRMED" : formingMatch ? "FORMING" : loadedExamples == 0 ? "NO DATA" : "SEARCHING"
+    string rowStatus = invalidRows == 0 ? str.tostring(loadedExamples) + " / " + str.tostring(SNAPSHOT_CAPACITY) : str.tostring(loadedExamples) + " valid, " + str.tostring(invalidRows) + " invalid"
+    string supportStatus = matchLength == 0 ? "—" : str.tostring(matchSupport) + " support / " + str.tostring(requiredExamples) + " required"
+    string completedStatus = matchLength == 0 ? "—" : str.tostring(matchCompletedSupport) + " complete"
+    string confidenceStatus = na(matchConfidence) ? "—" : str.tostring(matchConfidence, "#.0") + "%"
+    string progressStatus = na(matchProgress) ? "—" : str.tostring(matchProgress * 100.0, "#.0") + "%"
+
+    table.cell(statusTable, 0, 0, "FINSEC", text_color = color.white, bgcolor = color.new(color.blue, 65))
+    table.cell(statusTable, 1, 0, statusText, text_color = statusColor, bgcolor = color.new(color.blue, 65))
+    table.cell(statusTable, 0, 1, "Examples", text_color = color.silver)
+    table.cell(statusTable, 1, 1, rowStatus, text_color = color.white)
+    table.cell(statusTable, 0, 2, "Support", text_color = color.silver)
+    table.cell(statusTable, 1, 2, supportStatus, text_color = color.white)
+    table.cell(statusTable, 0, 3, "Completed", text_color = color.silver)
+    table.cell(statusTable, 1, 3, completedStatus, text_color = color.white)
+    table.cell(statusTable, 0, 4, "Window", text_color = color.silver)
+    table.cell(statusTable, 1, 4, matchLength == 0 ? "—" : str.tostring(matchLength) + " candles", text_color = color.white)
+    table.cell(statusTable, 0, 5, "Confidence", text_color = color.silver)
+    table.cell(statusTable, 1, 5, confidenceStatus, text_color = color.white)
+    table.cell(statusTable, 0, 6, "Progress", text_color = color.silver)
+    table.cell(statusTable, 1, 6, progressStatus, text_color = color.white)

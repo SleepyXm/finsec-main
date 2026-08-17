@@ -23,6 +23,14 @@ const characterCount =
 const applyButton = document.querySelector<HTMLButtonElement>('#apply')!;
 const discardButton = document.querySelector<HTMLButtonElement>('#discard')!;
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
+const termsDialog =
+  document.querySelector<HTMLDialogElement>('#terms-dialog')!;
+const termsConsent =
+  document.querySelector<HTMLInputElement>('#terms-consent')!;
+const termsCancelButton =
+  document.querySelector<HTMLButtonElement>('#terms-cancel')!;
+const termsApplyButton =
+  document.querySelector<HTMLButtonElement>('#terms-apply')!;
 
 let pendingStrategy: PendingStrategy | undefined;
 let busy = false;
@@ -134,7 +142,26 @@ discardButton.addEventListener('click', async () => {
   showStatus('Pending upload discarded.', 'neutral');
 });
 
-applyButton.addEventListener('click', async () => {
+applyButton.addEventListener('click', () => {
+  if (!pendingStrategy || busy) return;
+
+  termsConsent.checked = false;
+  termsApplyButton.disabled = true;
+  termsDialog.showModal();
+});
+
+termsConsent.addEventListener('change', () => {
+  termsApplyButton.disabled = !termsConsent.checked;
+});
+
+termsCancelButton.addEventListener('click', () => {
+  termsDialog.close();
+});
+
+termsApplyButton.addEventListener('click', async () => {
+  if (!termsConsent.checked) return;
+
+  termsDialog.close();
   if (!pendingStrategy) return;
 
   busy = true;
